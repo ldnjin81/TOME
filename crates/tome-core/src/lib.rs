@@ -430,6 +430,39 @@ impl Repository {
         call(interface::lore_branch_list_async, &self.globals(), &args)
     }
 
+    /// The files that differ from `source` to `target` (revision ids; an empty target is the
+    /// current revision).
+    pub fn revision_diff(&self, source: &str, target: &str) -> CallResult {
+        let args = lore::revision::LoreRevisionDiffArgs {
+            revision_source: LoreString::from_bytes(source.as_bytes()),
+            revision_target: LoreString::from_bytes(target.as_bytes()),
+            paths: interface::LoreArray::default(),
+        };
+        call(interface::lore_revision_diff_async, &self.globals(), &args)
+    }
+
+    /// The files `revision` changed against its parent (Lore's revision info with the delta;
+    /// it works for a first revision too, where a diff has no source to start from).
+    pub fn changes(&self, revision: &str) -> CallResult {
+        let args = lore::revision::LoreRevisionInfoArgs { revision: LoreString::from_bytes(revision.as_bytes()), delta: 1, metadata: 0 };
+        call(interface::lore_revision_info_async, &self.globals(), &args)
+    }
+
+    /// Unified diffs of `paths` from `source` to `target` (an empty target: the working files).
+    /// A binary file gives a "Binary files differ" marker instead of text.
+    pub fn file_diff(&self, paths: &[String], source: &str, target: &str, context_lines: u32) -> CallResult {
+        let args = lore::file::LoreFileDiffArgs {
+            paths: strings(paths),
+            source_revision: LoreString::from_bytes(source.as_bytes()),
+            target_revision: LoreString::from_bytes(target.as_bytes()),
+            diff3: 0,
+            context_lines,
+            ignore_whitespace_eol: 0,
+            ignore_whitespace_inline: 0,
+        };
+        call(interface::lore_file_diff_async, &self.globals(), &args)
+    }
+
     /// Up to `length` revisions from `revision` back along its first parents, stopping where
     /// the chain reaches another branch (the side of a merge whose branch may be deleted).
     pub fn history_from(&self, revision: &str, length: u32) -> CallResult {

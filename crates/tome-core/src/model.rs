@@ -77,7 +77,8 @@ pub fn locks(result: &CallResult) -> Vec<Lock> {
         .collect()
 }
 
-const NO_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
+/// The id Lore uses for "no revision".
+pub const NO_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
 fn text(value: &Value) -> String {
     value.as_str().map(str::to_string).unwrap_or_default()
@@ -109,6 +110,91 @@ pub fn status(result: &CallResult) -> Option<Status> {
         remote_ahead: flag(&revision["isRemoteAhead"]),
         files,
     })
+}
+
+/// A file that differs between two revisions.
+#[derive(Debug, Clone, Serialize)]
+pub struct DiffFile {
+    pub path: String,
+    /// Lore's action name (add, modify, delete, move, ...).
+    pub action: String,
+    /// Neither side is a file (a directory entry).
+    pub directory: bool,
+}
+
+/// Lore has no "modify" action: a file listed in a diff with `keep` kept its path and changed
+/// its content.
+fn diff_action(value: &Value) -> String {
+    match value.as_str() {
+        Some("keep") => "modify".to_string(),
+        Some(action) => action.to_string(),
+        None => value.to_string(),
+    }
+}
+
+pub fn diff_files(result: &CallResult) -> Vec<DiffFile> {
+    result
+        .data("revisionDiffFile")
+        .map(|f| DiffFile {
+            path: text(&f["path"]),
+            action: diff_action(&f["action"]),
+            directory: !flag(&f["oldIsFile"]) && !flag(&f["newIsFile"]),
+        })
+        .collect()
+}
+
+/// A revision's changed files from its info delta (see `Repository::changes`).
+pub fn delta_files(result: &CallResult) -> Vec<DiffFile> {
+    let mut files = result
+        .data("revisionInfoDelta")
+        .map(|f| {
+            let mut action = diff_action(&f["action"]);
+            if action == "modify" && !flag(&f["flagModify"]) {
+                action = "keep".into();
+            }
+            DiffFile { path: text(&f["path"]), action, directory: false }
+        })
+        .collect::<Vec<_>>();
+    // The delta lists folders too, with no flag saying so: a path that another entry is under.
+    let folders: std::collections::HashSet<String> = files.iter().filter_map(|f| f.path.rsplit_once('/').map(|(dir, _)| dir.to_string())).flat_map(|dir| {
+        let parts: Vec<&str> = dir.split('/').collect();
+        (1..=parts.len()).map(move |n| parts[..n].join("/")).collect::<Vec<_>>()
+    }).collect();
+    for f in &mut files {
+        f.directory = folders.contains(&f.path);
+    }
+    files
+}
+
+/// One file's diff text.
+#[derive(Debug, Clone, Serialize)]
+pub struct FilePatch {
+    pub path: String,
+    pub action: String,
+    pub patch: String,
+    /// Lore found binary content and gave a marker, not lines.
+    pub binary: bool,
+}
+
+/// Files that are binary whatever their bytes look like (Unreal packages and common media).
+const BINARY_EXTENSIONS: &[&str] = &["uasset", "umap", "ubulk", "uexp", "png", "jpg", "jpeg", "tga", "psd", "exr", "fbx", "wav", "ogg", "mp4", "dll", "exe", "pdb", "xlsx"];
+
+pub fn is_binary_path(path: &str) -> bool {
+    path.rsplit_once('.').is_some_and(|(_, ext)| BINARY_EXTENSIONS.iter().any(|b| b.eq_ignore_ascii_case(ext)))
+}
+
+pub fn patches(result: &CallResult) -> Vec<FilePatch> {
+    result
+        .data("fileDiff")
+        .map(|f| {
+            let path = text(&f["path"]);
+            let patch = text(&f["patch"]);
+            // Lore marks content it finds binary; it decodes the rest as text, so bytes that are
+            // not text show up as NULs or U+FFFD. Either way it is not a diff worth showing.
+            let binary = is_binary_path(&path) || patch.lines().any(|l| l.starts_with("Binary files")) || patch.contains(['\0', '\u{FFFD}']);
+            FilePatch { action: diff_action(&f["action"]), patch: if binary { String::new() } else { patch }, binary, path }
+        })
+        .collect()
 }
 
 /// A repository on the server.
@@ -182,6 +268,25 @@ pub fn history(result: &CallResult) -> Vec<Revision> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn binary_files_by_extension_or_content() {
+        assert!(is_binary_path("Content/Hero.uasset") && is_binary_path("Maps/A.UMAP"));
+        assert!(!is_binary_path("Source/Game.cpp") && !is_binary_path("README"));
+        let result = CallResult {
+            events: vec![
+                serde_json::json!({"tagName": "fileDiff", "data": {"path": "a.txt", "patch": "@@ -1 +1 @@\n-a\n+b\n", "action": "keep"}}),
+                serde_json::json!({"tagName": "fileDiff", "data": {"path": "b.bin", "patch": "@@ -1 +1 @@\n-\u{FFFD}\n", "action": "keep"}}),
+                serde_json::json!({"tagName": "fileDiff", "data": {"path": "c.dat", "patch": "Binary files differ\n", "action": "add"}}),
+            ],
+            status: 0,
+            error: String::new(),
+        };
+        let p = patches(&result);
+        assert_eq!(p.iter().map(|p| p.binary).collect::<Vec<_>>(), [false, true, true]);
+        assert_eq!(p[0].action, "modify");
+        assert!(p[1].patch.is_empty(), "no garbled text is passed on");
+    }
+
     use super::*;
     use serde_json::json;
 

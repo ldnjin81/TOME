@@ -154,3 +154,23 @@ export interface Graph {
   /** Branches whose history could not be read in full. */
   incomplete: string[];
 }
+
+/** Diffs (crates/tome-core/src/model.rs). */
+export interface DiffFile {
+  path: string;
+  action: string;
+  directory: boolean;
+}
+
+export interface FilePatch {
+  path: string;
+  action: string;
+  patch: string;
+  binary: boolean;
+}
+
+export interface RevisionChanges {
+  files: DiffFile[];
+  patches: FilePatch[];
+  first_revision: boolean;
+}

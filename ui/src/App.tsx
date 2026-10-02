@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { AuthState, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { AuthState, DiffFile, FilePatch, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
+import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 
 type Tab = 'history' | 'changes' | 'locks';
 
@@ -47,6 +48,8 @@ export default function App() {
   const [toolRun, setToolRun] = useState<{ name: string; running: boolean; output: ToolOutput | null; error: string } | null>(null);
   const [managing, setManaging] = useState(false);
   const [auth, setAuth] = useState<AuthState | null>(null);
+  const [changes, setChanges] = useState<{ id: string; data: RevisionChanges | null; error: string } | null>(null);
+  const [diff, setDiff] = useState<{ title: string; files: DiffFile[]; patches: FilePatch[]; initial: string; note?: string } | null>(null);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
 
   async function saveSettings(next: Settings) {
@@ -263,6 +266,27 @@ export default function App() {
   const branches = (overview?.branches ?? []).filter((b, i, all) => !b.archived && all.findIndex((o) => o.id === b.id) === i);
   const changedCount = status ? status.files.filter((f) => !f.directory).length : 0;
 
+  // The selected revision's changed files and diffs, loaded when it is selected.
+  useEffect(() => {
+    if (!revision || !overview) return;
+    if (changes?.id === revision.id) return;
+    setChanges({ id: revision.id, data: null, error: '' });
+    invoke<RevisionChanges>('revision_changes', { path: path.trim(), revision: revision.id, parent: revision.parents[0] ?? '', offline })
+      .then((data) => setChanges((c) => (c?.id === revision.id ? { id: revision.id, data, error: '' } : c)))
+      .catch((e) => setChanges((c) => (c?.id === revision.id ? { id: revision.id, data: null, error: String(e) } : c)));
+    // Reload only when the selection changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [revision?.id, overview]);
+
+  async function showWorkingDiff(file: string) {
+    try {
+      const patches = await invoke<FilePatch[]>('working_patches', { path: path.trim(), files: [file] });
+      setDiff({ title: '미커밋 변경', files: [{ path: file, action: 'modify', directory: false }], patches, initial: file });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
   return (
     <div className="app">
       <header className="toolbar">
@@ -405,6 +429,7 @@ export default function App() {
               onCommit={(message, push) => run<Status>('commit', { message, push }, (s) => void refreshHistory(s))}
               onPush={() => void run<Status>('push', { branch: status.branch_name }, (s) => void refreshHistory(s))}
               onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
+              onDiff={(file) => void showWorkingDiff(file)}
             />
           )}
           {tab === 'locks' && status && (
@@ -436,6 +461,47 @@ export default function App() {
                 <dt>부모</dt>
                 <dd className="mono">{revision.parents.map(shortHash).join(' · ') || '없음'}</dd>
               </dl>
+              <section className="rev-files">
+                <h3>
+                  변경 파일 <span className="muted">{changes?.data ? changes.data.files.length : ''}</span>
+                </h3>
+                {changes?.error && <p className="error-line">{changes.error}</p>}
+                {!changes?.data && !changes?.error && <p className="muted">불러오는 중…</p>}
+                {changes?.data && (
+                  <ul>
+                    {changes.data.files.map((f) => {
+                      const p = changes.data!.patches.find((x) => x.path === f.path);
+                      const n = p && !p.binary ? countLines(p.patch) : null;
+                      return (
+                        <li key={f.path}>
+                          <button
+                            className="rf"
+                            title={f.path}
+                            onClick={() =>
+                              setDiff({
+                                title: `r${revision.number} ${revision.message.split('\n')[0]}`,
+                                files: changes.data!.files,
+                                patches: changes.data!.patches,
+                                initial: f.path,
+                                note: changes.data!.first_revision ? '첫 리비전은 비교할 이전 리비전이 없어 내용 diff를 보여 주지 않습니다.' : undefined,
+                              })
+                            }
+                          >
+                            <span className={`act ${f.action}`}>{ACTION_MARK[f.action] ?? '?'}</span>
+                            <span className="df-path">{f.path}</span>
+                            {n && (
+                              <span className="df-n">
+                                <span className="plus">+{n.add}</span> <span className="minus">−{n.del}</span>
+                              </span>
+                            )}
+                            {p?.binary && <span className="df-n muted">bin</span>}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </section>
               {revision.metadata.length > 0 && (
                 <div className="badges">
                   {revision.metadata.map(([key, value]) => (
@@ -521,6 +587,8 @@ export default function App() {
           onClose={() => setManaging(false)}
         />
       )}
+
+      {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}
 
       {toolRun && <OutputPanel {...toolRun} onClose={() => setToolRun(null)} />}
 

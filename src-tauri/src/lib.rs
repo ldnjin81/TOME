@@ -196,6 +196,42 @@ async fn graph(path: String, offline: bool) -> Result<Done<tome_core::Graph>, St
     .await
 }
 
+/// A revision's changed files (folders left out) with their diffs: against its first parent,
+/// or none for a first revision (Lore has no empty side to diff from there).
+#[derive(Serialize)]
+struct RevisionChanges {
+    files: Vec<model::DiffFile>,
+    patches: Vec<model::FilePatch>,
+    first_revision: bool,
+}
+
+#[tauri::command]
+async fn revision_changes(path: String, revision: String, parent: String, offline: bool) -> Result<RevisionChanges, String> {
+    blocking(move || {
+        let repository = repository(&path, offline);
+        let files: Vec<model::DiffFile> = model::delta_files(&checked(repository.changes(&revision))?).into_iter().filter(|f| !f.directory && f.action != "keep").collect();
+        if parent.is_empty() {
+            return Ok(RevisionChanges { files, patches: Vec::new(), first_revision: true });
+        }
+        // Text diffs for up to 300 files; binary ones come back as markers.
+        let paths: Vec<String> = files.iter().take(300).map(|f| f.path.clone()).collect();
+        let patches = if paths.is_empty() { Vec::new() } else { model::patches(&checked(repository.file_diff(&paths, &parent, &revision, 3))?) };
+        Ok(RevisionChanges { files, patches, first_revision: false })
+    })
+    .await
+}
+
+/// The working copy's edits to `files` against the current revision.
+#[tauri::command]
+async fn working_patches(path: String, files: Vec<String>) -> Result<Vec<model::FilePatch>, String> {
+    blocking(move || {
+        let repository = repository(&path, true);
+        let status = model::status(&checked(repository.status())?).ok_or("status returned nothing")?;
+        Ok(model::patches(&checked(repository.file_diff(&files, &status.revision, "", 3))?))
+    })
+    .await
+}
+
 /// The repositories on a Lore server (`lore://host:port`).
 #[tauri::command]
 async fn list_repositories(server: String) -> Result<Done<Vec<RemoteRepository>>, String> {
@@ -381,6 +417,8 @@ pub fn run() {
             apply_view,
             list_repositories,
             graph,
+            revision_changes,
+            working_patches,
             clone_repository,
             sync,
             load_settings,
