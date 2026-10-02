@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Branch, Overview, Revision } from './types';
+import type { Branch, Done, Lock, Overview, Revision, Status, ViewChange } from './types';
+import Changes from './Changes';
+import LockBoard from './LockBoard';
+import ViewDialog from './ViewDialog';
+
+type Tab = 'history' | 'changes' | 'locks';
 
 const STORAGE_KEY = 'tome.lastRepository';
 
@@ -31,6 +36,54 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [commands, setCommands] = useState<string[]>([]);
+  const [tab, setTab] = useState<Tab>('history');
+  const [locks, setLocks] = useState<Lock[]>([]);
+  const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
+
+  /** Runs a command that returns a Done<T>; shows its Lore commands and any error. */
+  async function run<T>(command: string, args: Record<string, unknown>, apply: (value: T) => void): Promise<boolean> {
+    setBusy(true);
+    setError('');
+    try {
+      const done = await invoke<Done<T>>(command, { path: path.trim(), ...args });
+      apply(done.value);
+      setCommands(done.commands);
+      return true;
+    } catch (e) {
+      setError(String(e));
+      return false;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const setStatus = (status: Status) => setOverview((o) => (o ? { ...o, status } : o));
+
+  async function refreshAfterCommit(status: Status) {
+    setStatus(status);
+    const revisions = await invoke<Revision[]>('branch_history', { path: path.trim(), branch: status.branch_name, offline: true }).catch(() => null);
+    if (revisions) {
+      setHistory(revisions);
+      setBranchName(status.branch_name);
+      setSelected(revisions[0]?.id ?? null);
+    }
+  }
+
+  function showTab(next: Tab) {
+    setTab(next);
+    if (!overview) return;
+    if (next === 'changes') void run<Status>('working_status', { offline: true }, setStatus);
+    if (next === 'locks') void run<Lock[]>('lock_board', { branch: overview.status.branch_name }, setLocks);
+  }
+
+  async function openView() {
+    try {
+      const lines = await invoke<string[]>('read_view', { path: path.trim() });
+      setView({ lines, result: null });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   async function open() {
     if (!path.trim()) return;
@@ -95,8 +148,9 @@ export default function App() {
             <input type="checkbox" checked={offline} onChange={(e) => setOffline(e.target.checked)} />
             오프라인
           </label>
-          <button type="submit" disabled={busy}>{busy ? '여는 중…' : '열기'}</button>
+          <button type="submit" disabled={busy}>{busy ? '작업 중…' : '열기'}</button>
         </form>
+        <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
       </header>
 
       {error && <div className="error" role="alert">{error}</div>}
@@ -123,12 +177,48 @@ export default function App() {
                 {status.local_ahead && <span className="badge ahead">push 대기</span>}
                 {status.remote_ahead && <span className="badge behind">새 버전</span>}
               </p>
-              <p className="muted">{status.files.length ? `변경 파일 ${status.files.length}개` : '변경 없음'}</p>
+              <button className="link" onClick={() => showTab('changes')}>
+                {status.files.some((f) => !f.directory) ? `변경 파일 ${status.files.filter((f) => !f.directory).length}개` : '변경 확인'}
+              </button>
             </section>
           )}
         </nav>
 
-        <section className="pane smartlog" aria-label="히스토리">
+        <section className="pane smartlog">
+          <div className="tabs" role="tablist">
+            {(
+              [
+                ['history', '히스토리'],
+                ['changes', '변경'],
+                ['locks', '잠금'],
+              ] as [Tab, string][]
+            ).map(([id, label]) => (
+              <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'tab active' : 'tab'} onClick={() => showTab(id)} disabled={!overview}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {tab === 'changes' && status && (
+            <Changes
+              status={status}
+              busy={busy}
+              onRefresh={() => void run<Status>('working_status', { offline: true }, setStatus)}
+              onStage={(paths, stage) => void run<Status>('stage_files', { paths, stage }, setStatus)}
+              onCommit={(message, push) => run<Status>('commit', { message, push }, (s) => void refreshAfterCommit(s))}
+              onPush={() => void run<Status>('push', { branch: status.branch_name }, setStatus)}
+            />
+          )}
+          {tab === 'locks' && status && (
+            <LockBoard
+              branch={status.branch_name}
+              locks={locks}
+              busy={busy}
+              onRefresh={() => void run<Lock[]>('lock_board', { branch: status.branch_name }, setLocks)}
+              onLock={(paths, lock) => void run<Lock[]>('lock_files', { branch: status.branch_name, paths, lock }, setLocks)}
+            />
+          )}
+          {tab === 'history' && (
+          <>
           <h2>
             {branchName || '히스토리'} <span className="muted">{history.length}개 리비전</span>
           </h2>
@@ -148,6 +238,8 @@ export default function App() {
               </li>
             ))}
           </ol>
+          </>
+          )}
         </section>
 
         <aside className="pane details" aria-label="리비전 상세">
@@ -180,6 +272,22 @@ export default function App() {
           )}
         </aside>
       </main>
+
+      {view && (
+        <ViewDialog
+          initial={view.lines}
+          busy={busy}
+          result={view.result}
+          onApply={(lines) =>
+            void run<ViewChange>('apply_view', { lines }, (result) => {
+              setView({ lines, result });
+              // Refresh quietly, so the status bar keeps the view commands.
+              invoke<Done<Status>>('working_status', { path: path.trim(), offline: true }).then((d) => setStatus(d.value), () => {});
+            })
+          }
+          onClose={() => setView(null)}
+        />
+      )}
 
       <footer className="statusbar" aria-label="실행한 Lore 명령">
         {commands.map((c) => (

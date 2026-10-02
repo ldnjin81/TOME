@@ -2,6 +2,8 @@
 
 export interface ChangedFile {
   path: string;
+  /** A directory entry (status lists directories too). */
+  directory: boolean;
   action: string;
   staged: boolean;
   conflict: boolean;
@@ -43,5 +45,23 @@ export interface Overview {
   status: Status;
   branches: Branch[];
   history: Revision[];
+  commands: string[];
+}
+
+export interface Lock {
+  path: string;
+  owner: string;
+  locked_at: number;
+}
+
+export interface ViewChange {
+  removed: string[];
+  kept: string[];
+  restored: string[];
+}
+
+/** A command's result with the Lore command lines that do the same. */
+export interface Done<T> {
+  value: T;
   commands: string[];
 }

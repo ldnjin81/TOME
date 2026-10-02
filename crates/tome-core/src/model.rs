@@ -22,6 +22,8 @@ pub struct Status {
 #[derive(Debug, Clone, Serialize)]
 pub struct ChangedFile {
     pub path: String,
+    /// True for a directory entry (status reports directories too).
+    pub directory: bool,
     pub action: String,
     pub staged: bool,
     pub conflict: bool,
@@ -55,6 +57,26 @@ pub struct Revision {
     pub metadata: Vec<(String, Value)>,
 }
 
+/// A lock held on a path.
+#[derive(Debug, Clone, Serialize)]
+pub struct Lock {
+    pub path: String,
+    pub owner: String,
+    /// Milliseconds since the Unix epoch.
+    pub locked_at: u64,
+}
+
+pub fn locks(result: &CallResult) -> Vec<Lock> {
+    result
+        .data("lockFileQuery")
+        .map(|lock| Lock {
+            path: text(&lock["path"]),
+            owner: text(&lock["owner"]),
+            locked_at: lock["lockedAt"].as_u64().unwrap_or(0),
+        })
+        .collect()
+}
+
 const NO_HASH: &str = "0000000000000000000000000000000000000000000000000000000000000000";
 
 fn text(value: &Value) -> String {
@@ -71,6 +93,7 @@ pub fn status(result: &CallResult) -> Option<Status> {
         .data("repositoryStatusFile")
         .map(|file| ChangedFile {
             path: text(&file["path"]),
+            directory: file["type"].as_str().is_some_and(|kind| kind.eq_ignore_ascii_case("directory")),
             action: file["action"].as_str().map(str::to_string).unwrap_or_else(|| file["action"].to_string()),
             staged: flag(&file["flagStaged"]),
             conflict: flag(&file["flagConflict"]),

@@ -5091,6 +5091,7 @@ name = "tome-core"
 version = "0.1.0"
 dependencies = [
  "lore",
+ "lore-revision",
  "serde",
  "serde_json",
 ]

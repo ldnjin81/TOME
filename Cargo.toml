@@ -12,6 +12,8 @@ license = "UNLICENSED"
 # Lore at the tag in third_party/lore (git submodule). Its C API (`lore::interface`,
 # the functions in lore-capi/lore.h) is called in-process.
 lore = { path = "third_party/lore/lore" }
+# Lore's view and ignore rules, so TOME applies a view exactly as Lore reads it.
+lore-revision = { path = "third_party/lore/lore-revision" }
 
 # Lore's own patches, needed to build it the way it is tested.
 [patch.crates-io]
