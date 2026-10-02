@@ -1,10 +1,15 @@
-//! End to end against a real Lore server. Opt-in: set TOME_TEST_SERVER (e.g. lore://127.0.0.1:41337)
-//! to a throwaway server, such as `loreserver` run with no config.
+//! End to end against a real Lore server. Opt-in: set TOME_TEST_SERVER (e.g. lore://127.0.0.1:41437)
+//! to a throwaway server, such as `loreserver` run with no config on its own ports:
+//! `LORE__SERVER__GRPC__PORT=41437 LORE__SERVER__QUIC__PORT=41437 LORE__SERVER__HTTP__PORT=41439 loreserver`.
 
 use tome_core::{model, CallResult, Repository};
 
 fn server() -> Option<String> {
-    std::env::var("TOME_TEST_SERVER").ok().filter(|s| !s.is_empty())
+    let server = std::env::var("TOME_TEST_SERVER").ok().filter(|s| !s.is_empty())?;
+    // 41337 is Lore's default port, where a real server listens:
+    // tests create repositories, so they must never run there.
+    assert!(!server.contains(":41337") && !server.contains("lore.example.com"), "TOME_TEST_SERVER {server} looks like the team server; run a throwaway loreserver on another port");
+    Some(server)
 }
 
 fn ok(result: CallResult, what: &str) -> CallResult {

@@ -176,6 +176,17 @@ async fn apply_view(path: String, lines: Vec<String>) -> Result<Done<ViewChange>
     .await
 }
 
+/// Every branch's revisions laid out in lanes (the Smartlog's full view).
+#[tauri::command]
+async fn graph(path: String, offline: bool) -> Result<Done<tome_core::Graph>, String> {
+    blocking(move || {
+        let graph = repository(&path, offline).graph(300)?;
+        let flag = if offline { " --offline" } else { "" };
+        Ok(Done { value: graph, commands: vec![format!("lore branch list{flag}"), format!("lore history 300 --branch <each>{flag}")] })
+    })
+    .await
+}
+
 /// The repositories on a Lore server (`lore://host:port`).
 #[tauri::command]
 async fn list_repositories(server: String) -> Result<Done<Vec<RemoteRepository>>, String> {
@@ -257,6 +268,7 @@ pub fn run() {
             read_view,
             apply_view,
             list_repositories,
+            graph,
             clone_repository,
             sync,
             load_settings,

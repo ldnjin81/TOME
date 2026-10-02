@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Branch, Done, Lock, Overview, Revision, Settings, Status, ViewChange } from './types';
+import type { Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, ViewChange } from './types';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
-import Smartlog, { isDraft } from './Smartlog';
+import Smartlog, { branchColor, isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
 
 type Tab = 'history' | 'changes' | 'locks';
@@ -23,13 +23,6 @@ function formatTime(ms: number) {
   return date.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-/** Lane color from the branch id, so a renamed branch keeps its color. */
-function laneColor(branchId: string) {
-  let hash = 0;
-  for (const ch of branchId) hash = (hash * 31 + ch.charCodeAt(0)) >>> 0;
-  return `hsl(${hash % 360} 55% 52%)`;
-}
-
 export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [setup, setSetup] = useState(false);
@@ -45,6 +38,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('history');
   const [logMode, setLogMode] = useState<'stack' | 'all'>('stack');
   const [locks, setLocks] = useState<Lock[]>([]);
+  const [graph, setGraph] = useState<Graph | null>(null);
+  const [graphLoading, setGraphLoading] = useState(false);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
 
   async function saveSettings(next: Settings) {
@@ -78,6 +73,7 @@ export default function App() {
     try {
       const result = await invoke<Overview>('open_repository', { path: where, offline: readOffline });
       setOverview(result);
+      setGraph(null);
       setHistory(result.history);
       setBranchName(result.status.branch_name);
       setSelected(result.history[0]?.id ?? null);
@@ -115,22 +111,33 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function showBranch(branch: Branch) {
-    if (!overview) return;
-    setBusy(true);
-    setError('');
+  /** Every branch in lanes; loaded when the full graph is first shown, and after changes. */
+  async function loadGraph(where = path) {
+    setGraphLoading(true);
     try {
-      const revisions = await invoke<Revision[]>('branch_history', { path: path.trim(), branch: branch.name, offline });
-      setHistory(revisions);
-      setBranchName(branch.name);
-      setSelected(revisions[0]?.id ?? null);
-      setTab('history');
-      setCommands([`lore history 200 --branch ${branch.name}${offline ? ' --offline' : ''}`]);
+      const done = await invoke<Done<Graph>>('graph', { path: where.trim(), offline });
+      setGraph(done.value);
+      setCommands(done.commands);
     } catch (e) {
       setError(String(e));
     } finally {
-      setBusy(false);
+      setGraphLoading(false);
     }
+  }
+
+  function showMode(mode: 'stack' | 'all') {
+    setLogMode(mode);
+    if (mode === 'all' && !graph && !graphLoading) void loadGraph();
+  }
+
+  /** A branch in the list: show the full graph with its latest revision selected. */
+  function showBranch(branch: Branch) {
+    if (!overview) return;
+    setTab('history');
+    setBranchName(branch.name);
+    setSelected(branch.latest);
+    showMode('all');
+    requestAnimationFrame(() => document.querySelector('.grow.active')?.scrollIntoView({ block: 'center' }));
   }
 
   const setStatus = (status: Status) => setOverview((o) => (o ? { ...o, status } : o));
@@ -144,6 +151,7 @@ export default function App() {
       setBranchName(status.branch_name);
       setSelected(revisions[0]?.id ?? null);
     }
+    if (graph) void loadGraph();
   }
 
   function showTab(next: Tab) {
@@ -171,9 +179,13 @@ export default function App() {
     }
   }
 
-  const revision = useMemo(() => history.find((r) => r.id === selected) ?? null, [history, selected]);
+  const revision = useMemo(
+    () => history.find((r) => r.id === selected) ?? graph?.rows.find((row) => row.revision.id === selected)?.revision ?? null,
+    [history, graph, selected],
+  );
   const status = overview?.status;
-  const branches = (overview?.branches ?? []).filter((b) => !b.archived);
+  // Lore lists a branch once per location (local and remote): show each id once.
+  const branches = (overview?.branches ?? []).filter((b, i, all) => !b.archived && all.findIndex((o) => o.id === b.id) === i);
   const changedCount = status ? status.files.filter((f) => !f.directory).length : 0;
 
   return (
@@ -218,8 +230,8 @@ export default function App() {
           <ul>
             {branches.map((b) => (
               <li key={b.id}>
-                <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => void showBranch(b)}>
-                  <span className="lane-dot" style={{ background: laneColor(b.id) }} />
+                <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => showBranch(b)}>
+                  <span className="lane-dot" style={{ background: branchColor(b.id, status?.branch_id ?? '') }} />
                   <span className="name">{b.name}</span>
                   {b.current && <span className="badge">현재</span>}
                 </button>
@@ -267,11 +279,12 @@ export default function App() {
             <Smartlog
               status={status}
               history={history}
-              branchName={branchName}
+              graph={graph}
+              branches={branches}
               selected={selected}
               mode={logMode}
               busy={busy}
-              onMode={setLogMode}
+              onMode={showMode}
               onSelect={setSelected}
               onCommit={() => showTab('changes')}
               onSync={() => void run<Status>('sync', {}, (s) => void refreshHistory(s))}

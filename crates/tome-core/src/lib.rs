@@ -8,6 +8,7 @@
 
 use std::sync::mpsc;
 
+pub mod graph;
 pub mod model;
 pub mod view;
 
@@ -87,6 +88,14 @@ pub fn call<A>(function: extern "C" fn(&LoreGlobalArgs, &A, LoreEventCallbackCon
         }
     }
     result
+}
+
+/// [`Repository::graph`]'s result.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct Graph {
+    pub rows: Vec<graph::Row>,
+    /// Branches whose history could not be read in full, as `"name: error"`.
+    pub incomplete: Vec<String>,
 }
 
 /// The repositories on the server at `url` (`lore://host:port`).
@@ -212,6 +221,99 @@ impl Repository {
         call(interface::lore_revision_sync_async, &self.globals(), &args)
     }
 
+    /// Creates `branch` at the current revision (it does not switch to it).
+    pub fn create_branch(&self, branch: &str) -> CallResult {
+        let args = lore::branch::LoreBranchCreateArgs {
+            branch: LoreString::from_bytes(branch.as_bytes()),
+            category: LoreString::default(),
+            id: LoreString::default(),
+        };
+        call(interface::lore_branch_create_async, &self.globals(), &args)
+    }
+
+    /// Makes `branch` the working copy's branch, at its latest revision.
+    pub fn switch_branch(&self, branch: &str) -> CallResult {
+        let args = lore::branch::LoreBranchSwitchArgs {
+            branch: LoreString::from_bytes(branch.as_bytes()),
+            revision: LoreString::default(),
+            reset: 0,
+            bare: 0,
+        };
+        call(interface::lore_branch_switch_async, &self.globals(), &args)
+    }
+
+    /// Merges `branch` into the current branch and commits the merge with `message` when
+    /// nothing conflicts.
+    pub fn merge_branch(&self, branch: &str, message: &str) -> CallResult {
+        let args = lore::branch::LoreBranchMergeStartArgs {
+            branch: LoreString::from_bytes(branch.as_bytes()),
+            message: LoreString::from_bytes(message.as_bytes()),
+            no_commit: 0,
+            link: LoreString::default(),
+            ignore_links: 0,
+            inherit_metadata: interface::LoreArray::default(),
+        };
+        call(interface::lore_branch_merge_start_async, &self.globals(), &args)
+    }
+
+    /// The graph of every branch that is not archived: each branch's last `length` revisions,
+    /// joined and laid out in lanes (a merge's second parent is in another branch's history).
+    ///
+    /// Offline, Lore reads only what this machine has, and stops with "Not found" where older
+    /// or merged revisions were never fetched. Such a branch is read again from the server
+    /// (reading only); what still cannot be read is listed in [`Graph::incomplete`], and the
+    /// revisions already returned are kept.
+    pub fn graph(&self, length: u32) -> Result<Graph, String> {
+        let branches = self.branches();
+        if !branches.ok() {
+            return Err(branches.error);
+        }
+        let online = Repository { path: self.path.clone(), offline: false };
+        let mut revisions = Vec::new();
+        let mut incomplete = Vec::new();
+        for branch in model::branches(&branches).into_iter().filter(|b| !b.archived) {
+            let mut history = self.history(&branch.name, length);
+            if !history.ok() && self.offline {
+                let again = online.history(&branch.name, length);
+                if again.ok() || model::history(&again).len() > model::history(&history).len() {
+                    history = again;
+                }
+            }
+            if !history.ok() {
+                incomplete.push(format!("{}: {}", branch.name, history.error));
+            }
+            revisions.extend(model::history(&history));
+        }
+
+        // Merged branches are often deleted after the merge, so no branch history reaches the
+        // second parents. Read each one's chain from the revision itself, a few rounds deep (a
+        // side chain can hold merges of its own).
+        let mut tried = std::collections::HashSet::new();
+        for _ in 0..4 {
+            let present: std::collections::HashSet<&str> = revisions.iter().map(|r| r.id.as_str()).collect();
+            let wanted: Vec<String> = revisions
+                .iter()
+                .flat_map(|r| r.parents.iter().skip(1))
+                .filter(|p| !present.contains(p.as_str()) && !tried.contains(p.as_str()))
+                .cloned()
+                .collect();
+            if wanted.is_empty() {
+                break;
+            }
+            let mut found = Vec::new();
+            for parent in wanted {
+                let mut side = self.history_from(&parent, length);
+                if !side.ok() && self.offline {
+                    side = online.history_from(&parent, length);
+                }
+                found.extend(model::history(&side));
+                tried.insert(parent);
+            }
+            revisions.extend(found);
+        }
+        Ok(Graph { rows: graph::layout(&revisions), incomplete })
+    }
+
     /// Restores `paths` from the current revision (rewrites the working files; local edits are lost).
     pub fn reset_files(&self, paths: &[String]) -> CallResult {
         let args = lore::file::LoreFileResetArgs { paths: strings(paths), revision: LoreString::default(), purge: 0 };
@@ -280,6 +382,18 @@ impl Repository {
     pub fn branches(&self) -> CallResult {
         let args = lore::branch::LoreBranchListArgs { archived: 0 };
         call(interface::lore_branch_list_async, &self.globals(), &args)
+    }
+
+    /// Up to `length` revisions from `revision` back along its first parents, stopping where
+    /// the chain reaches another branch (the side of a merge whose branch may be deleted).
+    pub fn history_from(&self, revision: &str, length: u32) -> CallResult {
+        let args = lore::revision::LoreRevisionHistoryArgs {
+            revision: LoreString::from_bytes(revision.as_bytes()),
+            length,
+            only_branch: 1,
+            ..Default::default()
+        };
+        call(interface::lore_revision_history_async, &self.globals(), &args)
     }
 
     /// Up to `length` revisions of `branch` (empty: the current branch), newest first.

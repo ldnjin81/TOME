@@ -78,3 +78,28 @@ export interface Settings {
   recent: string[];
   offline: boolean;
 }
+
+/** A line inside one graph row (crates/tome-core/src/graph.rs). */
+export interface Segment {
+  from_lane: number;
+  from: 'top' | 'mid';
+  to_lane: number;
+  to: 'mid' | 'bottom';
+  /** The revision the line leads down to. */
+  target: string;
+}
+
+export interface GraphRow {
+  revision: Revision;
+  lane: number;
+  width: number;
+  segments: Segment[];
+  /** Parents not loaded (the first one is the first parent). */
+  missing: string[];
+}
+
+export interface Graph {
+  rows: GraphRow[];
+  /** Branches whose history could not be read in full. */
+  incomplete: string[];
+}
