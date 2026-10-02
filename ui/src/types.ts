@@ -188,3 +188,9 @@ export interface BranchState {
 }
 
 export type Resolution = 'mine' | 'theirs' | 'edited';
+
+/** A push notification from the server (crates/tome-core/src/notify.rs). */
+export interface LoreNotification {
+  kind: string;
+  data: Record<string, unknown>;
+}

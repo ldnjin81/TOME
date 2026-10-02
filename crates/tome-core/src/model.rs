@@ -104,7 +104,8 @@ pub fn status(result: &CallResult) -> Option<Status> {
         .map(|file| ChangedFile {
             path: text(&file["path"]),
             directory: file["type"].as_str().is_some_and(|kind| kind.eq_ignore_ascii_case("directory")),
-            action: file["action"].as_str().map(str::to_string).unwrap_or_else(|| file["action"].to_string()),
+            // A changed file still at its path comes as "keep" (Lore has no modify action).
+            action: diff_action(&file["action"]),
             staged: flag(&file["flagStaged"]),
             conflict: flag(&file["flagConflict"]),
             unresolved: flag(&file["flagConflictUnresolved"]),

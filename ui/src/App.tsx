@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import { listen } from '@tauri-apps/api/event';
+import type { LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
+import Toasts, { type Toast } from './Toasts';
 import { MergeDialog, NewBranchDialog } from './BranchDialogs';
 import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 
@@ -50,6 +52,9 @@ export default function App() {
   const [managing, setManaging] = useState(false);
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [newBranch, setNewBranch] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
+  /** Live notifications: 'on', or why they are off. */
+  const [watch, setWatch] = useState<{ on: boolean; reason: string } | null>(null);
   const [mergeFrom, setMergeFrom] = useState<string | null>(null);
   /** "f → main" for the merge this window started; a merge found on open shows its revision. */
   const [mergeLabel, setMergeLabel] = useState('');
@@ -90,6 +95,12 @@ export default function App() {
       setOverview(result);
       setGraph(null);
       void loadTools(where);
+      void refreshLocksQuietly(result.status.branch_name, where);
+      setWatch(null);
+      invoke('watch_repository', { path: where }).then(
+        () => setWatch({ on: true, reason: '' }),
+        (e) => setWatch({ on: false, reason: String(e) }),
+      );
       invoke<AuthState>('auth_state', { path: where }).then(setAuth, () => setAuth(null));
       setHistory(result.history);
       setBranchName(result.status.branch_name);
@@ -126,6 +137,48 @@ export default function App() {
       else if (base.recent[0]) void open(base.recent[0], base.offline, base);
     })();
     // Load settings once at start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** The lock board for marks on changed files; quiet: errors (offline server) are ignored. */
+  async function refreshLocksQuietly(branch: string, where = path) {
+    try {
+      const done = await invoke<Done<Lock[]>>('lock_board', { path: where.trim(), branch });
+      setLocks(done.value);
+    } catch {
+      // no server: no marks
+    }
+  }
+
+  function addToast(text: string, tone: Toast['tone']) {
+    setToasts((list) => [...list, { id: Date.now() + Math.random(), text, tone }]);
+  }
+
+  // Notifications from the server for the open working copy.
+  const latest = useRef({ path, branchName: '', branches: [] as Branch[], graphLoaded: false });
+  latest.current = { path, branchName: overview?.status.branch_name ?? '', branches: overview?.branches ?? [], graphLoaded: !!graph };
+  useEffect(() => {
+    const stop = listen<LoreNotification>('lore-notification', (event) => {
+      const n = event.payload;
+      const { path: where, branchName: current, branches: known } = latest.current;
+      const paths = Array.isArray(n.data.paths) ? (n.data.paths as string[]) : [];
+      const who = typeof n.data.userId === 'string' && n.data.userId !== '<unknown>' ? ` · ${n.data.userId}` : '';
+      const branchName = known.find((b) => b.id === n.data.branch)?.name ?? '';
+      if (n.kind === 'resourceLocked' || n.kind === 'resourceUnlocked') {
+        addToast(`${n.kind === 'resourceLocked' ? '잠금' : '잠금 해제'}: ${paths.join(', ')}${who}`, n.kind === 'resourceLocked' ? 'lock' : 'unlock');
+        if (current) void refreshLocksQuietly(current, where);
+      } else if (n.kind === 'branchPushed') {
+        addToast(`${branchName || '브랜치'}에 새 리비전 r${String(n.data.revisionNumber ?? '')} push${who}`, 'push');
+        invoke<Done<Status>>('working_status', { path: where.trim(), offline: false }).then((d) => setStatus(d.value), () => {});
+        if (latest.current.graphLoaded) void loadGraph(where);
+      } else {
+        addToast(`${n.kind === 'branchCreated' ? '브랜치 생성' : n.kind === 'branchDeleted' ? '브랜치 삭제' : n.kind}${branchName ? `: ${branchName}` : ''}`, 'info');
+      }
+    });
+    return () => {
+      void stop.then((unlisten) => unlisten());
+    };
+    // Subscribed once; the handler reads the latest state through the ref.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -449,6 +502,11 @@ export default function App() {
               <button className="link" onClick={() => setSetup(true)}>
                 바꾸기
               </button>
+              {watch && (
+                <p className="muted small" title={watch.reason}>
+                  <span className={watch.on ? 'live-dot on' : 'live-dot'} /> {watch.on ? '실시간 알림 켜짐' : '실시간 알림 꺼짐(서버 연결 안 됨)'}
+                </p>
+              )}
             </section>
           )}
         </nav>
@@ -503,6 +561,7 @@ export default function App() {
               onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
               onDiff={(file) => void showWorkingDiff(file)}
               mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
+              locked={new Set(locks.map((l) => l.path))}
               onResolve={resolve}
               onAbortMerge={abortMerge}
             />
@@ -672,6 +731,8 @@ export default function App() {
       )}
 
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}
+
+      <Toasts toasts={toasts} onDone={(id) => setToasts((list) => list.filter((t) => t.id !== id))} />
 
       {toolRun && <OutputPanel {...toolRun} onClose={() => setToolRun(null)} />}
 

@@ -1,7 +1,7 @@
 //! The TOME window. Commands run Lore calls on a blocking thread and return the UI models.
 
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 use tome_core::model::{self, Branch, Lock, RemoteRepository, Revision, Status};
 use tome_core::view::ViewChange;
 use tome_core::tools::{self, Selection, Tool};
@@ -181,6 +181,27 @@ async fn apply_view(path: String, lines: Vec<String>) -> Result<Done<ViewChange>
             commands.push(format!("lore reset {}", args(&change.restored)));
         }
         Ok(Done { value: change, commands })
+    })
+    .await
+}
+
+/// The notification subscription of the open working copy (one at a time).
+#[derive(Default)]
+struct Watch(std::sync::Mutex<Option<tome_core::notify::Subscription>>);
+
+/// Subscribes to the server's notifications for the working copy at `path`; each one is sent
+/// to the window as a `lore-notification` event. Replaces the previous subscription.
+#[tauri::command]
+async fn watch_repository(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let previous = app.state::<Watch>().0.lock().unwrap().take();
+    blocking(move || {
+        drop(previous);
+        let sender = app.clone();
+        let subscription = repository(&path, false).subscribe(move |notification| {
+            let _ = sender.emit("lore-notification", notification);
+        })?;
+        *app.state::<Watch>().0.lock().unwrap() = Some(subscription);
+        Ok(())
     })
     .await
 }
@@ -496,6 +517,7 @@ fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .manage(Watch::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_repository,
@@ -510,6 +532,7 @@ pub fn run() {
             apply_view,
             list_repositories,
             graph,
+            watch_repository,
             create_branch,
             switch_branch,
             merge_branch,
