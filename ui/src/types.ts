@@ -77,10 +77,18 @@ export interface Settings {
   server: string;
   recent: string[];
   offline: boolean;
+  /** Who I am to Lore: recorded as the author on a server without authentication. */
+  identity: string;
   /** My own custom tools. */
   tools: Tool[];
   /** Working copy root -> fingerprint of the trusted .tome/tools.json (written by the backend). */
   trusted_tools: Record<string, string>;
+}
+
+export interface AuthState {
+  server_requires_login: boolean;
+  logged_in: string[];
+  detail: string;
 }
 
 /** Custom tools (crates/tome-core/src/tools.rs). */

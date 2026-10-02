@@ -33,7 +33,9 @@ fn commit_push_lock_and_view() {
     let dir = temp_dir("work");
     let stamp = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis();
     let url = format!("{server}/tome-test-{stamp}");
-    let repo = Repository::open(dir.to_string_lossy().to_string());
+    let mut repo = Repository::open(dir.to_string_lossy().to_string());
+    // On a server without authentication, this name is the author and the lock owner.
+    repo.identity = "tome-tester".into();
     ok(repo.create(&url), "create");
 
     // New files show up after a scan, then stage and commit them as a draft.
@@ -57,6 +59,7 @@ fn commit_push_lock_and_view() {
     assert!(!status.local_ahead, "{status:?}");
     let history = model::history(&ok(repo.history(&status.branch_name, 10), "history"));
     assert_eq!(history[0].message, "첫 커밋");
+    assert_eq!(history[0].author, "tome-tester", "{:?}", history[0]);
 
     // Locks: acquire, see it in the team list, release.
     let asset = vec!["Content/Hero.uasset".to_string()];
@@ -64,7 +67,9 @@ fn commit_push_lock_and_view() {
     let locks = model::locks(&ok(repo.locks(&status.branch_name), "locks"));
     assert_eq!(locks.len(), 1, "{locks:?}");
     assert_eq!(locks[0].path, "Content/Hero.uasset");
-    assert!(!locks[0].owner.is_empty());
+    // The server takes a lock's owner from the login token only, so a server without
+    // authentication records "<unknown>" whatever identity the client sends.
+    assert_eq!(locks[0].owner, "<unknown>");
     ok(repo.unlock(&status.branch_name, &asset), "unlock");
     assert!(model::locks(&ok(repo.locks(&status.branch_name), "locks after unlock")).is_empty());
 
@@ -84,7 +89,7 @@ fn commit_push_lock_and_view() {
 
     // The server lists the repository, and a clone of it gets the committed files.
     let root = server.as_str();
-    let listed = model::repositories(&ok(tome_core::list_repositories(root), "list"));
+    let listed = model::repositories(&ok(tome_core::list_repositories(root, ""), "list"));
     let name = url.rsplit('/').next().unwrap();
     assert!(listed.iter().any(|r| r.name == name), "{listed:?}");
     let copy = dir.with_extension("clone");

@@ -30,6 +30,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onCancel }: Pr
   const dialog = useRef<HTMLDialogElement>(null);
   const [server, setServer] = useState(settings.server || DEFAULT_SERVER);
   const [offline, setOffline] = useState(settings.offline);
+  const [identity, setIdentity] = useState(settings.identity ?? '');
   const [source, setSource] = useState<'open' | 'clone'>('open');
   const [openPath, setOpenPath] = useState(settings.recent[0] ?? '');
   const [repositories, setRepositories] = useState<RemoteRepository[] | null>(null);
@@ -42,7 +43,8 @@ export default function SetupDialog({ settings, firstRun, onDone, onCancel }: Pr
 
   useEffect(() => {
     dialog.current?.showModal();
-  }, []);
+    if (!settings.identity) invoke<string>('default_identity').then((name) => setIdentity((now) => now || name), () => {});
+  }, [settings.identity]);
 
   async function connect() {
     setBusy('서버에 연결하는 중…');
@@ -68,7 +70,9 @@ export default function SetupDialog({ settings, firstRun, onDone, onCancel }: Pr
   const canFinish = !busy && (source === 'open' ? openPath.trim() !== '' || !firstRun : repository !== '' && target !== '');
 
   async function finish() {
-    const next: Settings = { ...settings, server: server.trim(), offline, setup_done: true };
+    const next: Settings = { ...settings, server: server.trim(), offline, identity: identity.trim(), setup_done: true };
+    // Clone and the repository list already run as this identity.
+    await invoke('save_settings', { settings: next }).catch(() => {});
     if (source === 'open') {
       onDone(next, openPath.trim() || null);
       return;
@@ -110,6 +114,11 @@ export default function SetupDialog({ settings, firstRun, onDone, onCancel }: Pr
           </button>
         </div>
         {repositories && <p className="ok-line">연결됨 · 저장소 {repositories.length}개</p>}
+        <label className="field">
+          <span>내 이름(신원)</span>
+          <input id="setup-identity" value={identity} onChange={(e) => setIdentity(e.target.value)} placeholder="예: kim-pc" spellCheck={false} />
+        </label>
+        <p className="muted hint">인증 없는 서버에서는 이 이름이 커밋 작성자로 기록됩니다. PC마다 다르게 쓰면(kim-pc, kim-laptop) 어디서 커밋했는지 구분됩니다.</p>
         <label className="check">
           <input type="checkbox" checked={offline} onChange={(e) => setOffline(e.target.checked)} />
           열 때 오프라인으로 읽기(서버 없이 로컬 데이터만)

@@ -24,9 +24,17 @@ struct Done<T> {
     commands: Vec<String>,
 }
 
+/// The identity from the settings, sent with every Lore call (set when settings are read or saved).
+static IDENTITY: std::sync::RwLock<String> = std::sync::RwLock::new(String::new());
+
+fn identity() -> String {
+    IDENTITY.read().map(|i| i.clone()).unwrap_or_default()
+}
+
 fn repository(path: &str, offline: bool) -> Repository {
     let mut repository = Repository::open(path);
     repository.offline = offline;
+    repository.identity = identity();
     repository
 }
 
@@ -167,7 +175,7 @@ async fn read_view(path: String) -> Result<Vec<String>, String> {
 #[tauri::command]
 async fn apply_view(path: String, lines: Vec<String>) -> Result<Done<ViewChange>, String> {
     blocking(move || {
-        let change = Repository::open(path).apply_view(&lines)?;
+        let change = repository(&path, true).apply_view(&lines)?;
         let mut commands = vec!["edit .lore/view".to_string()];
         if !change.restored.is_empty() {
             commands.push(format!("lore reset {}", args(&change.restored)));
@@ -192,7 +200,7 @@ async fn graph(path: String, offline: bool) -> Result<Done<tome_core::Graph>, St
 #[tauri::command]
 async fn list_repositories(server: String) -> Result<Done<Vec<RemoteRepository>>, String> {
     blocking(move || {
-        let repositories = model::repositories(&checked(tome_core::list_repositories(&server))?);
+        let repositories = model::repositories(&checked(tome_core::list_repositories(&server, &identity()))?);
         Ok(Done { value: repositories, commands: vec![format!("lore repository list {}", arg(&server))] })
     })
     .await
@@ -205,7 +213,7 @@ async fn clone_repository(path: String, url: String, view: String) -> Result<Don
         if std::fs::read_dir(&path).is_ok_and(|mut entries| entries.next().is_some()) {
             return Err(format!("폴더가 비어 있지 않습니다: {path}"));
         }
-        checked(Repository::open(path.clone()).clone_from(&url, &view))?;
+        checked(repository(&path, false).clone_from(&url, &view))?;
         Ok(Done { value: (), commands: vec![format!("lore clone {} {}", arg(&url), arg(&path))] })
     })
     .await
@@ -233,6 +241,8 @@ struct Settings {
     /// Working copies opened, most recent first.
     recent: Vec<String>,
     offline: bool,
+    /// Who I am to Lore: the author name on a server without authentication.
+    identity: String,
     /// My own custom tools.
     tools: Vec<Tool>,
     /// Working copy root -> fingerprint of the `.tome/tools.json` content I trusted there.
@@ -245,7 +255,23 @@ fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
 
 fn read_settings(app: &tauri::AppHandle) -> Result<Settings, String> {
     let path = settings_path(app)?;
-    Ok(std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default())
+    let settings: Settings = std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default();
+    if let Ok(mut current) = IDENTITY.write() {
+        *current = settings.identity.clone();
+    }
+    Ok(settings)
+}
+
+/// A name to suggest for the identity: the OS user name.
+#[tauri::command]
+fn default_identity() -> String {
+    std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_default()
+}
+
+/// Whether the server needs a login and who is logged in on this machine.
+#[tauri::command]
+async fn auth_state(path: String) -> Result<tome_core::AuthState, String> {
+    blocking(move || Ok(tome_core::auth_state(&path))).await
 }
 
 /// The tools for a working copy: mine, and the project's from `.tome/tools.json` with whether
@@ -331,7 +357,11 @@ fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String
     let path = settings_path(&app)?;
     std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
     let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
-    std::fs::write(path, text).map_err(|e| e.to_string())
+    std::fs::write(path, text).map_err(|e| e.to_string())?;
+    if let Ok(mut current) = IDENTITY.write() {
+        *current = settings.identity;
+    }
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -355,6 +385,8 @@ pub fn run() {
             sync,
             load_settings,
             save_settings,
+            default_identity,
+            auth_state,
             list_tools,
             trust_project_tools,
             save_project_tools,

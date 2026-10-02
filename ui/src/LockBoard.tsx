@@ -3,6 +3,8 @@ import type { Lock } from './types';
 
 interface Props {
   branch: string;
+  /** My identity, to mark my locks. */
+  me: string;
   locks: Lock[];
   busy: boolean;
   onRefresh: () => void;
@@ -15,7 +17,7 @@ function formatTime(ms: number) {
 }
 
 /** Every lock on the branch: who is working on which file. */
-export default function LockBoard({ branch, locks, busy, onRefresh, onLock, onContext }: Props) {
+export default function LockBoard({ branch, me, locks, busy, onRefresh, onLock, onContext }: Props) {
   const [filter, setFilter] = useState('');
   const [newPath, setNewPath] = useState('');
   const needle = filter.trim().toLowerCase();
@@ -49,7 +51,15 @@ export default function LockBoard({ branch, locks, busy, onRefresh, onLock, onCo
               {shown.map((l) => (
                 <tr key={l.path} onContextMenu={(e) => onContext(e, [l.path])}>
                   <td className="mono">{l.path}</td>
-                  <td>{l.owner}</td>
+                  <td>
+                    {l.owner === '<unknown>' ? (
+                      <span className="muted" title="인증 없는 서버는 잠근 사람을 기록하지 않습니다(Lore 서버가 소유자를 로그인 토큰에서만 가져옴)">알 수 없음</span>
+                    ) : l.owner === me ? (
+                      <strong>나</strong>
+                    ) : (
+                      l.owner
+                    )}
+                  </td>
                   <td className="time">{formatTime(l.locked_at)}</td>
                   <td>
                     <button className="link" onClick={() => onLock([l.path], false)} disabled={busy}>해제</button>

@@ -65,9 +65,14 @@ interface Props {
   onSync: () => void;
   /** Right-click on a revision: the custom tools menu. */
   onContext: (e: React.MouseEvent, revision: Revision) => void;
+  /** My identity: my revisions show 나. */
+  me: string;
 }
 
-export default function Smartlog({ status, history, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext }: Props) {
+/** The author as shown: 나 for my own revisions. */
+const who = (author: string, me: string) => (author && author === me ? '나' : author);
+
+export default function Smartlog({ status, history, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me }: Props) {
   // The stack is always the working copy's branch; the graph shows every branch.
   const shown = mode;
 
@@ -85,15 +90,15 @@ export default function Smartlog({ status, history, graph, branches, selected, m
         <span className="muted">{shown === 'stack' ? status.branch_name : '모든 브랜치'}</span>
       </div>
       {shown === 'stack' ? (
-        <Stack status={status} history={history} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} />
+        <Stack me={me} status={status} history={history} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} />
       ) : (
-        <GraphView status={status} graph={graph} branches={branches} selected={selected} onSelect={onSelect} onContext={onContext} />
+        <GraphView me={me} status={status} graph={graph} branches={branches} selected={selected} onSelect={onSelect} onContext={onContext} />
       )}
     </div>
   );
 }
 
-function RevisionText({ revision, draft, tags }: { revision: Revision; draft: boolean; tags?: React.ReactNode }) {
+function RevisionText({ revision, draft, tags, me }: { revision: Revision; draft: boolean; tags?: React.ReactNode; me: string }) {
   return (
     <span className="rev-text">
       <span className="rev-title">
@@ -102,7 +107,7 @@ function RevisionText({ revision, draft, tags }: { revision: Revision; draft: bo
         {tags}
       </span>
       <span className="rev-meta">
-        {revision.author} · {relativeTime(revision.timestamp)} · {draft ? `r${revision.number} · 미푸시` : 'public'}
+        {who(revision.author, me)} · {relativeTime(revision.timestamp)} · {draft ? `r${revision.number} · 미푸시` : 'public'}
       </span>
     </span>
   );
@@ -110,6 +115,7 @@ function RevisionText({ revision, draft, tags }: { revision: Revision; draft: bo
 
 /** My work against the remote: server head, uncommitted changes, drafts, and the base they sit on. */
 function Stack({
+  me,
   status,
   history,
   selected,
@@ -120,6 +126,7 @@ function Stack({
   onAll,
   onContext,
 }: {
+  me: string;
   status: Status;
   history: Revision[];
   selected: string | null;
@@ -177,7 +184,7 @@ function Stack({
         <li key={r.id}>
           <button className={r.id === selected ? 'lrow draft active' : 'lrow draft'} onClick={() => onSelect(r.id)} onContextMenu={(e) => onContext(e, r)}>
             <Lanes cells={[{ top: remote ? 'dotted' : null }, { top: i === 0 && !wip ? null : 'stack', node: i === 0 ? 'head' : 'draft', bottom: 'stack' }]} />
-            <RevisionText revision={r} draft tags={i === 0 && <span className="tag">작업 중</span>} />
+            <RevisionText me={me} revision={r} draft tags={i === 0 && <span className="tag">작업 중</span>} />
           </button>
         </li>
       ))}
@@ -187,6 +194,7 @@ function Stack({
           <button className={base.id === selected ? 'lrow active' : 'lrow'} onClick={() => onSelect(base.id)} onContextMenu={(e) => onContext(e, base)}>
             <Lanes cells={[{ top: remote ? 'dotted' : null, node: 'public', bottom: older ? 'dotted' : null }, {}]} join={stack ? 'stack' : undefined} />
             <RevisionText
+              me={me}
               revision={base}
               draft={false}
               tags={<span className="tag">{stack ? '내 스택의 베이스' : base.id === status.revision ? '작업본' : '최신'}</span>}
@@ -260,7 +268,7 @@ function RowGraph({ row, width, color, draft }: { row: GraphRow; width: number; 
 }
 
 /** Every branch, laid out in lanes by tome-core (graph.rs). */
-function GraphView({ status, graph, branches, selected, onSelect, onContext }: { status: Status; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void; onContext: (e: React.MouseEvent, revision: Revision) => void }) {
+function GraphView({ me, status, graph, branches, selected, onSelect, onContext }: { status: Status; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void; onContext: (e: React.MouseEvent, revision: Revision) => void; me: string }) {
   if (!graph) return <p className="muted empty">그래프를 불러오는 중…</p>;
   // A revision without a branch id (some merges) takes its child's, so a lane keeps one color.
   const branchOf = new Map<string, string>();
@@ -295,7 +303,7 @@ function GraphView({ status, graph, branches, selected, onSelect, onContext }: {
                   ))}
                   <span className="rev-message">{r.message || '(메시지 없음)'}</span>
                   <span className="rev-meta inline">
-                    {r.author} · {relativeTime(r.timestamp)}
+                    {who(r.author, me)} · {relativeTime(r.timestamp)}
                   </span>
                 </span>
               </button>

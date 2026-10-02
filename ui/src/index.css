@@ -266,3 +266,8 @@ button.lrow:hover { background: var(--accent-soft); }
 .vars dl { display: grid; gap: 3px; margin: 8px 0; }
 .vars dl > div { display: grid; grid-template-columns: 70px 1fr; }
 .vars dd { margin: 0; color: var(--muted); }
+
+.warn-bar { padding: 7px 16px; background: color-mix(in srgb, var(--ahead) 14%, var(--surface)); border-bottom: 1px solid var(--ahead); }
+.working.identity p { margin: 4px 0; }
+.small { font-size: 12px; }
+.hint { margin: -4px 0 6px; font-size: 12px; line-height: 1.5; }

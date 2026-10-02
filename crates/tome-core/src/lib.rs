@@ -99,10 +99,47 @@ pub struct Graph {
     pub incomplete: Vec<String>,
 }
 
-/// The repositories on the server at `url` (`lore://host:port`).
-pub fn list_repositories(url: &str) -> CallResult {
+/// The repositories on the server at `url` (`lore://host:port`), asked as `identity`.
+pub fn list_repositories(url: &str, identity: &str) -> CallResult {
     let args = lore::repository::LoreRepositoryListArgs { url: LoreString::from_bytes(url.as_bytes()) };
-    call(interface::lore_repository_list_async, &LoreGlobalArgs::default(), &args)
+    let globals = LoreGlobalArgs { identity: LoreString::from_bytes(identity.as_bytes()), ..Default::default() };
+    call(interface::lore_repository_list_async, &globals, &args)
+}
+
+/// Whether the server at `url` needs a login, and who is logged in on this machine.
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AuthState {
+    /// The server has an auth endpoint (a login is needed); false for a LAN server without one.
+    pub server_requires_login: bool,
+    /// Identities logged in on this machine (Lore's stored logins).
+    pub logged_in: Vec<String>,
+    /// What Lore said when asked, for the settings screen.
+    pub detail: String,
+}
+
+/// Asks Lore about logins. Lore answers "requires a configured auth endpoint" when the server
+/// (or this working copy's remote) has no authentication: then the identity name is all it uses.
+pub fn auth_state(working_copy: &str) -> AuthState {
+    let globals = LoreGlobalArgs {
+        repository_path: LoreString::from_bytes(working_copy.as_bytes()),
+        working_directory: LoreString::from_bytes(working_copy.as_bytes()),
+        ..Default::default()
+    };
+    let list = call(interface::lore_auth_list_async, &globals, &lore::auth::LoreAuthListArgs { with_token: 0 });
+    let logged_in = list
+        .events
+        .iter()
+        .filter(|e| e["tagName"].as_str().is_some_and(|t| t.starts_with("authIdentity") || t.starts_with("authUser")))
+        .filter_map(|e| e["data"]["userId"].as_str().or(e["data"]["name"].as_str()).map(str::to_string))
+        .filter(|s| !s.is_empty())
+        .collect();
+    let info = call(
+        interface::lore_auth_local_user_info_async,
+        &globals,
+        &lore::auth::LoreAuthLocalUserInfoArgs { auth_endpoint: LoreString::default(), user_ids: Default::default(), with_identity_token: 0, with_access_token: 0 },
+    );
+    let no_endpoint = !info.ok() && info.error.contains("auth endpoint");
+    AuthState { server_requires_login: !info.ok() && !no_endpoint, logged_in, detail: if info.ok() { String::new() } else { info.error } }
 }
 
 /// Global arguments for calls on the repository at `path`.
@@ -110,11 +147,14 @@ pub struct Repository {
     path: String,
     /// Run without contacting the server (local data only).
     pub offline: bool,
+    /// Who acts: on a server without authentication Lore records this name as the author of
+    /// commits and the owner of locks. Empty: Lore's default (a logged-in identity, if any).
+    pub identity: String,
 }
 
 impl Repository {
     pub fn open(path: impl Into<String>) -> Self {
-        Repository { path: path.into(), offline: false }
+        Repository { path: path.into(), offline: false, identity: String::new() }
     }
 
     fn globals(&self) -> LoreGlobalArgs {
@@ -123,6 +163,7 @@ impl Repository {
             // Relative paths in a call (stage, lock, ...) are relative to the working copy root.
             working_directory: LoreString::from_bytes(self.path.as_bytes()),
             offline: self.offline as u8,
+            identity: LoreString::from_bytes(self.identity.as_bytes()),
             ..Default::default()
         }
     }
@@ -151,7 +192,11 @@ impl Repository {
         };
         std::fs::create_dir_all(&self.path).ok();
         // The working directory must exist before the call; the clone fills it.
-        let globals = LoreGlobalArgs { repository_path: LoreString::from_bytes(self.path.as_bytes()), ..Default::default() };
+        let globals = LoreGlobalArgs {
+            repository_path: LoreString::from_bytes(self.path.as_bytes()),
+            identity: LoreString::from_bytes(self.identity.as_bytes()),
+            ..Default::default()
+        };
         call(interface::lore_repository_clone_async, &globals, &args)
     }
 
@@ -269,7 +314,7 @@ impl Repository {
         if !branches.ok() {
             return Err(branches.error);
         }
-        let online = Repository { path: self.path.clone(), offline: false };
+        let online = Repository { path: self.path.clone(), offline: false, identity: self.identity.clone() };
         let mut revisions = Vec::new();
         let mut incomplete = Vec::new();
         for branch in model::branches(&branches).into_iter().filter(|b| !b.archived) {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { AuthState, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
@@ -46,6 +46,7 @@ export default function App() {
   const [pending, setPending] = useState<{ entry: ToolEntry; selection: ToolSelection } | null>(null);
   const [toolRun, setToolRun] = useState<{ name: string; running: boolean; output: ToolOutput | null; error: string } | null>(null);
   const [managing, setManaging] = useState(false);
+  const [auth, setAuth] = useState<AuthState | null>(null);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
 
   async function saveSettings(next: Settings) {
@@ -81,6 +82,7 @@ export default function App() {
       setOverview(result);
       setGraph(null);
       void loadTools(where);
+      invoke<AuthState>('auth_state', { path: where }).then(setAuth, () => setAuth(null));
       setHistory(result.history);
       setBranchName(result.status.branch_name);
       setSelected(result.history[0]?.id ?? null);
@@ -101,7 +103,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       const loaded = await invoke<Settings>('load_settings').catch(() => null);
-      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, tools: [], trusted_tools: {} };
+      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {} };
       let legacy: string | null = null;
       try {
         legacy = localStorage.getItem(LEGACY_KEY);
@@ -297,6 +299,14 @@ export default function App() {
       </header>
 
       {error && <div className="error" role="alert">{error}</div>}
+      {settings?.setup_done && !settings.identity && (
+        <div className="warn-bar" role="status">
+          신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.{' '}
+          <button className="link" onClick={() => setSetup(true)}>
+            설정하기
+          </button>
+        </div>
+      )}
 
       <main className="panes">
         <nav className="pane branches" aria-label="브랜치">
@@ -322,6 +332,26 @@ export default function App() {
               </p>
               <button className="link" onClick={() => showTab('changes')}>
                 {changedCount ? `변경 파일 ${changedCount}개` : '변경 확인'}
+              </button>
+            </section>
+          )}
+          {settings && (
+            <section className="working identity">
+              <h2>신원</h2>
+              <p>
+                나: <strong>{settings.identity || '(없음)'}</strong>
+              </p>
+              {auth && (
+                <p className="muted small" title={auth.detail}>
+                  {auth.server_requires_login
+                    ? auth.logged_in.length
+                      ? `로그인: ${auth.logged_in.join(', ')}`
+                      : '이 서버는 로그인이 필요합니다'
+                    : '인증 없는 서버 · 이름으로만 기록'}
+                </p>
+              )}
+              <button className="link" onClick={() => setSetup(true)}>
+                바꾸기
               </button>
             </section>
           )}
@@ -362,6 +392,7 @@ export default function App() {
               onSelect={setSelected}
               onCommit={() => showTab('changes')}
               onSync={() => void run<Status>('sync', {}, (s) => void refreshHistory(s))}
+              me={settings?.identity ?? ''}
               onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
             />
           )}
@@ -379,6 +410,7 @@ export default function App() {
           {tab === 'locks' && status && (
             <LockBoard
               branch={status.branch_name}
+              me={settings?.identity ?? ''}
               locks={locks}
               busy={busy}
               onRefresh={() => void run<Lock[]>('lock_board', { branch: status.branch_name }, setLocks)}
