@@ -26,4 +26,3 @@ TOME is an independent project. It is not made, endorsed or supported by Epic Ga
 ## Documents
 
 - [Architecture and stack decision](docs/architecture.md)
-- [Planning handoff (2026-10-02)](docs/handoff.md)

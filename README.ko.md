@@ -26,4 +26,3 @@ TOME은 독립 프로젝트이며 Epic Games가 만들거나 보증하거나 지
 ## 문서
 
 - [구조와 기술 스택 결정](docs/architecture.md)
-- [기획 핸드오프 (2026-10-02)](docs/handoff.md)
