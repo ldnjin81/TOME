@@ -89,6 +89,12 @@ pub fn call<A>(function: extern "C" fn(&LoreGlobalArgs, &A, LoreEventCallbackCon
     result
 }
 
+/// The repositories on the server at `url` (`lore://host:port`).
+pub fn list_repositories(url: &str) -> CallResult {
+    let args = lore::repository::LoreRepositoryListArgs { url: LoreString::from_bytes(url.as_bytes()) };
+    call(interface::lore_repository_list_async, &LoreGlobalArgs::default(), &args)
+}
+
 /// Global arguments for calls on the repository at `path`.
 pub struct Repository {
     path: String,
@@ -123,6 +129,20 @@ impl Repository {
         };
         std::fs::create_dir_all(&self.path).ok();
         call(interface::lore_repository_create_async, &self.globals(), &args)
+    }
+
+    /// Clones the repository at `url` (`lore://host:port/name`) into this path. `view` is the
+    /// initial `.lore/view` text; empty materializes everything.
+    pub fn clone_from(&self, url: &str, view: &str) -> CallResult {
+        let args = lore::repository::LoreRepositoryCloneArgs {
+            repository_url: LoreString::from_bytes(url.as_bytes()),
+            view: LoreString::from_bytes(view.as_bytes()),
+            ..Default::default()
+        };
+        std::fs::create_dir_all(&self.path).ok();
+        // The working directory must exist before the call; the clone fills it.
+        let globals = LoreGlobalArgs { repository_path: LoreString::from_bytes(self.path.as_bytes()), ..Default::default() };
+        call(interface::lore_repository_clone_async, &globals, &args)
     }
 
     /// Status after reconciling the working files with the current revision, so new and

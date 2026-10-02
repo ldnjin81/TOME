@@ -1,7 +1,8 @@
 //! The TOME window. Commands run Lore calls on a blocking thread and return the UI models.
 
-use serde::Serialize;
-use tome_core::model::{self, Branch, Lock, Revision, Status};
+use serde::{Deserialize, Serialize};
+use tauri::Manager;
+use tome_core::model::{self, Branch, Lock, RemoteRepository, Revision, Status};
 use tome_core::view::ViewChange;
 use tome_core::{CallResult, Repository};
 
@@ -175,9 +176,75 @@ async fn apply_view(path: String, lines: Vec<String>) -> Result<Done<ViewChange>
     .await
 }
 
+/// The repositories on a Lore server (`lore://host:port`).
+#[tauri::command]
+async fn list_repositories(server: String) -> Result<Done<Vec<RemoteRepository>>, String> {
+    blocking(move || {
+        let repositories = model::repositories(&checked(tome_core::list_repositories(&server))?);
+        Ok(Done { value: repositories, commands: vec![format!("lore repository list {}", arg(&server))] })
+    })
+    .await
+}
+
+/// Clones `url` into `path` with `view` (the `.lore/view` text) as the initial view.
+#[tauri::command]
+async fn clone_repository(path: String, url: String, view: String) -> Result<Done<()>, String> {
+    blocking(move || {
+        if std::fs::read_dir(&path).is_ok_and(|mut entries| entries.next().is_some()) {
+            return Err(format!("폴더가 비어 있지 않습니다: {path}"));
+        }
+        checked(Repository::open(path.clone()).clone_from(&url, &view))?;
+        Ok(Done { value: (), commands: vec![format!("lore clone {} {}", arg(&url), arg(&path))] })
+    })
+    .await
+}
+
+/// Brings the working copy to the branch's latest revision.
+#[tauri::command]
+async fn sync(path: String) -> Result<Done<Status>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        checked(repository.sync())?;
+        Ok(Done { value: scanned_status(&repository)?, commands: vec!["lore sync".into()] })
+    })
+    .await
+}
+
+/// What TOME remembers between runs (`settings.json` in the app config folder).
+#[derive(Serialize, Deserialize, Default)]
+#[serde(default)]
+struct Settings {
+    /// Set once the first-run setup is finished.
+    setup_done: bool,
+    /// `lore://host:port` of the team's Lore server.
+    server: String,
+    /// Working copies opened, most recent first.
+    recent: Vec<String>,
+    offline: bool,
+}
+
+fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("settings.json"))
+}
+
+#[tauri::command]
+fn load_settings(app: tauri::AppHandle) -> Result<Settings, String> {
+    let path = settings_path(&app)?;
+    Ok(std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default())
+}
+
+#[tauri::command]
+fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String> {
+    let path = settings_path(&app)?;
+    std::fs::create_dir_all(path.parent().unwrap()).map_err(|e| e.to_string())?;
+    let text = serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?;
+    std::fs::write(path, text).map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_repository,
             branch_history,
@@ -188,7 +255,12 @@ pub fn run() {
             lock_board,
             lock_files,
             read_view,
-            apply_view
+            apply_view,
+            list_repositories,
+            clone_repository,
+            sync,
+            load_settings,
+            save_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running TOME");

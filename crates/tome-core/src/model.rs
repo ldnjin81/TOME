@@ -111,6 +111,23 @@ pub fn status(result: &CallResult) -> Option<Status> {
     })
 }
 
+/// A repository on the server.
+#[derive(Debug, Clone, Serialize)]
+pub struct RemoteRepository {
+    pub id: String,
+    pub name: String,
+}
+
+pub fn repositories(result: &CallResult) -> Vec<RemoteRepository> {
+    result
+        .data("repositoryListEntry")
+        .map(|r| RemoteRepository {
+            id: r["id"].as_str().map(str::to_string).unwrap_or_else(|| r["id"].to_string()),
+            name: text(&r["name"]),
+        })
+        .collect()
+}
+
 pub fn branches(result: &CallResult) -> Vec<Branch> {
     result
         .data("branchListEntry")

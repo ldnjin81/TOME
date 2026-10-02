@@ -1,13 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Branch, Done, Lock, Overview, Revision, Status, ViewChange } from './types';
+import type { Branch, Done, Lock, Overview, Revision, Settings, Status, ViewChange } from './types';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
+import SetupDialog, { browseFolder } from './SetupDialog';
+import Smartlog, { isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
 
 type Tab = 'history' | 'changes' | 'locks';
 
-const STORAGE_KEY = 'tome.lastRepository';
+/** Before settings.json, the last working copy was kept here. */
+const LEGACY_KEY = 'tome.lastRepository';
+const RECENT_MAX = 8;
 
 function shortHash(hash: string) {
   return hash.slice(0, 8);
@@ -27,7 +31,9 @@ function laneColor(branchId: string) {
 }
 
 export default function App() {
-  const [path, setPath] = useState(() => localStorage.getItem(STORAGE_KEY) ?? '');
+  const [settings, setSettings] = useState<Settings | null>(null);
+  const [setup, setSetup] = useState(false);
+  const [path, setPath] = useState('');
   const [offline, setOffline] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
   const [history, setHistory] = useState<Revision[]>([]);
@@ -37,8 +43,14 @@ export default function App() {
   const [error, setError] = useState('');
   const [commands, setCommands] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>('history');
+  const [logMode, setLogMode] = useState<'stack' | 'all'>('stack');
   const [locks, setLocks] = useState<Lock[]>([]);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
+
+  async function saveSettings(next: Settings) {
+    setSettings(next);
+    await invoke('save_settings', { settings: next }).catch((e) => setError(`설정 저장 실패: ${e}`));
+  }
 
   /** Runs a command that returns a Done<T>; shows its Lore commands and any error. */
   async function run<T>(command: string, args: Record<string, unknown>, apply: (value: T) => void): Promise<boolean> {
@@ -57,9 +69,74 @@ export default function App() {
     }
   }
 
+  async function open(target = path, readOffline = offline, base = settings) {
+    const where = target.trim();
+    if (!where) return;
+    setPath(where);
+    setBusy(true);
+    setError('');
+    try {
+      const result = await invoke<Overview>('open_repository', { path: where, offline: readOffline });
+      setOverview(result);
+      setHistory(result.history);
+      setBranchName(result.status.branch_name);
+      setSelected(result.history[0]?.id ?? null);
+      setCommands(result.commands);
+      setTab('history');
+      setLogMode('stack');
+      if (base) {
+        const recent = [where, ...base.recent.filter((p) => p !== where)].slice(0, RECENT_MAX);
+        void saveSettings({ ...base, recent, offline: readOffline });
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  useEffect(() => {
+    void (async () => {
+      const loaded = await invoke<Settings>('load_settings').catch(() => null);
+      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true };
+      let legacy: string | null = null;
+      try {
+        legacy = localStorage.getItem(LEGACY_KEY);
+      } catch {
+        // no storage: nothing to migrate
+      }
+      if (legacy && !base.recent.includes(legacy)) base.recent = [legacy, ...base.recent];
+      setSettings(base);
+      setOffline(base.offline);
+      if (!base.setup_done) setSetup(true);
+      else if (base.recent[0]) void open(base.recent[0], base.offline, base);
+    })();
+    // Load settings once at start.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function showBranch(branch: Branch) {
+    if (!overview) return;
+    setBusy(true);
+    setError('');
+    try {
+      const revisions = await invoke<Revision[]>('branch_history', { path: path.trim(), branch: branch.name, offline });
+      setHistory(revisions);
+      setBranchName(branch.name);
+      setSelected(revisions[0]?.id ?? null);
+      setTab('history');
+      setCommands([`lore history 200 --branch ${branch.name}${offline ? ' --offline' : ''}`]);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const setStatus = (status: Status) => setOverview((o) => (o ? { ...o, status } : o));
 
-  async function refreshAfterCommit(status: Status) {
+  /** After a commit, push or sync: new status, and the current branch's history again. */
+  async function refreshHistory(status: Status) {
     setStatus(status);
     const revisions = await invoke<Revision[]>('branch_history', { path: path.trim(), branch: status.branch_name, offline: true }).catch(() => null);
     if (revisions) {
@@ -85,51 +162,19 @@ export default function App() {
     }
   }
 
-  async function open() {
-    if (!path.trim()) return;
-    setBusy(true);
-    setError('');
+  async function browse() {
     try {
-      const result = await invoke<Overview>('open_repository', { path: path.trim(), offline });
-      localStorage.setItem(STORAGE_KEY, path.trim());
-      setOverview(result);
-      setHistory(result.history);
-      setBranchName(result.status.branch_name);
-      setSelected(result.history[0]?.id ?? null);
-      setCommands(result.commands);
+      const picked = await browseFolder('작업본 폴더', path);
+      if (picked) void open(picked);
     } catch (e) {
       setError(String(e));
-    } finally {
-      setBusy(false);
     }
   }
-
-  async function showBranch(branch: Branch) {
-    if (!overview) return;
-    setBusy(true);
-    setError('');
-    try {
-      const revisions = await invoke<Revision[]>('branch_history', { path: path.trim(), branch: branch.name, offline });
-      setHistory(revisions);
-      setBranchName(branch.name);
-      setSelected(revisions[0]?.id ?? null);
-      setCommands([`lore history 200 --branch ${branch.name}${offline ? ' --offline' : ''}`]);
-    } catch (e) {
-      setError(String(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  useEffect(() => {
-    if (path) void open();
-    // Open the last repository once at start.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   const revision = useMemo(() => history.find((r) => r.id === selected) ?? null, [history, selected]);
   const status = overview?.status;
   const branches = (overview?.branches ?? []).filter((b) => !b.archived);
+  const changedCount = status ? status.files.filter((f) => !f.directory).length : 0;
 
   return (
     <div className="app">
@@ -143,7 +188,13 @@ export default function App() {
           }}
         >
           <label className="visually-hidden" htmlFor="repo-path">작업본 경로</label>
-          <input id="repo-path" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Lore 작업본 경로 (예: C:\Project\SampleProject)" spellCheck={false} />
+          <input id="repo-path" list="recent-paths" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Lore 작업본 경로 (예: C:\Project\SampleProject)" spellCheck={false} />
+          <datalist id="recent-paths">
+            {settings?.recent.map((p) => <option key={p} value={p} />)}
+          </datalist>
+          <button type="button" className="ghost" onClick={() => void browse()} disabled={busy}>
+            찾아보기
+          </button>
           <label className="check">
             <input type="checkbox" checked={offline} onChange={(e) => setOffline(e.target.checked)} />
             오프라인
@@ -151,6 +202,12 @@ export default function App() {
           <button type="submit" disabled={busy}>{busy ? '작업 중…' : '열기'}</button>
         </form>
         <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
+        <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label="설정" title="설정">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
+          </svg>
+        </button>
       </header>
 
       {error && <div className="error" role="alert">{error}</div>}
@@ -178,7 +235,7 @@ export default function App() {
                 {status.remote_ahead && <span className="badge behind">새 버전</span>}
               </p>
               <button className="link" onClick={() => showTab('changes')}>
-                {status.files.some((f) => !f.directory) ? `변경 파일 ${status.files.filter((f) => !f.directory).length}개` : '변경 확인'}
+                {changedCount ? `변경 파일 ${changedCount}개` : '변경 확인'}
               </button>
             </section>
           )}
@@ -188,7 +245,7 @@ export default function App() {
           <div className="tabs" role="tablist">
             {(
               [
-                ['history', '히스토리'],
+                ['history', 'Smartlog'],
                 ['changes', '변경'],
                 ['locks', '잠금'],
               ] as [Tab, string][]
@@ -198,14 +255,36 @@ export default function App() {
               </button>
             ))}
           </div>
+          {!overview && (
+            <div className="welcome">
+              <p>작업본을 열면 내 스택과 히스토리가 여기에 나옵니다.</p>
+              <button className="primary" onClick={() => setSetup(true)} disabled={!settings}>
+                작업본 열기 · 서버에서 받기
+              </button>
+            </div>
+          )}
+          {tab === 'history' && status && (
+            <Smartlog
+              status={status}
+              history={history}
+              branchName={branchName}
+              selected={selected}
+              mode={logMode}
+              busy={busy}
+              onMode={setLogMode}
+              onSelect={setSelected}
+              onCommit={() => showTab('changes')}
+              onSync={() => void run<Status>('sync', {}, (s) => void refreshHistory(s))}
+            />
+          )}
           {tab === 'changes' && status && (
             <Changes
               status={status}
               busy={busy}
               onRefresh={() => void run<Status>('working_status', { offline: true }, setStatus)}
               onStage={(paths, stage) => void run<Status>('stage_files', { paths, stage }, setStatus)}
-              onCommit={(message, push) => run<Status>('commit', { message, push }, (s) => void refreshAfterCommit(s))}
-              onPush={() => void run<Status>('push', { branch: status.branch_name }, setStatus)}
+              onCommit={(message, push) => run<Status>('commit', { message, push }, (s) => void refreshHistory(s))}
+              onPush={() => void run<Status>('push', { branch: status.branch_name }, (s) => void refreshHistory(s))}
             />
           )}
           {tab === 'locks' && status && (
@@ -217,34 +296,12 @@ export default function App() {
               onLock={(paths, lock) => void run<Lock[]>('lock_files', { branch: status.branch_name, paths, lock }, setLocks)}
             />
           )}
-          {tab === 'history' && (
-          <>
-          <h2>
-            {branchName || '히스토리'} <span className="muted">{history.length}개 리비전</span>
-          </h2>
-          <ol className="log">
-            {history.map((r) => (
-              <li key={r.id}>
-                <button className={r.id === selected ? 'row active' : 'row'} onClick={() => setSelected(r.id)}>
-                  <span className="graph" aria-hidden="true">
-                    <span className="node" style={{ borderColor: laneColor(r.branch_id) }} />
-                    {r.parents.length > 1 && <span className="merge-mark">⑂</span>}
-                  </span>
-                  <span className="number">r{r.number}</span>
-                  <span className="message">{r.message || '(메시지 없음)'}</span>
-                  <span className="author">{r.author}</span>
-                  <span className="time">{formatTime(r.timestamp)}</span>
-                </button>
-              </li>
-            ))}
-          </ol>
-          </>
-          )}
         </section>
 
         <aside className="pane details" aria-label="리비전 상세">
           {revision ? (
             <>
+              <p className={isDraft(revision, status) ? 'state draft' : 'state'}>{isDraft(revision, status) ? 'draft · 미푸시' : 'public'}</p>
               <h2>r{revision.number}</h2>
               <p className="message-full">{revision.message}</p>
               <dl>
@@ -286,6 +343,24 @@ export default function App() {
             })
           }
           onClose={() => setView(null)}
+        />
+      )}
+
+      {setup && settings && (
+        <SetupDialog
+          settings={settings}
+          firstRun={!settings.setup_done}
+          onDone={(next, target) => {
+            setSetup(false);
+            setOffline(next.offline);
+            void saveSettings(next);
+            if (target) void open(target, next.offline, next);
+          }}
+          onCancel={() => {
+            setSetup(false);
+            // "나중에" on first run still counts as done, so the dialog does not return every start.
+            if (!settings.setup_done) void saveSettings({ ...settings, setup_done: true });
+          }}
         />
       )}
 

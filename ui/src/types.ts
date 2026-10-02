@@ -65,3 +65,16 @@ export interface Done<T> {
   value: T;
   commands: string[];
 }
+
+export interface RemoteRepository {
+  id: string;
+  name: string;
+}
+
+/** Kept between runs in the app config folder (settings.json). */
+export interface Settings {
+  setup_done: boolean;
+  server: string;
+  recent: string[];
+  offline: boolean;
+}

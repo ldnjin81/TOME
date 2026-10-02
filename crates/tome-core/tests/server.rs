@@ -76,4 +76,15 @@ fn commit_push_lock_and_view() {
     assert_eq!(change.restored, vec!["Content/Hero.uasset".to_string()]);
     assert!(dir.join("Content/Hero.uasset").exists());
     assert!(dir.join("Content/Notes.txt").exists());
+
+    // The server lists the repository, and a clone of it gets the committed files.
+    let root = server.as_str();
+    let listed = model::repositories(&ok(tome_core::list_repositories(root), "list"));
+    let name = url.rsplit('/').next().unwrap();
+    assert!(listed.iter().any(|r| r.name == name), "{listed:?}");
+    let copy = dir.with_extension("clone");
+    let cloned = Repository::open(copy.to_string_lossy().to_string());
+    ok(cloned.clone_from(&url, ""), "clone");
+    assert_eq!(std::fs::read(copy.join("Content/Hero.uasset")).unwrap(), b"asset v1");
+    std::fs::remove_dir_all(&copy).ok();
 }

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ViewChange } from './types';
 
-const PRESETS: { name: string; lines: string[] }[] = [
+export const PRESETS: { name: string; lines: string[] }[] = [
   { name: '전체', lines: [] },
   { name: '코드만', lines: ['/*', '!/Source/', '!/Config/', '!/Plugins/', '!/Docs/', '!/*.uproject'] },
   { name: '콘텐츠 제외', lines: ['/Content/'] },
