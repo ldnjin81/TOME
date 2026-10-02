@@ -14,6 +14,8 @@ pub struct Status {
     pub revision_number: u64,
     /// The remote branch's latest revision number (0 when unknown, e.g. offline).
     pub remote_number: u64,
+    /// The remote branch's latest revision hash as last seen (empty when unknown).
+    pub remote_revision: String,
     pub local_ahead: bool,
     pub remote_ahead: bool,
     /// The revision being merged in while a merge is in progress (conflicts to settle, then a
@@ -126,6 +128,7 @@ pub fn status(result: &CallResult) -> Option<Status> {
         revision: text(&revision["revision"]),
         revision_number: revision["revisionNumber"].as_u64().unwrap_or(0),
         remote_number: revision["revisionRemoteNumber"].as_u64().unwrap_or(0),
+        remote_revision: hash(&revision["revisionRemote"]),
         local_ahead: flag(&revision["isLocalAhead"]),
         remote_ahead: flag(&revision["isRemoteAhead"]),
         // Lore keeps revisionMerged on the commit a merge made, too; a merge is only in progress

@@ -14,6 +14,7 @@ pub mod model;
 pub mod notify;
 pub mod ops;
 pub mod tools;
+pub mod restack;
 pub mod uasset;
 pub mod view;
 
@@ -408,6 +409,54 @@ impl Repository {
             revisions.extend(found);
         }
         Ok(Graph { rows: graph::layout(&revisions), incomplete })
+    }
+
+    /// Moves the branch's local head to `revision` (the working files are not touched; sync to
+    /// it afterwards). Revisions after it that were never pushed are no longer on the branch.
+    pub fn branch_reset(&self, revision: &str) -> CallResult {
+        let args = lore::branch::LoreBranchResetArgs { revision: LoreString::from_bytes(revision.as_bytes()), branch: LoreString::default() };
+        call(interface::lore_branch_reset_async, &self.globals(), &args)
+    }
+
+    /// Brings the working copy to `revision` (with `reset`, local edits are overwritten).
+    pub fn sync_to(&self, revision: &str, reset: bool) -> CallResult {
+        let args = lore::revision::LoreRevisionSyncArgs {
+            revision: LoreString::from_bytes(revision.as_bytes()),
+            forward_changes: 0,
+            reset: reset as u8,
+            root_files: interface::LoreArray::default(),
+            dependency_tags: interface::LoreArray::default(),
+            dependency_recursive: 0,
+            dependency_depth_limit: 0,
+        };
+        call(interface::lore_revision_sync_async, &self.globals(), &args)
+    }
+
+    /// Applies `revision`'s changes on top of the current revision and commits them with
+    /// `message` when nothing conflicts; on a conflict the pick stays open (resolve or abort).
+    pub fn cherry_pick(&self, revision: &str, message: &str) -> CallResult {
+        let args = lore::revision::LoreRevisionCherryPickArgs {
+            revision: LoreString::from_bytes(revision.as_bytes()),
+            message: LoreString::from_bytes(message.as_bytes()),
+            no_commit: 0,
+            inherit_metadata: interface::LoreArray::default(),
+        };
+        call(restack::cherry_pick_async, &self.globals(), &args)
+    }
+
+    /// Settles conflicted files of the cherry-pick in progress.
+    pub fn cherry_pick_resolve(&self, paths: &[String], how: Resolution) -> CallResult {
+        let paths = strings(paths);
+        match how {
+            Resolution::Mine => call(restack::cherry_pick_resolve_mine_async, &self.globals(), &lore::revision::LoreRevisionCherryPickResolveMineArgs { paths }),
+            Resolution::Theirs => call(restack::cherry_pick_resolve_theirs_async, &self.globals(), &lore::revision::LoreRevisionCherryPickResolveTheirsArgs { paths }),
+            Resolution::Edited => call(restack::cherry_pick_resolve_async, &self.globals(), &lore::revision::LoreRevisionCherryPickResolveArgs { paths }),
+        }
+    }
+
+    /// Gives up the cherry-pick in progress.
+    pub fn cherry_pick_abort(&self) -> CallResult {
+        call(restack::cherry_pick_abort_async, &self.globals(), &lore::revision::LoreRevisionCherryPickAbortArgs {})
     }
 
     /// Restores `paths` from the current revision (rewrites the working files; local edits are lost).
