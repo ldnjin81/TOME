@@ -21,6 +21,7 @@ interface Props {
   onAbortMerge: () => void;
   /** Paths locked on the server (lock board), marked on the files. */
   locked: Set<string>;
+  onHistory: (path: string) => void;
 }
 
 const RESOLUTION_LABEL: Record<string, string> = { mine: '내 것', theirs: '상대 것', edited: '직접 수정', auto: '자동 병합' };
@@ -84,7 +85,7 @@ function Conflicts({ files, label, busy, onResolve, onAbort, onDiff }: { files: 
   );
 }
 
-function FileRow({ file, onToggle, busy, onContext, onDiff, locked }: { file: ChangedFile; onToggle: () => void; busy: boolean; onContext: (e: React.MouseEvent, files: string[]) => void; onDiff: (path: string) => void; locked: boolean }) {
+function FileRow({ file, onToggle, busy, onContext, onDiff, locked, onHistory }: { file: ChangedFile; onToggle: () => void; busy: boolean; onContext: (e: React.MouseEvent, files: string[]) => void; onDiff: (path: string) => void; locked: boolean; onHistory: (path: string) => void }) {
   return (
     <li className="file-li">
       <button className="file-row" onClick={onToggle} onContextMenu={(e) => onContext(e, [file.path])} disabled={busy} title={file.staged ? '스테이징 해제' : '스테이징'}>
@@ -98,6 +99,11 @@ function FileRow({ file, onToggle, busy, onContext, onDiff, locked }: { file: Ch
         )}
         <span className="move" aria-hidden="true">{file.staged ? '−' : '+'}</span>
       </button>
+      {file.action !== 'add' && (
+        <button className="diff-btn" onClick={() => onHistory(file.path)} title="이 파일을 바꾼 리비전들" aria-label={`${file.path} 기록`}>
+          기록
+        </button>
+      )}
       {file.action !== 'add' && file.action !== 'delete' && (
         <button className="diff-btn" onClick={() => onDiff(file.path)} title="변경 내용 보기" aria-label={`${file.path} 변경 내용 보기`}>
           diff
@@ -108,7 +114,7 @@ function FileRow({ file, onToggle, busy, onContext, onDiff, locked }: { file: Ch
 }
 
 /** The working copy's changes: stage, commit, push. */
-export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext, onDiff, mergeLabel, onResolve, onAbortMerge, locked }: Props) {
+export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext, onDiff, mergeLabel, onResolve, onAbortMerge, locked, onHistory }: Props) {
   const [message, setMessage] = useState('');
   const merging = !!status.merging;
   const conflicts = status.files.filter((f) => !f.directory && f.conflict);
@@ -145,7 +151,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
           )}
         </h3>
         <ul className="file-list">
-          {staged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onToggle={() => onStage([f.path], false)} />)}
+          {staged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onHistory={onHistory} onToggle={() => onStage([f.path], false)} />)}
         </ul>
       </section>
 
@@ -160,7 +166,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
           <p className="muted">변경 없음</p>
         ) : (
           <ul className="file-list">
-            {unstaged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onToggle={() => onStage([f.path], true)} />)}
+            {unstaged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onHistory={onHistory} onToggle={() => onStage([f.path], true)} />)}
           </ul>
         )}
       </section>

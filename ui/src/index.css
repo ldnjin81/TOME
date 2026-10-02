@@ -341,3 +341,10 @@ button.lrow:hover { background: var(--accent-soft); }
 .badge.lock { color: var(--ahead); background: transparent; border: 1px solid var(--ahead); }
 .live-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); vertical-align: middle; }
 .live-dot.on { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* File history */
+.fh { flex-direction: column; align-items: stretch; gap: 2px; padding: 6px 8px; }
+.fh-top { display: flex; gap: 8px; min-width: 0; }
+.fh-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fh-meta { font-size: 11.5px; font-variant-numeric: tabular-nums; }
+.fh-list { width: 100%; }

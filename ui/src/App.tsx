@@ -9,6 +9,7 @@ import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
 import Toasts, { type Toast } from './Toasts';
+import FileHistory from './FileHistory';
 import { MergeDialog, NewBranchDialog } from './BranchDialogs';
 import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 
@@ -53,6 +54,7 @@ export default function App() {
   const [auth, setAuth] = useState<AuthState | null>(null);
   const [newBranch, setNewBranch] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [historyOf, setHistoryOf] = useState<string | null>(null);
   /** Live notifications: 'on', or why they are off. */
   const [watch, setWatch] = useState<{ on: boolean; reason: string } | null>(null);
   const [mergeFrom, setMergeFrom] = useState<string | null>(null);
@@ -562,6 +564,7 @@ export default function App() {
               onDiff={(file) => void showWorkingDiff(file)}
               mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
               locked={new Set(locks.map((l) => l.path))}
+              onHistory={setHistoryOf}
               onResolve={resolve}
               onAbortMerge={abortMerge}
             />
@@ -611,6 +614,7 @@ export default function App() {
                           <button
                             className="rf"
                             title={f.path}
+                            onContextMenu={(e) => openMenu(e, 'file', f.path, selectionFor({ files: [f.path] }))}
                             onClick={() =>
                               setDiff({
                                 title: `r${revision.number} ${revision.message.split('\n')[0]}`,
@@ -693,6 +697,7 @@ export default function App() {
           title={menu.title}
           entries={toolsFor(toolSet, menu.context)}
           onRun={(entry) => startTool(entry, menu.selection)}
+          actions={menu.context === 'file' && menu.selection.files.length === 1 ? [{ label: '파일 기록', run: () => setHistoryOf(menu.selection.files[0]) }] : []}
           onClose={() => setMenu(null)}
         />
       )}
@@ -728,6 +733,10 @@ export default function App() {
 
       {mergeFrom && status && (
         <MergeDialog from={mergeFrom} into={status.branch_name} busy={busy} onMerge={(message) => void mergeBranch(mergeFrom, message)} onClose={() => setMergeFrom(null)} />
+      )}
+
+      {historyOf && (
+        <FileHistory path={path.trim()} file={historyOf} offline={offline} me={settings?.identity ?? ''} onClose={() => setHistoryOf(null)} onCommands={setCommands} />
       )}
 
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}

@@ -79,9 +79,19 @@ fn revision_and_working_diffs() {
     let added = repo.file_diff(&["notes.txt".to_string()], "", &v1.id, 3);
     eprintln!("patch of a file in the first revision: status {} {} {:?}", added.status, added.error, model::patches(&added));
 
+    // A file's history: the revisions that changed it, newest first, with their messages.
+    commit(&[("other.txt", b"untouched notes\n")], "v3 (not notes.txt)");
+    let notes = repo.file_history("notes.txt", 10).expect("file history");
+    let seen: Vec<(String, u64)> = notes.iter().map(|f| (f.revision.message.clone(), f.size)).collect();
+    assert_eq!(seen, [("v2".to_string(), 19), ("v1".to_string(), 14)], "{notes:?}");
+    assert_eq!(notes[0].revision.author, "tome-tester");
+    assert_eq!(notes[0].path, "notes.txt");
+    assert_eq!(repo.file_history("new.txt", 10).unwrap().len(), 1);
+
     // Working files against the current revision (uncommitted edit).
     std::fs::write(dir.join("notes.txt"), "one\nTWO\nthree\nfour\nfive\n").unwrap();
-    let working = model::patches(&ok(repo.file_diff(&["notes.txt".to_string()], &v2.id, "", 3), "working diff"));
+    let current = model::status(&ok(repo.status(), "status")).unwrap().revision;
+    let working = model::patches(&ok(repo.file_diff(&["notes.txt".to_string()], &current, "", 3), "working diff"));
     assert!(working.iter().any(|p| p.patch.contains("+five")), "{working:?}");
 
     std::fs::remove_dir_all(&dir).ok();

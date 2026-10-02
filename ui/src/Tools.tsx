@@ -95,7 +95,7 @@ export function ToolMenu({ set, disabled, onRun, onManage }: { set: ToolSet | nu
 }
 
 /** A right-click menu at the pointer. */
-export function ContextMenu({ x, y, title, entries, onRun, onClose }: { x: number; y: number; title: string; entries: ToolEntry[]; onRun: (e: ToolEntry) => void; onClose: () => void }) {
+export function ContextMenu({ x, y, title, entries, onRun, onClose, actions = [] }: { x: number; y: number; title: string; entries: ToolEntry[]; onRun: (e: ToolEntry) => void; onClose: () => void; actions?: { label: string; run: () => void }[] }) {
   const box = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const close = (ev: MouseEvent) => {
@@ -117,6 +117,20 @@ export function ContextMenu({ x, y, title, entries, onRun, onClose }: { x: numbe
   return (
     <div className="menu floating" role="menu" ref={box} style={{ left, top }}>
       <p className="menu-title">{title}</p>
+      {actions.map((a) => (
+        <button
+          key={a.label}
+          role="menuitem"
+          className="menu-item"
+          onClick={() => {
+            onClose();
+            a.run();
+          }}
+        >
+          {a.label}
+        </button>
+      ))}
+      {actions.length > 0 && <div className="menu-sep" />}
       <MenuItems entries={entries} onRun={onRun} onClose={onClose} />
     </div>
   );

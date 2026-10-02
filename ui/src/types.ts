@@ -194,3 +194,10 @@ export interface LoreNotification {
   kind: string;
   data: Record<string, unknown>;
 }
+
+/** One revision of a file's history. */
+export interface FileRevision {
+  revision: Revision;
+  path: string;
+  size: number;
+}

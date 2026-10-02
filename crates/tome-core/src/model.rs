@@ -135,6 +135,15 @@ pub fn status(result: &CallResult) -> Option<Status> {
     })
 }
 
+/// One revision in a file's history (`Repository::file_history`).
+#[derive(Debug, Clone, Serialize)]
+pub struct FileRevision {
+    pub revision: Revision,
+    /// The file's path in that revision.
+    pub path: String,
+    pub size: u64,
+}
+
 /// A file that differs between two revisions.
 #[derive(Debug, Clone, Serialize)]
 pub struct DiffFile {

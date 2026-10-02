@@ -335,6 +335,29 @@ async fn revision_changes(path: String, revision: String, parent: String, offlin
     .await
 }
 
+/// The revisions that changed `file`, newest first (asks the server unless offline).
+#[tauri::command]
+async fn file_history(path: String, file: String, offline: bool) -> Result<Done<Vec<model::FileRevision>>, String> {
+    blocking(move || {
+        let history = repository(&path, offline).file_history(&file, 200)?;
+        Ok(Done { value: history, commands: vec![format!("lore file history {}", arg(&file))] })
+    })
+    .await
+}
+
+/// One file's change in `revision` against `parent` (empty for a first revision: no diff).
+#[tauri::command]
+async fn file_patch(path: String, file: String, revision: String, parent: String, offline: bool) -> Result<Option<model::FilePatch>, String> {
+    blocking(move || {
+        if parent.is_empty() {
+            return Ok(None);
+        }
+        let result = checked(repository(&path, offline).file_diff(&[file.clone()], &parent, &revision, 3))?;
+        Ok(model::patches(&result).into_iter().next())
+    })
+    .await
+}
+
 /// The working copy's edits to `files` against the current revision.
 #[tauri::command]
 async fn working_patches(path: String, files: Vec<String>) -> Result<Vec<model::FilePatch>, String> {
@@ -540,6 +563,8 @@ pub fn run() {
             abort_merge,
             revision_changes,
             working_patches,
+            file_history,
+            file_patch,
             clone_repository,
             sync,
             load_settings,

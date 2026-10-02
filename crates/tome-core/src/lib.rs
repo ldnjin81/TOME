@@ -497,6 +497,40 @@ impl Repository {
         call(interface::lore_file_diff_async, &self.globals(), &args)
     }
 
+    /// The revisions that changed `file` (newest first, up to `length`), each with its message,
+    /// author and time, the file's path in that revision (it may have moved) and its size.
+    pub fn file_history(&self, file: &str, length: u32) -> Result<Vec<model::FileRevision>, String> {
+        let args = lore::file::LoreFileHistoryArgs {
+            path: LoreString::from_bytes(file.as_bytes()),
+            revision: LoreString::default(),
+            branch: LoreString::default(),
+            length,
+            depth: 0,
+        };
+        let result = call(interface::lore_file_history_async, &self.globals(), &args);
+        if !result.ok() {
+            return Err(result.error);
+        }
+        Ok(result
+            .data("fileHistory")
+            .map(|entry| {
+                let id = entry["revision"].as_str().unwrap_or("").to_string();
+                // The revision's message, author and time come with its own history entry.
+                let revision = model::history(&self.history_from(&id, 1)).into_iter().next().unwrap_or(model::Revision {
+                    id: id.clone(),
+                    number: entry["revisionNumber"].as_u64().unwrap_or(0),
+                    parents: Vec::new(),
+                    message: String::new(),
+                    author: String::new(),
+                    timestamp: 0,
+                    branch_id: String::new(),
+                    metadata: Vec::new(),
+                });
+                model::FileRevision { path: entry["path"].as_str().unwrap_or("").to_string(), size: entry["size"].as_u64().unwrap_or(0), revision }
+            })
+            .collect())
+    }
+
     /// Up to `length` revisions from `revision` back along its first parents, stopping where
     /// the chain reaches another branch (the side of a merge whose branch may be deleted).
     pub fn history_from(&self, revision: &str, length: u32) -> CallResult {
