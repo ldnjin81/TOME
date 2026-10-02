@@ -13,6 +13,7 @@ pub mod model;
 pub mod notify;
 pub mod ops;
 pub mod tools;
+pub mod uasset;
 pub mod view;
 
 pub use lore::interface;
