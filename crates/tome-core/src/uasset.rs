@@ -170,29 +170,43 @@ pub struct Preview {
     pub thumbnail: Option<Thumbnail>,
 }
 
-/// The package's class and thumbnail; None when it is not a package the reader understands or
-/// it has no thumbnail table (cooked packages, data assets saved without one).
-pub fn preview(bytes: &[u8]) -> Option<Preview> {
-    let summary = read_summary(bytes)?;
-    if summary.editor_only_filtered || summary.thumbnail_table_offset <= 0 {
-        return None;
-    }
-    let mut table = Reader::new(bytes, summary.thumbnail_table_offset as usize);
-    let count = table.i32()?;
-    if !(1..=1000).contains(&count) {
-        return None;
-    }
-    let class = table.fstring()?;
-    Some(Preview { thumbnail: thumbnail(bytes), class })
+/// Where the package bytes come from: all in memory, or read piece by piece from a file.
+trait Source {
+    /// `n` bytes at `at`, or fewer at the end; None when `at` is past the end or reading fails.
+    fn read(&mut self, at: u64, n: usize) -> Option<Vec<u8>>;
 }
 
-/// The package's thumbnail image, if one is stored.
-pub fn thumbnail(bytes: &[u8]) -> Option<Thumbnail> {
-    let summary = read_summary(bytes)?;
+impl Source for &[u8] {
+    fn read(&mut self, at: u64, n: usize) -> Option<Vec<u8>> {
+        let at = usize::try_from(at).ok()?;
+        (at <= self.len()).then(|| self[at..self.len().min(at.saturating_add(n))].to_vec())
+    }
+}
+
+impl Source for std::fs::File {
+    fn read(&mut self, at: u64, n: usize) -> Option<Vec<u8>> {
+        use std::io::{Read, Seek, SeekFrom};
+        self.seek(SeekFrom::Start(at)).ok()?;
+        let mut out = Vec::with_capacity(n.min(1 << 20));
+        self.by_ref().take(n as u64).read_to_end(&mut out).ok()?;
+        Some(out)
+    }
+}
+
+/// The summary fits in this much (name, custom versions and the fields before the table offset).
+const SUMMARY_BYTES: usize = 256 * 1024;
+/// A thumbnail table entry: count, class name and object path, and the record offset.
+const TABLE_ENTRY_BYTES: usize = 4096;
+/// Larger thumbnails are not real (the editor saves 256x256 images).
+const MAX_THUMBNAIL_BYTES: i32 = 16 << 20;
+
+fn read_preview(source: &mut impl Source) -> Option<Preview> {
+    let summary = read_summary(&source.read(0, SUMMARY_BYTES)?)?;
     if summary.editor_only_filtered || summary.thumbnail_table_offset <= 0 {
         return None;
     }
-    let mut table = Reader::new(bytes, summary.thumbnail_table_offset as usize);
+    let entry = source.read(summary.thumbnail_table_offset as u64, TABLE_ENTRY_BYTES)?;
+    let mut table = Reader::new(&entry, 0);
     let count = table.i32()?;
     if !(1..=1000).contains(&count) {
         return None;
@@ -200,24 +214,46 @@ pub fn thumbnail(bytes: &[u8]) -> Option<Thumbnail> {
     // A package has one asset; take the first thumbnail.
     let class = table.fstring()?;
     table.fstring()?; // ObjectPathWithoutPackageName
-    let offset = table.i32()?;
-    let mut record = Reader::new(bytes, usize::try_from(offset).ok()?);
-    let width = record.i32()?;
-    let height = record.i32()?;
-    let size = record.i32()?;
-    if width <= 0 || height == 0 || size <= 0 {
-        return None;
-    }
-    let data = record.take(size as usize)?.to_vec();
-    // A negative height marks JPEG data; check the bytes too.
-    let mime = if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
-        "image/jpeg"
-    } else if data.starts_with(b"\x89PNG\r\n\x1a\n") {
-        "image/png"
-    } else {
-        return None;
-    };
-    Some(Thumbnail { class, width, height: height.abs(), mime, data })
+    let offset = u64::try_from(table.i32()?).ok()?;
+    let thumbnail = (|| {
+        let header = source.read(offset, 12)?;
+        let mut record = Reader::new(&header, 0);
+        let (width, height, size) = (record.i32()?, record.i32()?, record.i32()?);
+        if width <= 0 || height == 0 || !(1..=MAX_THUMBNAIL_BYTES).contains(&size) {
+            return None;
+        }
+        let data = source.read(offset + 12, size as usize)?;
+        if data.len() != size as usize {
+            return None;
+        }
+        // A negative height marks JPEG data; check the bytes too.
+        let mime = if data.starts_with(&[0xFF, 0xD8, 0xFF]) {
+            "image/jpeg"
+        } else if data.starts_with(b"\x89PNG\r\n\x1a\n") {
+            "image/png"
+        } else {
+            return None;
+        };
+        Some(Thumbnail { class: class.clone(), width, height: height.abs(), mime, data })
+    })();
+    Some(Preview { class, thumbnail })
+}
+
+/// The package's class and thumbnail; None when it is not a package the reader understands or
+/// it has no thumbnail table (cooked packages, data assets saved without one).
+pub fn preview(mut bytes: &[u8]) -> Option<Preview> {
+    read_preview(&mut bytes)
+}
+
+/// [`preview`] of a package file, reading only the summary, the table entry and the image
+/// rather than the whole file (maps and meshes can be hundreds of megabytes).
+pub fn preview_file(path: impl AsRef<std::path::Path>) -> Option<Preview> {
+    read_preview(&mut std::fs::File::open(path).ok()?)
+}
+
+/// The package's thumbnail image, if one is stored.
+pub fn thumbnail(bytes: &[u8]) -> Option<Thumbnail> {
+    preview(bytes)?.thumbnail
 }
 
 #[cfg(test)]
@@ -324,5 +360,17 @@ mod tests {
         }
         // Image bytes that are neither PNG nor JPEG.
         assert_eq!(thumbnail(&package(b"BMP?", 256, 0)), None);
+    }
+
+    #[test]
+    fn a_file_reads_the_same_as_its_bytes() {
+        let dir = std::env::temp_dir().join(format!("tome-uasset-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        for (name, bytes) in [("a.uasset", package(PNG, 256, 0)), ("b.uasset", package_with(PNG, 256, 0, false)), ("c.uasset", b"junk".to_vec())] {
+            std::fs::write(dir.join(name), &bytes).unwrap();
+            assert_eq!(preview_file(dir.join(name)), preview(&bytes), "{name}");
+        }
+        assert_eq!(preview_file(dir.join("missing.uasset")), None);
+        std::fs::remove_dir_all(&dir).ok();
     }
 }

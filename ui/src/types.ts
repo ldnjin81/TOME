@@ -90,6 +90,8 @@ export interface Settings {
   tools: Tool[];
   /** Working copy root -> fingerprint of the trusted .tome/tools.json (written by the backend). */
   trusted_tools: Record<string, string>;
+  /** Programmer (history first) or artist (assets with thumbnails first). */
+  mode: 'programmer' | 'artist' | '';
 }
 
 export interface AuthState {
@@ -221,4 +223,31 @@ export interface JobEvent {
   progress: JobProgress | null;
   done: [number, string] | null;
   cancelled: boolean;
+}
+
+/** An Unreal package on disk (artist mode). */
+export interface Asset {
+  name: string;
+  /** Relative to the working copy, `/`-separated. */
+  path: string;
+  /** `uasset` or `umap`. */
+  kind: string;
+  size: number;
+  modified: number;
+}
+
+export interface AssetListing {
+  folder: string;
+  folders: { name: string; path: string }[];
+  assets: Asset[];
+}
+
+/** A package's class and saved thumbnail; class is empty when the package has no thumbnail table. */
+export interface AssetPreview {
+  path: string;
+  class: string;
+  /** A `data:` URL, when an image is saved. */
+  image: string | null;
+  width: number;
+  height: number;
 }

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { Asset, AssetPreview, JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
@@ -13,8 +13,9 @@ import FileHistory from './FileHistory';
 import JobPanel from './JobPanel';
 import { MergeDialog, NewBranchDialog } from './BranchDialogs';
 import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
+import Assets, { AssetDetails, assetMarks } from './Assets';
 
-type Tab = 'history' | 'changes' | 'locks';
+type Tab = 'history' | 'assets' | 'changes' | 'locks';
 
 /** Before settings.json, the last working copy was kept here. */
 const LEGACY_KEY = 'tome.lastRepository';
@@ -67,6 +68,8 @@ export default function App() {
   const [changes, setChanges] = useState<{ id: string; data: RevisionChanges | null; error: string } | null>(null);
   const [diff, setDiff] = useState<{ title: string; files: DiffFile[]; patches: FilePatch[]; initial: string; note?: string } | null>(null);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
+  const [asset, setAsset] = useState<Asset | null>(null);
+  const [previews, setPreviews] = useState<Record<string, AssetPreview>>({});
 
   async function saveSettings(next: Settings) {
     setSettings(next);
@@ -112,7 +115,9 @@ export default function App() {
       setBranchName(result.status.branch_name);
       setSelected(result.history[0]?.id ?? null);
       setCommands(result.commands);
-      setTab('history');
+      setTab(base?.mode === 'artist' ? 'assets' : 'history');
+      setAsset(null);
+      setPreviews({});
       setLogMode('stack');
       if (base) {
         const recent = [where, ...base.recent.filter((p) => p !== where)].slice(0, RECENT_MAX);
@@ -128,7 +133,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       const loaded = await invoke<Settings>('load_settings').catch(() => null);
-      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {} };
+      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {}, mode: '' };
       let legacy: string | null = null;
       try {
         legacy = localStorage.getItem(LEGACY_KEY);
@@ -369,6 +374,16 @@ export default function App() {
     if (!overview) return;
     if (next === 'changes') void run<Status>('working_status', { offline: true }, setStatus);
     if (next === 'locks') void run<Lock[]>('lock_board', { branch: overview.status.branch_name }, setLocks);
+    if (next === 'assets') {
+      // Fresh marks for the cards, quietly (no busy state, no error for an offline server).
+      invoke<Done<Status>>('working_status', { path: path.trim(), offline: true }).then((d) => setStatus(d.value), () => {});
+      void refreshLocksQuietly(overview.status.branch_name);
+    }
+  }
+
+  function switchMode(mode: 'programmer' | 'artist') {
+    if (settings) void saveSettings({ ...settings, mode });
+    showTab(mode === 'artist' ? 'assets' : 'history');
   }
 
   async function openView() {
@@ -397,6 +412,8 @@ export default function App() {
   // Lore lists a branch once per location (local and remote): show each id once.
   const branches = (overview?.branches ?? []).filter((b, i, all) => !b.archived && all.findIndex((o) => o.id === b.id) === i);
   const changedCount = status ? status.files.filter((f) => !f.directory).length : 0;
+  const artist = settings?.mode === 'artist';
+  const marks = useMemo(() => assetMarks(status?.files ?? [], locks), [status, locks]);
 
   // The selected revision's changed files and diffs, loaded when it is selected.
   useEffect(() => {
@@ -485,6 +502,18 @@ export default function App() {
           </label>
           <button type="submit" disabled={busy}>{busy ? '작업 중…' : '열기'}</button>
         </form>
+        <div className="mode-switch" role="radiogroup" aria-label="화면 모드">
+          {(
+            [
+              ['programmer', '프로그래머'],
+              ['artist', '아티스트'],
+            ] as const
+          ).map(([id, label]) => (
+            <button key={id} role="radio" aria-checked={(id === 'artist') === artist} className={(id === 'artist') === artist ? 'active' : ''} onClick={() => switchMode(id)} disabled={!settings}>
+              {label}
+            </button>
+          ))}
+        </div>
         <ToolMenu set={toolSet} disabled={!settings} onRun={(entry) => startTool(entry, selectionFor({}))} onManage={() => setManaging(true)} />
         <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
         <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label="설정" title="설정">
@@ -589,7 +618,7 @@ export default function App() {
           <div className="tabs" role="tablist">
             {(
               [
-                ['history', 'Smartlog'],
+                artist ? ['assets', '에셋'] : ['history', 'Smartlog'],
                 ['changes', '변경'],
                 ['locks', '잠금'],
               ] as [Tab, string][]
@@ -624,6 +653,19 @@ export default function App() {
               onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
             />
           )}
+          {tab === 'assets' && status && (
+            <Assets
+              path={path.trim()}
+              marks={marks}
+              me={settings?.identity ?? ''}
+              selected={asset}
+              previews={previews}
+              onPreviews={(list) => setPreviews((p) => ({ ...p, ...Object.fromEntries(list.map((x) => [x.path, x])) }))}
+              onSelect={setAsset}
+              onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
+              onError={setError}
+            />
+          )}
           {tab === 'changes' && status && (
             <Changes
               status={status}
@@ -654,8 +696,24 @@ export default function App() {
           )}
         </section>
 
-        <aside className="pane details" aria-label="리비전 상세">
-          {revision ? (
+        <aside className="pane details" aria-label={tab === 'assets' ? '에셋 상세' : '리비전 상세'}>
+          {tab === 'assets' ? (
+            asset && status ? (
+              <AssetDetails
+                asset={asset}
+                preview={previews[asset.path]}
+                marks={marks}
+                me={settings?.identity ?? ''}
+                busy={busy}
+                online={watch?.on !== false}
+                onLock={(lock) => void run<Lock[]>('lock_files', { branch: status.branch_name, paths: [asset.path], lock }, setLocks)}
+                onHistory={() => setHistoryOf(asset.path)}
+                onChanges={() => showTab('changes')}
+              />
+            ) : (
+              <p className="muted">에셋을 고르세요</p>
+            )
+          ) : revision ? (
             <>
               <p className={isDraft(revision, status) ? 'state draft' : 'state'}>{isDraft(revision, status) ? 'draft · 미푸시' : 'public'}</p>
               <h2>r{revision.number}</h2>

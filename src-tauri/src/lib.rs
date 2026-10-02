@@ -456,6 +456,72 @@ async fn list_repositories(server: String) -> Result<Done<Vec<RemoteRepository>>
     .await
 }
 
+/// A package's class and thumbnail for the asset grid; the image is a `data:` URL.
+#[derive(Serialize, Clone)]
+struct AssetPreview {
+    path: String,
+    /// Empty when the package has no thumbnail table (maps, data assets, unreadable files).
+    class: String,
+    image: Option<String>,
+    width: i32,
+    height: i32,
+}
+
+/// Previews already read: file path -> (size, modified, preview). A changed file is read again.
+#[derive(Default)]
+struct Previews(std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, (u64, std::time::SystemTime, AssetPreview)>>);
+
+fn data_url(mime: &str, data: &[u8]) -> String {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut out = format!("data:{mime};base64,");
+    out.reserve(data.len().div_ceil(3) * 4);
+    for chunk in data.chunks(3) {
+        let n = chunk.iter().enumerate().fold(0u32, |n, (i, b)| n | (*b as u32) << (16 - 8 * i));
+        for i in 0..4 {
+            out.push(if i <= chunk.len() { ALPHABET[(n >> (18 - 6 * i) & 63) as usize] as char } else { '=' });
+        }
+    }
+    out
+}
+
+#[tauri::command]
+async fn list_assets(path: String, folder: String) -> Result<tome_core::assets::Listing, String> {
+    blocking(move || tome_core::assets::list(std::path::Path::new(path.trim()), &folder)).await
+}
+
+#[tauri::command]
+async fn asset_previews(app: tauri::AppHandle, path: String, files: Vec<String>) -> Result<Vec<AssetPreview>, String> {
+    blocking(move || {
+        let root = std::path::PathBuf::from(path.trim());
+        let previews = app.state::<Previews>();
+        Ok(files
+            .into_iter()
+            .filter_map(|file| {
+                let full = tome_core::assets::resolve(&root, &file)?;
+                let meta = std::fs::metadata(&full).ok()?;
+                let stamp = (meta.len(), meta.modified().ok()?);
+                if let Some((size, modified, preview)) = previews.0.lock().unwrap().get(&full)
+                    && (*size, *modified) == stamp
+                {
+                    return Some(preview.clone());
+                }
+                let found = tome_core::uasset::preview_file(&full);
+                let thumbnail = found.as_ref().and_then(|p| p.thumbnail.as_ref());
+                let preview = AssetPreview {
+                    path: file,
+                    class: found.as_ref().map(|p| p.class.clone()).unwrap_or_default(),
+                    image: thumbnail.map(|t| data_url(t.mime, &t.data)),
+                    width: thumbnail.map_or(0, |t| t.width),
+                    height: thumbnail.map_or(0, |t| t.height),
+                };
+                previews.0.lock().unwrap().insert(full, (stamp.0, stamp.1, preview.clone()));
+                Some(preview)
+            })
+            .collect())
+    })
+    .await
+}
+
 /// What TOME remembers between runs (`settings.json` in the app config folder).
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -473,6 +539,8 @@ struct Settings {
     tools: Vec<Tool>,
     /// Working copy root -> fingerprint of the `.tome/tools.json` content I trusted there.
     trusted_tools: std::collections::BTreeMap<String, String>,
+    /// `programmer` (history and branches first) or `artist` (assets with thumbnails first).
+    mode: String,
 }
 
 fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
@@ -595,6 +663,7 @@ pub fn run() {
     tauri::Builder::default()
         .manage(Watch::default())
         .manage(Jobs::default())
+        .manage(Previews::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_repository,
@@ -628,7 +697,9 @@ pub fn run() {
             trust_project_tools,
             save_project_tools,
             preview_tool,
-            run_tool
+            run_tool,
+            list_assets,
+            asset_previews
         ])
         .build(tauri::generate_context!())
         .expect("error while building TOME")
@@ -642,4 +713,16 @@ pub fn run() {
                 tome_core::ops::finish("");
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn data_urls_are_base64() {
+        assert_eq!(super::data_url("image/png", b""), "data:image/png;base64,");
+        assert_eq!(super::data_url("a", b"f"), "data:a;base64,Zg==");
+        assert_eq!(super::data_url("a", b"fo"), "data:a;base64,Zm8=");
+        assert_eq!(super::data_url("a", b"foo"), "data:a;base64,Zm9v");
+        assert_eq!(super::data_url("a", &[0xFF, 0xD8, 0xFF, 0xE0]), "data:a;base64,/9j/4A==");
+    }
 }

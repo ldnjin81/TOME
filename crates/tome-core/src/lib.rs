@@ -8,6 +8,7 @@
 
 use std::sync::mpsc;
 
+pub mod assets;
 pub mod graph;
 pub mod model;
 pub mod notify;

@@ -19,8 +19,16 @@ fn main() {
     }
     let (mut images, mut classes_only, mut none, mut unreadable) = (0, 0, 0, 0);
     let mut by_class: std::collections::BTreeMap<String, (u32, u32)> = Default::default();
+    let started = std::time::Instant::now();
+    let mut mismatched = 0;
     for file in &all {
+        // Partial reads must agree with reading the whole file.
+        let partial = tome_core::uasset::preview_file(file);
         let bytes = std::fs::read(file).unwrap_or_default();
+        if partial != tome_core::uasset::preview(&bytes) {
+            mismatched += 1;
+            println!("MISMATCH {}", file.display());
+        }
         let name = file.file_stem().unwrap().to_string_lossy().to_string();
         if tome_core::uasset::thumbnail_table_offset(&bytes).is_none() {
             unreadable += 1;
@@ -50,6 +58,12 @@ fn main() {
             None => none += 1,
         }
     }
+    println!("partial reads: {mismatched} mismatched; {:?} for all (with whole-file reads)", started.elapsed());
+    let started = std::time::Instant::now();
+    for file in &all {
+        tome_core::uasset::preview_file(file);
+    }
+    println!("partial reads only: {:?}", started.elapsed());
     println!("files {} | with image {images} | class only {classes_only} | no table {none} | unreadable {unreadable}", all.len());
     for (class, (count, with_image)) in by_class {
         println!("  {class}: {count} ({with_image} with image)");
