@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { AuthState, DiffFile, FilePatch, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
+import { MergeDialog, NewBranchDialog } from './BranchDialogs';
 import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 
 type Tab = 'history' | 'changes' | 'locks';
@@ -48,6 +49,10 @@ export default function App() {
   const [toolRun, setToolRun] = useState<{ name: string; running: boolean; output: ToolOutput | null; error: string } | null>(null);
   const [managing, setManaging] = useState(false);
   const [auth, setAuth] = useState<AuthState | null>(null);
+  const [newBranch, setNewBranch] = useState(false);
+  const [mergeFrom, setMergeFrom] = useState<string | null>(null);
+  /** "f → main" for the merge this window started; a merge found on open shows its revision. */
+  const [mergeLabel, setMergeLabel] = useState('');
   const [changes, setChanges] = useState<{ id: string; data: RevisionChanges | null; error: string } | null>(null);
   const [diff, setDiff] = useState<{ title: string; files: DiffFile[]; patches: FilePatch[]; initial: string; note?: string } | null>(null);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
@@ -278,6 +283,47 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [revision?.id, overview]);
 
+  /** After a branch is created or switched: everything shown depends on the branch. */
+  async function afterBranchChange() {
+    await open(path, offline);
+  }
+
+  async function createBranch(name: string, switchTo: boolean) {
+    setNewBranch(false);
+    await run<BranchState>('create_branch', { name, switch: switchTo }, () => void afterBranchChange());
+  }
+
+  async function switchTo(name: string) {
+    await run<BranchState>('switch_branch', { name }, () => void afterBranchChange());
+  }
+
+  async function mergeBranch(from: string, message: string) {
+    setMergeFrom(null);
+    const into = overview?.status.branch_name ?? '';
+    await run<Status>('merge_branch', { from, message }, (status) => {
+      if (status.merging) {
+        // Conflicts: settle them in the changes tab, then commit.
+        setMergeLabel(`${from} → ${into}`);
+        setStatus(status);
+        setTab('changes');
+      } else {
+        setMergeLabel('');
+        void refreshHistory(status);
+      }
+    });
+  }
+
+  function resolve(paths: string[], how: Resolution | null) {
+    void run<Status>('resolve_conflicts', { paths, how }, setStatus);
+  }
+
+  function abortMerge() {
+    void run<Status>('abort_merge', {}, (status) => {
+      setMergeLabel('');
+      void refreshHistory(status);
+    });
+  }
+
   async function showWorkingDiff(file: string) {
     try {
       const patches = await invoke<FilePatch[]>('working_patches', { path: path.trim(), files: [file] });
@@ -323,6 +369,14 @@ export default function App() {
       </header>
 
       {error && <div className="error" role="alert">{error}</div>}
+      {status?.merging && (
+        <div className="merge-bar" role="status">
+          병합 중 <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> · 미해결 충돌 {status.files.filter((f) => f.unresolved).length}개 ·{' '}
+          <button className="link" onClick={() => showTab('changes')}>
+            변경 탭에서 정하기
+          </button>
+        </div>
+      )}
       {settings?.setup_done && !settings.identity && (
         <div className="warn-bar" role="status">
           신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.{' '}
@@ -334,17 +388,35 @@ export default function App() {
 
       <main className="panes">
         <nav className="pane branches" aria-label="브랜치">
-          <h2>브랜치</h2>
+          <h2 className="branches-head">
+            브랜치
+            <button className="link" onClick={() => setNewBranch(true)} disabled={!overview || busy || !!status?.merging}>
+              + 새 브랜치
+            </button>
+          </h2>
           <ul>
-            {branches.map((b) => (
-              <li key={b.id}>
-                <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => showBranch(b)}>
-                  <span className="lane-dot" style={{ background: branchColor(b.id, status?.branch_id ?? '') }} />
-                  <span className="name">{b.name}</span>
-                  {b.current && <span className="badge">현재</span>}
-                </button>
-              </li>
-            ))}
+            {branches.map((b) => {
+              const current = b.name === status?.branch_name;
+              return (
+                <li key={b.id} className="branch-li">
+                  <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => showBranch(b)}>
+                    <span className="lane-dot" style={{ background: branchColor(b.id, status?.branch_id ?? '') }} />
+                    <span className="name">{b.name}</span>
+                    {current && <span className="badge">현재</span>}
+                  </button>
+                  {!current && (
+                    <span className="branch-actions">
+                      <button className="ghost small-btn" onClick={() => void switchTo(b.name)} disabled={busy || !!status?.merging} title={`${b.name}로 전환`}>
+                        전환
+                      </button>
+                      <button className="ghost small-btn" onClick={() => setMergeFrom(b.name)} disabled={busy || !!status?.merging} title={`${b.name}를 현재 브랜치에 병합`}>
+                        병합
+                      </button>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
           {status && (
             <section className="working">
@@ -430,6 +502,9 @@ export default function App() {
               onPush={() => void run<Status>('push', { branch: status.branch_name }, (s) => void refreshHistory(s))}
               onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
               onDiff={(file) => void showWorkingDiff(file)}
+              mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
+              onResolve={resolve}
+              onAbortMerge={abortMerge}
             />
           )}
           {tab === 'locks' && status && (
@@ -586,6 +661,14 @@ export default function App() {
           onTrust={trustProjectTools}
           onClose={() => setManaging(false)}
         />
+      )}
+
+      {newBranch && status && (
+        <NewBranchDialog from={status.branch_name} taken={branches.map((b) => b.name)} busy={busy} onCreate={(name, sw) => void createBranch(name, sw)} onClose={() => setNewBranch(false)} />
+      )}
+
+      {mergeFrom && status && (
+        <MergeDialog from={mergeFrom} into={status.branch_name} busy={busy} onMerge={(message) => void mergeBranch(mergeFrom, message)} onClose={() => setMergeFrom(null)} />
       )}
 
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}

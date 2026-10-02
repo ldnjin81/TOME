@@ -91,6 +91,18 @@ pub fn call<A>(function: extern "C" fn(&LoreGlobalArgs, &A, LoreEventCallbackCon
     result
 }
 
+/// How a conflicted file is settled.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Resolution {
+    /// Keep the current branch's version.
+    Mine,
+    /// Take the merged branch's version.
+    Theirs,
+    /// The file was edited by hand; take it as it is now.
+    Edited,
+}
+
 /// [`Repository::graph`]'s result.
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct Graph {
@@ -300,6 +312,27 @@ impl Repository {
             inherit_metadata: interface::LoreArray::default(),
         };
         call(interface::lore_branch_merge_start_async, &self.globals(), &args)
+    }
+
+    /// How to settle conflicted files of a merge in progress.
+    pub fn merge_resolve(&self, paths: &[String], how: Resolution) -> CallResult {
+        let paths = strings(paths);
+        match how {
+            Resolution::Mine => call(interface::lore_branch_merge_resolve_mine_async, &self.globals(), &lore::branch::LoreBranchMergeResolveMineArgs { paths }),
+            Resolution::Theirs => call(interface::lore_branch_merge_resolve_theirs_async, &self.globals(), &lore::branch::LoreBranchMergeResolveTheirsArgs { paths }),
+            Resolution::Edited => call(interface::lore_branch_merge_resolve_async, &self.globals(), &lore::branch::LoreBranchMergeResolveArgs { paths }),
+        }
+    }
+
+    /// Marks resolved files conflicted again.
+    pub fn merge_unresolve(&self, paths: &[String]) -> CallResult {
+        call(interface::lore_branch_merge_unresolve_async, &self.globals(), &lore::branch::LoreBranchMergeUnresolveArgs { paths: strings(paths) })
+    }
+
+    /// Gives up the merge in progress and returns to the branch as it was.
+    pub fn merge_abort(&self) -> CallResult {
+        let args = lore::branch::LoreBranchMergeAbortArgs { link: LoreString::default(), ignore_links: 0 };
+        call(interface::lore_branch_merge_abort_async, &self.globals(), &args)
     }
 
     /// The graph of every branch that is not archived: each branch's last `length` revisions,

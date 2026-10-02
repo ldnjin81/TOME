@@ -16,6 +16,9 @@ pub struct Status {
     pub remote_number: u64,
     pub local_ahead: bool,
     pub remote_ahead: bool,
+    /// The revision being merged in while a merge is in progress (conflicts to settle, then a
+    /// commit finishes it); empty otherwise.
+    pub merging: String,
     pub files: Vec<ChangedFile>,
 }
 
@@ -26,7 +29,13 @@ pub struct ChangedFile {
     pub directory: bool,
     pub action: String,
     pub staged: bool,
+    /// The file was part of a merge conflict (still true after it is settled, until the commit).
     pub conflict: bool,
+    /// The conflict is not settled yet.
+    pub unresolved: bool,
+    /// How a conflict was settled: "mine", "theirs", "auto" (merged on its own) or "edited";
+    /// empty when there was no conflict or it is not settled.
+    pub resolution: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -98,8 +107,18 @@ pub fn status(result: &CallResult) -> Option<Status> {
             action: file["action"].as_str().map(str::to_string).unwrap_or_else(|| file["action"].to_string()),
             staged: flag(&file["flagStaged"]),
             conflict: flag(&file["flagConflict"]),
+            unresolved: flag(&file["flagConflictUnresolved"]),
+            resolution: match () {
+                _ if !flag(&file["flagConflict"]) || flag(&file["flagConflictUnresolved"]) => "",
+                _ if flag(&file["flagConflictMine"]) => "mine",
+                _ if flag(&file["flagConflictTheirs"]) => "theirs",
+                _ if flag(&file["flagConflictAutomerged"]) => "auto",
+                _ => "edited",
+            }
+            .to_string(),
         })
         .collect();
+    let hash = |value: &Value| Some(text(value)).filter(|h| !h.is_empty() && h != NO_HASH).unwrap_or_default();
     Some(Status {
         branch_id: text(&revision["branch"]),
         branch_name: text(&revision["branchName"]),
@@ -108,6 +127,9 @@ pub fn status(result: &CallResult) -> Option<Status> {
         remote_number: revision["revisionRemoteNumber"].as_u64().unwrap_or(0),
         local_ahead: flag(&revision["isLocalAhead"]),
         remote_ahead: flag(&revision["isRemoteAhead"]),
+        // Lore keeps revisionMerged on the commit a merge made, too; a merge is only in progress
+        // while there is also a staged revision.
+        merging: if hash(&revision["revisionStaged"]).is_empty() { String::new() } else { hash(&revision["revisionMerged"]) },
         files,
     })
 }

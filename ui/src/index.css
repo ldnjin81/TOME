@@ -307,3 +307,25 @@ button.lrow:hover { background: var(--accent-soft); }
 .pl.del { background: color-mix(in srgb, #b0413e 16%, transparent); }
 .pl.hunk { color: var(--behind); }
 .pl.head, .pl.meta { color: var(--muted); }
+
+/* Branches and merges */
+.branches-head { display: flex; align-items: baseline; justify-content: space-between; }
+.branch-li { position: relative; }
+.branch-actions { position: absolute; right: 4px; top: 50%; transform: translateY(-50%); display: none; gap: 4px; }
+.branch-li:hover .branch-actions, .branch-li:focus-within .branch-actions { display: flex; }
+.branch-li:hover .item .badge { visibility: hidden; }
+.small-dialog { width: min(460px, calc(100vw - 32px)); padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.small-dialog::backdrop { background: rgb(0 0 0 / 0.4); }
+.small-dialog h2 { margin: 0 0 8px; font-size: 15px; }
+.small-dialog p { margin: 0 0 12px; line-height: 1.5; }
+.merge-bar { padding: 7px 16px; background: color-mix(in srgb, var(--behind) 14%, var(--surface)); border-bottom: 1px solid var(--behind); }
+.conflicts { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--behind); border-radius: 8px; }
+.conflicts h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 13px; }
+.conflicts h3 .danger { margin-left: auto; color: #b0413e; }
+.tag.conflict-tag { color: #b0413e; border-color: #b0413e; background: transparent; }
+.conflict-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-top: 1px solid var(--line); }
+.cstate { flex: none; width: 62px; font-size: 11.5px; color: var(--accent); }
+.cstate.open { color: #b0413e; font-weight: 600; }
+.conflict-row .file-path { flex: 1; min-width: 0; }
+.conflict-actions { display: flex; gap: 4px; flex: none; }
+.all-buttons { display: flex; gap: 14px; justify-content: flex-end; margin-top: 6px; }

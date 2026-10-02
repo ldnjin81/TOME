@@ -6,7 +6,12 @@ export interface ChangedFile {
   directory: boolean;
   action: string;
   staged: boolean;
+  /** Part of a merge conflict (true until the merge is committed). */
   conflict: boolean;
+  /** The conflict is not settled yet. */
+  unresolved: boolean;
+  /** How it was settled: mine, theirs, auto, edited; empty otherwise. */
+  resolution: string;
 }
 
 export interface Status {
@@ -17,6 +22,8 @@ export interface Status {
   remote_number: number;
   local_ahead: boolean;
   remote_ahead: boolean;
+  /** The revision being merged in while a merge is in progress; empty otherwise. */
+  merging: string;
   files: ChangedFile[];
 }
 
@@ -174,3 +181,10 @@ export interface RevisionChanges {
   patches: FilePatch[];
   first_revision: boolean;
 }
+
+export interface BranchState {
+  status: Status;
+  branches: Branch[];
+}
+
+export type Resolution = 'mine' | 'theirs' | 'edited';

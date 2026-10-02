@@ -5,7 +5,7 @@ use tauri::Manager;
 use tome_core::model::{self, Branch, Lock, RemoteRepository, Revision, Status};
 use tome_core::view::ViewChange;
 use tome_core::tools::{self, Selection, Tool};
-use tome_core::{CallResult, Repository};
+use tome_core::{CallResult, Repository, Resolution};
 
 /// A repository opened in the window: its working copy, branches and history.
 #[derive(Serialize)]
@@ -181,6 +181,99 @@ async fn apply_view(path: String, lines: Vec<String>) -> Result<Done<ViewChange>
             commands.push(format!("lore reset {}", args(&change.restored)));
         }
         Ok(Done { value: change, commands })
+    })
+    .await
+}
+
+/// The working copy and its branches after a branch command.
+#[derive(Serialize)]
+struct BranchState {
+    status: Status,
+    branches: Vec<Branch>,
+}
+
+fn branch_state(repository: &Repository) -> Result<BranchState, String> {
+    Ok(BranchState { status: scanned_status(repository)?, branches: model::branches(&checked(repository.branches())?) })
+}
+
+/// Lore's refusal to switch over local edits, in words that say what to do.
+fn explain(error: String) -> String {
+    if error.contains("Local modifications") {
+        "커밋하지 않은 변경이 있어 전환할 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.".into()
+    } else {
+        error
+    }
+}
+
+/// Creates `name` at the current revision, and switches to it when `switch` is set.
+#[tauri::command]
+async fn create_branch(path: String, name: String, switch: bool) -> Result<Done<BranchState>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        checked(repository.create_branch(&name))?;
+        let mut commands = vec![format!("lore branch create {}", arg(&name))];
+        if switch {
+            checked(repository.switch_branch(&name)).map_err(explain)?;
+            commands.push(format!("lore branch switch {}", arg(&name)));
+        }
+        Ok(Done { value: branch_state(&repository)?, commands })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn switch_branch(path: String, name: String) -> Result<Done<BranchState>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        checked(repository.switch_branch(&name)).map_err(explain)?;
+        Ok(Done { value: branch_state(&repository)?, commands: vec![format!("lore branch switch {}", arg(&name))] })
+    })
+    .await
+}
+
+/// Merges `from` into the current branch: commits on its own when nothing conflicts, otherwise
+/// leaves a merge in progress (status.merging) with the conflicted files to settle.
+#[tauri::command]
+async fn merge_branch(path: String, from: String, message: String) -> Result<Done<Status>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        checked(repository.merge_branch(&from, &message)).map_err(explain)?;
+        Ok(Done { value: scanned_status(&repository)?, commands: vec![format!("lore branch merge {} --message {}", arg(&from), arg(&message))] })
+    })
+    .await
+}
+
+/// Settles conflicted files (`how`: mine, theirs, edited) or, with `how` empty, marks them conflicted again.
+#[tauri::command]
+async fn resolve_conflicts(path: String, paths: Vec<String>, how: Option<Resolution>) -> Result<Done<Status>, String> {
+    blocking(move || {
+        let repository = repository(&path, true);
+        let command = match how {
+            Some(how) => {
+                checked(repository.merge_resolve(&paths, how))?;
+                let verb = match how {
+                    Resolution::Mine => "resolve-mine",
+                    Resolution::Theirs => "resolve-theirs",
+                    Resolution::Edited => "resolve",
+                };
+                format!("lore branch merge {verb} {}", args(&paths))
+            }
+            None => {
+                checked(repository.merge_unresolve(&paths))?;
+                format!("lore branch merge unresolve {}", args(&paths))
+            }
+        };
+        Ok(Done { value: scanned_status(&repository)?, commands: vec![command] })
+    })
+    .await
+}
+
+#[tauri::command]
+async fn abort_merge(path: String) -> Result<Done<Status>, String> {
+    blocking(move || {
+        let repository = repository(&path, true);
+        checked(repository.merge_abort())?;
+        Ok(Done { value: scanned_status(&repository)?, commands: vec!["lore branch merge abort".into()] })
     })
     .await
 }
@@ -417,6 +510,11 @@ pub fn run() {
             apply_view,
             list_repositories,
             graph,
+            create_branch,
+            switch_branch,
+            merge_branch,
+            resolve_conflicts,
+            abort_merge,
             revision_changes,
             working_patches,
             clone_repository,
