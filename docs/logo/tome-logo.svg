@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+  <title>TOME</title>
+  <!-- An open book seen from below: two covers rising, the page edges meeting at the spine. -->
+  <path d="M14 8 C17 25 18 45 19 62 C32 63 45 74 50 92 C55 78 70 70 83 70 C82 50 84 30 86 12"
+        stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

@@ -1,3 +1,5 @@
+<img src="docs/logo/tome-icon.png" width="96" alt="">
+
 # TOME
 
 **Track, Own, Merge, Explore — Lore용 데스크톱 클라이언트.**

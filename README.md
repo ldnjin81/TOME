@@ -1,3 +1,5 @@
+<img src="docs/logo/tome-icon.png" width="96" alt="">
+
 # TOME
 
 **Track, Own, Merge, Explore — a desktop client for Lore.**
