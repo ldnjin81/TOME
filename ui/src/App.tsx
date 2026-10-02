@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
-import type { Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, ViewChange } from './types';
+import type { Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
@@ -40,6 +41,11 @@ export default function App() {
   const [locks, setLocks] = useState<Lock[]>([]);
   const [graph, setGraph] = useState<Graph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
+  const [toolSet, setToolSet] = useState<ToolSet | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; title: string; context: ToolContext; selection: ToolSelection } | null>(null);
+  const [pending, setPending] = useState<{ entry: ToolEntry; selection: ToolSelection } | null>(null);
+  const [toolRun, setToolRun] = useState<{ name: string; running: boolean; output: ToolOutput | null; error: string } | null>(null);
+  const [managing, setManaging] = useState(false);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
 
   async function saveSettings(next: Settings) {
@@ -74,6 +80,7 @@ export default function App() {
       const result = await invoke<Overview>('open_repository', { path: where, offline: readOffline });
       setOverview(result);
       setGraph(null);
+      void loadTools(where);
       setHistory(result.history);
       setBranchName(result.status.branch_name);
       setSelected(result.history[0]?.id ?? null);
@@ -94,7 +101,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       const loaded = await invoke<Settings>('load_settings').catch(() => null);
-      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true };
+      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, tools: [], trusted_tools: {} };
       let legacy: string | null = null;
       try {
         legacy = localStorage.getItem(LEGACY_KEY);
@@ -104,12 +111,78 @@ export default function App() {
       if (legacy && !base.recent.includes(legacy)) base.recent = [legacy, ...base.recent];
       setSettings(base);
       setOffline(base.offline);
+      void loadTools('');
       if (!base.setup_done) setSetup(true);
       else if (base.recent[0]) void open(base.recent[0], base.offline, base);
     })();
     // Load settings once at start.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadTools(where = path) {
+    try {
+      setToolSet(await invoke<ToolSet>('list_tools', { path: where.trim() }));
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  /** Settings as the backend has them (trust is written there, never by the page). */
+  async function reloadSettings() {
+    const loaded = await invoke<Settings>('load_settings').catch(() => null);
+    if (loaded) setSettings(loaded);
+    return loaded;
+  }
+
+  function selectionFor(partial: Partial<ToolSelection>): ToolSelection {
+    return { files: [], revision: '', revision_number: 0, branch: overview?.status.branch_name ?? '', answer: '', ...partial };
+  }
+
+  function openMenu(e: React.MouseEvent, context: ToolContext, title: string, selection: ToolSelection) {
+    e.preventDefault();
+    setMenu({ x: e.clientX, y: e.clientY, title, context, selection });
+  }
+
+  function startTool(entry: ToolEntry, selection: ToolSelection) {
+    if (entry.tool.prompt || entry.tool.confirm) setPending({ entry, selection });
+    else void runTool(entry, selection);
+  }
+
+  async function runTool(entry: ToolEntry, selection: ToolSelection) {
+    const tool = entry.tool;
+    setToolRun({ name: tool.name, running: true, output: null, error: '' });
+    try {
+      const output = await invoke<ToolOutput>('run_tool', { path: path.trim(), project: entry.project, id: tool.id, selection });
+      setToolRun({ name: tool.name, running: false, output, error: '' });
+      setCommands([output.command]);
+      if (tool.refresh) void run<Status>('working_status', { offline: true }, setStatus);
+    } catch (e) {
+      setToolRun({ name: tool.name, running: false, output: null, error: String(e) });
+    }
+  }
+
+  async function savePersonalTools(tools: Tool[]) {
+    const current = (await reloadSettings()) ?? settings;
+    if (!current) return;
+    await saveSettings({ ...current, tools });
+    await loadTools();
+  }
+
+  async function saveProjectTools(tools: Tool[]) {
+    await invoke('save_project_tools', { path: path.trim(), tools });
+    await reloadSettings();
+    await loadTools();
+  }
+
+  async function trustProjectTools() {
+    try {
+      await invoke('trust_project_tools', { path: path.trim() });
+      await reloadSettings();
+      await loadTools();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
 
   /** Every branch in lanes; loaded when the full graph is first shown, and after changes. */
   async function loadGraph(where = path) {
@@ -213,6 +286,7 @@ export default function App() {
           </label>
           <button type="submit" disabled={busy}>{busy ? '작업 중…' : '열기'}</button>
         </form>
+        <ToolMenu set={toolSet} disabled={!settings} onRun={(entry) => startTool(entry, selectionFor({}))} onManage={() => setManaging(true)} />
         <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
         <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label="설정" title="설정">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -288,6 +362,7 @@ export default function App() {
               onSelect={setSelected}
               onCommit={() => showTab('changes')}
               onSync={() => void run<Status>('sync', {}, (s) => void refreshHistory(s))}
+              onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
             />
           )}
           {tab === 'changes' && status && (
@@ -298,6 +373,7 @@ export default function App() {
               onStage={(paths, stage) => void run<Status>('stage_files', { paths, stage }, setStatus)}
               onCommit={(message, push) => run<Status>('commit', { message, push }, (s) => void refreshHistory(s))}
               onPush={() => void run<Status>('push', { branch: status.branch_name }, (s) => void refreshHistory(s))}
+              onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
             />
           )}
           {tab === 'locks' && status && (
@@ -307,6 +383,7 @@ export default function App() {
               busy={busy}
               onRefresh={() => void run<Lock[]>('lock_board', { branch: status.branch_name }, setLocks)}
               onLock={(paths, lock) => void run<Lock[]>('lock_files', { branch: status.branch_name, paths, lock }, setLocks)}
+              onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
             />
           )}
         </section>
@@ -376,6 +453,44 @@ export default function App() {
           }}
         />
       )}
+
+      {menu && (
+        <ContextMenu
+          x={menu.x}
+          y={menu.y}
+          title={menu.title}
+          entries={toolsFor(toolSet, menu.context)}
+          onRun={(entry) => startTool(entry, menu.selection)}
+          onClose={() => setMenu(null)}
+        />
+      )}
+
+      {pending && (
+        <RunDialog
+          path={path.trim()}
+          entry={pending.entry}
+          selection={pending.selection}
+          onRun={(answer) => {
+            const { entry, selection } = pending;
+            setPending(null);
+            void runTool(entry, { ...selection, answer });
+          }}
+          onCancel={() => setPending(null)}
+        />
+      )}
+
+      {managing && toolSet && (
+        <ToolManager
+          set={toolSet}
+          path={overview ? path.trim() : ''}
+          onSavePersonal={savePersonalTools}
+          onSaveProject={saveProjectTools}
+          onTrust={trustProjectTools}
+          onClose={() => setManaging(false)}
+        />
+      )}
+
+      {toolRun && <OutputPanel {...toolRun} onClose={() => setToolRun(null)} />}
 
       <footer className="statusbar" aria-label="실행한 Lore 명령">
         {commands.map((c) => (

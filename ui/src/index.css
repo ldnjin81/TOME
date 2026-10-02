@@ -218,3 +218,51 @@ button.lrow:hover { background: var(--accent-soft); }
 .rev-meta.inline { flex: none; font-variant-numeric: tabular-nums; }
 .tag.head { background: transparent; font-weight: 600; }
 .note-line { margin: 0 4px 8px; font-size: 12.5px; }
+
+/* Custom tools */
+.menu-anchor { position: relative; flex: none; }
+.menu { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 240px; max-width: 360px; padding: 4px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); box-shadow: 0 8px 24px rgb(0 0 0 / 0.25); }
+.menu.floating { position: fixed; right: auto; }
+.menu-title { margin: 4px 8px 6px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu-item { display: flex; align-items: center; gap: 8px; width: 100%; padding: 7px 10px; border: 0; border-radius: 5px; background: none; text-align: left; cursor: pointer; }
+.menu-item:hover:not(:disabled) { background: var(--accent-soft); }
+.menu-tag { margin-left: auto; color: var(--muted); font-size: 11px; }
+.menu-empty { margin: 6px 10px; color: var(--muted); font-size: 12.5px; }
+.menu-sep { height: 1px; margin: 4px 0; background: var(--line); }
+.run-dialog { width: min(560px, calc(100vw - 32px)); padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
+.run-dialog::backdrop, .tool-manager::backdrop { background: rgb(0 0 0 / 0.4); }
+.run-dialog h2 { margin: 0 0 12px; font-size: 15px; }
+.command-preview { margin: 4px 0 14px; padding: 8px 10px; border-radius: 6px; background: var(--ground); white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; }
+.field { display: grid; gap: 4px; margin: 0 0 10px; border: 0; padding: 0; }
+.field > span:first-child, .field legend { color: var(--muted); font-size: 12.5px; }
+.field input, .field select { padding: 7px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); font: inherit; }
+.field .mono { font-size: 12.5px; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 10px; }
+.output-panel { border-top: 1px solid var(--line); background: var(--surface); }
+.output-panel header { display: flex; align-items: center; gap: 12px; padding: 6px 16px; }
+.out-status { color: var(--accent); font-size: 12.5px; }
+.out-status.bad { color: #b0413e; }
+.out-command { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.small-btn { padding: 3px 10px; font-size: 12px; }
+.out-text { max-height: 200px; margin: 0; padding: 8px 16px 10px; overflow: auto; white-space: pre-wrap; font-family: "JetBrains Mono", "Menlo", "Consolas", monospace; font-size: 12px; }
+.tool-manager { width: min(860px, calc(100vw - 32px)); height: min(640px, calc(100vh - 48px)); padding: 18px 20px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); }
+.tool-manager[open] { display: flex; flex-direction: column; }
+.tm-head { display: flex; align-items: center; gap: 16px; margin-bottom: 10px; }
+.tm-head h2 { margin: 0; font-size: 16px; }
+.tm-note p { margin: 0 0 8px; font-size: 12.5px; line-height: 1.5; }
+.trust-box { margin-bottom: 10px; padding: 10px 12px; border: 1px solid var(--ahead); border-radius: 8px; }
+.trust-box ul { margin: 6px 0 10px; padding-left: 18px; font-size: 12px; max-height: 120px; overflow: auto; }
+.tm-body { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px 1fr; gap: 16px; }
+.tm-list { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); padding-right: 12px; }
+.tm-list ul { flex: 1; overflow: auto; list-style: none; margin: 0; padding: 0; }
+.tm-item { display: block; width: 100%; padding: 6px 8px; border: 0; border-radius: 5px; background: none; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tm-item:hover { background: var(--accent-soft); }
+.tm-item.active { background: var(--accent); color: #fff; }
+.tm-list-buttons { display: flex; gap: 6px; padding-top: 8px; }
+.tm-list-buttons .ghost { padding: 5px 9px; font-size: 12.5px; }
+.tm-form { min-height: 0; overflow: auto; padding-right: 4px; }
+.tm-empty { align-self: center; justify-self: center; }
+.vars { margin: 6px 0; font-size: 12.5px; }
+.vars dl { display: grid; gap: 3px; margin: 8px 0; }
+.vars dl > div { display: grid; grid-template-columns: 70px 1fr; }
+.vars dd { margin: 0; color: var(--muted); }

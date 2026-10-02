@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tome_core::model::{self, Branch, Lock, RemoteRepository, Revision, Status};
 use tome_core::view::ViewChange;
+use tome_core::tools::{self, Selection, Tool};
 use tome_core::{CallResult, Repository};
 
 /// A repository opened in the window: its working copy, branches and history.
@@ -232,17 +233,98 @@ struct Settings {
     /// Working copies opened, most recent first.
     recent: Vec<String>,
     offline: bool,
+    /// My own custom tools.
+    tools: Vec<Tool>,
+    /// Working copy root -> fingerprint of the `.tome/tools.json` content I trusted there.
+    trusted_tools: std::collections::BTreeMap<String, String>,
 }
 
 fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
     Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("settings.json"))
 }
 
-#[tauri::command]
-fn load_settings(app: tauri::AppHandle) -> Result<Settings, String> {
-    let path = settings_path(&app)?;
+fn read_settings(app: &tauri::AppHandle) -> Result<Settings, String> {
+    let path = settings_path(app)?;
     Ok(std::fs::read_to_string(path).ok().and_then(|text| serde_json::from_str(&text).ok()).unwrap_or_default())
 }
+
+/// The tools for a working copy: mine, and the project's from `.tome/tools.json` with whether
+/// I trusted its current content.
+#[derive(Serialize)]
+struct ToolSet {
+    personal: Vec<Tool>,
+    project: Vec<Tool>,
+    /// `.tome/tools.json` exists but cannot be read.
+    project_error: String,
+    project_trusted: bool,
+}
+
+#[tauri::command]
+fn list_tools(app: tauri::AppHandle, path: String) -> Result<ToolSet, String> {
+    let settings = read_settings(&app)?;
+    if path.trim().is_empty() {
+        // No working copy open: only my own tools (never a relative .tome/tools.json).
+        return Ok(ToolSet { personal: settings.tools, project: Vec::new(), project_error: String::new(), project_trusted: false });
+    }
+    let root = std::path::Path::new(&path);
+    let (project, project_error) = match tools::read_project(root) {
+        Ok(project) => (project, String::new()),
+        Err(error) => (Vec::new(), error),
+    };
+    let print = tools::fingerprint(root);
+    let project_trusted = !print.is_empty() && settings.trusted_tools.get(&path) == Some(&print);
+    Ok(ToolSet { personal: settings.tools, project, project_error, project_trusted })
+}
+
+/// Trusts the project tools file as it is now (after the user has read it).
+#[tauri::command]
+fn trust_project_tools(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    let mut settings = read_settings(&app)?;
+    let print = tools::fingerprint(std::path::Path::new(&path));
+    if print.is_empty() {
+        return Err(".tome/tools.json이 없습니다".into());
+    }
+    settings.trusted_tools.insert(path, print);
+    save_settings(app, settings)
+}
+
+/// Writes `.tome/tools.json` (to commit and share it) and trusts what I wrote.
+#[tauri::command]
+fn save_project_tools(app: tauri::AppHandle, path: String, tools: Vec<Tool>) -> Result<(), String> {
+    tools::write_project(std::path::Path::new(&path), &tools)?;
+    trust_project_tools(app, path)
+}
+
+/// Finds the tool by id where it lives (never trusting a tool sent by the page): a project
+/// tool runs only while the file's content is the one I trusted (see `tools::find`).
+fn find_tool(app: &tauri::AppHandle, path: &str, project: bool, id: &str) -> Result<Tool, String> {
+    let settings = read_settings(app)?;
+    let trusted = settings.trusted_tools.get(path).map(String::as_str);
+    tools::find(&settings.tools, std::path::Path::new(path), trusted, project, id)
+}
+
+/// The command line a tool would run, for the confirmation dialog.
+#[tauri::command]
+fn preview_tool(app: tauri::AppHandle, path: String, project: bool, id: String, selection: Selection) -> Result<String, String> {
+    let tool = find_tool(&app, &path, project, &id)?;
+    Ok(tools::expand(&tool, std::path::Path::new(&path), &selection)?.display())
+}
+
+#[tauri::command]
+async fn run_tool(app: tauri::AppHandle, path: String, project: bool, id: String, selection: Selection) -> Result<tools::Output, String> {
+    let tool = find_tool(&app, &path, project, &id)?;
+    blocking(move || {
+        let invocation = tools::expand(&tool, std::path::Path::new(&path), &selection)?;
+        tools::run(&invocation, tool.run)
+    })
+    .await
+}
+
+#[tauri::command]
+fn load_settings(app: tauri::AppHandle) -> Result<Settings, String> {
+    read_settings(&app)
+}
+
 
 #[tauri::command]
 fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String> {
@@ -272,7 +354,12 @@ pub fn run() {
             clone_repository,
             sync,
             load_settings,
-            save_settings
+            save_settings,
+            list_tools,
+            trust_project_tools,
+            save_project_tools,
+            preview_tool,
+            run_tool
         ])
         .run(tauri::generate_context!())
         .expect("error while running TOME");

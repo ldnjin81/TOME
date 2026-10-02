@@ -7,6 +7,7 @@ interface Props {
   busy: boolean;
   onRefresh: () => void;
   onLock: (paths: string[], lock: boolean) => void;
+  onContext: (e: React.MouseEvent, files: string[]) => void;
 }
 
 function formatTime(ms: number) {
@@ -14,7 +15,7 @@ function formatTime(ms: number) {
 }
 
 /** Every lock on the branch: who is working on which file. */
-export default function LockBoard({ branch, locks, busy, onRefresh, onLock }: Props) {
+export default function LockBoard({ branch, locks, busy, onRefresh, onLock, onContext }: Props) {
   const [filter, setFilter] = useState('');
   const [newPath, setNewPath] = useState('');
   const needle = filter.trim().toLowerCase();
@@ -46,7 +47,7 @@ export default function LockBoard({ branch, locks, busy, onRefresh, onLock }: Pr
             </thead>
             <tbody>
               {shown.map((l) => (
-                <tr key={l.path}>
+                <tr key={l.path} onContextMenu={(e) => onContext(e, [l.path])}>
                   <td className="mono">{l.path}</td>
                   <td>{l.owner}</td>
                   <td className="time">{formatTime(l.locked_at)}</td>

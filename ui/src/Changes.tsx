@@ -10,12 +10,14 @@ interface Props {
   onStage: (paths: string[], stage: boolean) => void;
   onCommit: (message: string, push: boolean) => Promise<boolean>;
   onPush: () => void;
+  /** Right-click on a file: the custom tools menu. */
+  onContext: (e: React.MouseEvent, files: string[]) => void;
 }
 
-function FileRow({ file, onToggle, busy }: { file: ChangedFile; onToggle: () => void; busy: boolean }) {
+function FileRow({ file, onToggle, busy, onContext }: { file: ChangedFile; onToggle: () => void; busy: boolean; onContext: (e: React.MouseEvent, files: string[]) => void }) {
   return (
     <li>
-      <button className="file-row" onClick={onToggle} disabled={busy} title={file.staged ? '스테이징 해제' : '스테이징'}>
+      <button className="file-row" onClick={onToggle} onContextMenu={(e) => onContext(e, [file.path])} disabled={busy} title={file.staged ? '스테이징 해제' : '스테이징'}>
         <span className={`action ${file.action}`}>{ACTION_LABEL[file.action] ?? file.action}</span>
         <span className="file-path mono">{file.path}</span>
         {file.conflict && <span className="badge conflict">충돌</span>}
@@ -26,7 +28,7 @@ function FileRow({ file, onToggle, busy }: { file: ChangedFile; onToggle: () => 
 }
 
 /** The working copy's changes: stage, commit, push. */
-export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush }: Props) {
+export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext }: Props) {
   const [message, setMessage] = useState('');
   const files = status.files.filter((f) => !f.directory);
   const staged = files.filter((f) => f.staged);
@@ -54,7 +56,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
           )}
         </h3>
         <ul className="file-list">
-          {staged.map((f) => <FileRow key={f.path} file={f} busy={busy} onToggle={() => onStage([f.path], false)} />)}
+          {staged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onToggle={() => onStage([f.path], false)} />)}
         </ul>
       </section>
 
@@ -69,7 +71,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
           <p className="muted">변경 없음</p>
         ) : (
           <ul className="file-list">
-            {unstaged.map((f) => <FileRow key={f.path} file={f} busy={busy} onToggle={() => onStage([f.path], true)} />)}
+            {unstaged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onToggle={() => onStage([f.path], true)} />)}
           </ul>
         )}
       </section>

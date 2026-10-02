@@ -77,6 +77,49 @@ export interface Settings {
   server: string;
   recent: string[];
   offline: boolean;
+  /** My own custom tools. */
+  tools: Tool[];
+  /** Working copy root -> fingerprint of the trusted .tome/tools.json (written by the backend). */
+  trusted_tools: Record<string, string>;
+}
+
+/** Custom tools (crates/tome-core/src/tools.rs). */
+export type ToolContext = 'repository' | 'file' | 'revision';
+export type RunMode = 'capture' | 'terminal' | 'detached';
+
+export interface Tool {
+  id: string;
+  name: string;
+  program: string;
+  args: string;
+  cwd: string;
+  contexts: ToolContext[];
+  run: RunMode;
+  prompt: string;
+  confirm: boolean;
+  refresh: boolean;
+}
+
+export interface ToolSet {
+  personal: Tool[];
+  project: Tool[];
+  project_error: string;
+  project_trusted: boolean;
+}
+
+export interface ToolSelection {
+  files: string[];
+  revision: string;
+  revision_number: number;
+  branch: string;
+  answer: string;
+}
+
+export interface ToolOutput {
+  command: string;
+  exit_code: number | null;
+  stdout: string;
+  stderr: string;
 }
 
 /** A line inside one graph row (crates/tome-core/src/graph.rs). */

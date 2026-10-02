@@ -63,9 +63,11 @@ interface Props {
   onSelect: (id: string) => void;
   onCommit: () => void;
   onSync: () => void;
+  /** Right-click on a revision: the custom tools menu. */
+  onContext: (e: React.MouseEvent, revision: Revision) => void;
 }
 
-export default function Smartlog({ status, history, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync }: Props) {
+export default function Smartlog({ status, history, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext }: Props) {
   // The stack is always the working copy's branch; the graph shows every branch.
   const shown = mode;
 
@@ -83,9 +85,9 @@ export default function Smartlog({ status, history, graph, branches, selected, m
         <span className="muted">{shown === 'stack' ? status.branch_name : '모든 브랜치'}</span>
       </div>
       {shown === 'stack' ? (
-        <Stack status={status} history={history} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} />
+        <Stack status={status} history={history} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} />
       ) : (
-        <GraphView status={status} graph={graph} branches={branches} selected={selected} onSelect={onSelect} />
+        <GraphView status={status} graph={graph} branches={branches} selected={selected} onSelect={onSelect} onContext={onContext} />
       )}
     </div>
   );
@@ -116,6 +118,7 @@ function Stack({
   onCommit,
   onSync,
   onAll,
+  onContext,
 }: {
   status: Status;
   history: Revision[];
@@ -125,6 +128,7 @@ function Stack({
   onCommit: () => void;
   onSync: () => void;
   onAll: () => void;
+  onContext: (e: React.MouseEvent, revision: Revision) => void;
 }) {
   const drafts = history.filter((r) => isDraft(r, status));
   const base = history.find((r) => !isDraft(r, status));
@@ -171,7 +175,7 @@ function Stack({
 
       {drafts.map((r, i) => (
         <li key={r.id}>
-          <button className={r.id === selected ? 'lrow draft active' : 'lrow draft'} onClick={() => onSelect(r.id)}>
+          <button className={r.id === selected ? 'lrow draft active' : 'lrow draft'} onClick={() => onSelect(r.id)} onContextMenu={(e) => onContext(e, r)}>
             <Lanes cells={[{ top: remote ? 'dotted' : null }, { top: i === 0 && !wip ? null : 'stack', node: i === 0 ? 'head' : 'draft', bottom: 'stack' }]} />
             <RevisionText revision={r} draft tags={i === 0 && <span className="tag">작업 중</span>} />
           </button>
@@ -180,7 +184,7 @@ function Stack({
 
       {base && (
         <li>
-          <button className={base.id === selected ? 'lrow active' : 'lrow'} onClick={() => onSelect(base.id)}>
+          <button className={base.id === selected ? 'lrow active' : 'lrow'} onClick={() => onSelect(base.id)} onContextMenu={(e) => onContext(e, base)}>
             <Lanes cells={[{ top: remote ? 'dotted' : null, node: 'public', bottom: older ? 'dotted' : null }, {}]} join={stack ? 'stack' : undefined} />
             <RevisionText
               revision={base}
@@ -256,7 +260,7 @@ function RowGraph({ row, width, color, draft }: { row: GraphRow; width: number; 
 }
 
 /** Every branch, laid out in lanes by tome-core (graph.rs). */
-function GraphView({ status, graph, branches, selected, onSelect }: { status: Status; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void }) {
+function GraphView({ status, graph, branches, selected, onSelect, onContext }: { status: Status; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void; onContext: (e: React.MouseEvent, revision: Revision) => void }) {
   if (!graph) return <p className="muted empty">그래프를 불러오는 중…</p>;
   // A revision without a branch id (some merges) takes its child's, so a lane keeps one color.
   const branchOf = new Map<string, string>();
@@ -280,7 +284,7 @@ function GraphView({ status, graph, branches, selected, onSelect }: { status: St
           const tint = branchColor(branchOf.get(r.id) ?? '', status.branch_id);
           return (
             <li key={r.id}>
-              <button className={r.id === selected ? 'grow active' : 'grow'} onClick={() => onSelect(r.id)}>
+              <button className={r.id === selected ? 'grow active' : 'grow'} onClick={() => onSelect(r.id)} onContextMenu={(e) => onContext(e, r)}>
                 <RowGraph row={row} width={width} color={color} draft={draft} />
                 <span className="rev-title">
                   <span className={draft ? 'rev-no draft' : 'rev-no'}>r{r.number}</span>

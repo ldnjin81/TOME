@@ -10,6 +10,7 @@ use std::sync::mpsc;
 
 pub mod graph;
 pub mod model;
+pub mod tools;
 pub mod view;
 
 pub use lore::interface;
