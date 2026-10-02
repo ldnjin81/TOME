@@ -135,9 +135,17 @@ pub enum Line {
     Done { status: i32, error: String },
 }
 
-/// Worker mode: runs the job given as JSON and prints one [`Line`] per line (JSON) on stdout.
-/// Returns the process exit code.
+/// Worker mode: runs the job given as JSON (or `@<file>` holding it) and prints one [`Line`]
+/// per line (JSON) on stdout. Returns the process exit code.
 pub fn worker_main(job_json: &str) -> i32 {
+    let from_file;
+    let job_json = match job_json.strip_prefix('@') {
+        Some(file) => {
+            from_file = std::fs::read_to_string(file).unwrap_or_default();
+            from_file.as_str()
+        }
+        None => job_json,
+    };
     use std::io::Write;
     let print = |line: &Line| {
         let mut out = std::io::stdout().lock();
