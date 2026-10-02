@@ -1,0 +1,10 @@
+[package]
+name = "tome-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lore = { workspace = true }
+serde_json = "1"
+serde = { version = "1", features = ["derive"] }

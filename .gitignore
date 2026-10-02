@@ -10,3 +10,4 @@ src-tauri/gen/
 .idea/
 .vscode/
 *.log
+ui/dist/

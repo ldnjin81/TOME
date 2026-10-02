@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["crates/tome-core", "src-tauri"]
+exclude = ["third_party"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "UNLICENSED"
+
+[workspace.dependencies]
+# Lore at the tag in third_party/lore (git submodule). Its C API (`lore::interface`,
+# the functions in lore-capi/lore.h) is called in-process.
+lore = { path = "third_party/lore/lore" }
+
+# Lore's own patches, needed to build it the way it is tested.
+[patch.crates-io]
+quinn-proto = { path = "third_party/lore/vendor/quinn-proto" }
+glob-match = { path = "third_party/lore/vendor/glob-match" }

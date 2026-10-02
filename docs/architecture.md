@@ -44,9 +44,11 @@
 
 ## 2. Lore 연동 방식
 
-- **C API가 계약이다.** `lore-capi`는 Rust 크레이트 `lore`를 감싼 공개 C 인터페이스이고, 모든 함수가 `lore_*_async(globals, args, callback)` 형태다. 결과는 `lore_event_t` 스트림으로 온다(진행, 파일 하나씩, `COMPLETE`, `END`).
-- Rust 크레이트 `lore`를 직접 쓰지 않는 이유: `publish = false`인 내부 크레이트라 API가 예고 없이 바뀔 수 있다. C API는 cbindgen으로 생성되는 문서화된 경계다.
-- 의존 방식: Lore 저장소를 git 태그(`v0.10.x`)로 고정하고 `lore-capi`를 staticlib로 빌드해 링크한다. 바인딩은 `bindgen`으로 `lore.h`에서 생성한다. Lore 버전을 올리는 일은 태그 하나를 바꾸고 바인딩을 다시 만드는 일이다.
+- **C API가 계약이다.** 모든 함수가 `lore_*_async(globals, args, callback)` 형태이고, 결과는 `lore_event_t` 스트림으로 온다(진행, 파일 하나씩, `COMPLETE`, `END`). TOME은 Lore 내부 함수가 아니라 이 함수들만 부른다.
+- **연결 방식(구현됨):** Lore를 git 서브모듈 `third_party/lore`로 태그 `v0.10.0`에 고정한다. 이 태그에서는 C API 함수가 `lore` 크레이트의 `lore::interface` 모듈에 `#[no_mangle] pub extern "C"`로 들어 있고 크레이트가 rlib로도 빌드되므로, `tome-core`가 Rust 의존성으로 **정적 링크**해 그 함수를 직접 부른다. bindgen·DLL이 필요 없고, `#[repr(C)]` 인자 구조체를 그대로 쓴다.
+- Lore를 우리 워크스페이스에서 빌드하려면 Lore와 같은 설정이 필요하다: `[patch.crates-io]`의 `quinn-proto`·`glob-match`(Lore `vendor/`), rustflags `--cfg tokio_unstable --cfg uuid_unstable`, 그리고 Lore의 `Cargo.lock`을 출발점으로 쓴다.
+- **주의:** Lore `main`에서는 C API가 별도 크레이트 `lore-capi`(cdylib·staticlib 전용)로 옮겨졌다. 다음 태그로 올릴 때는 그 크레이트를 정적 라이브러리로 빌드해 `lore.h` 바인딩으로 링크하는 방식으로 바꿔야 한다(계약은 같은 C API라 `tome-core`의 호출부는 그대로다).
+- 콜백은 Lore 워커 스레드에서 오고 이벤트 데이터는 콜백이 끝나면 무효가 되므로, `tome-core::call`이 이벤트를 즉시 JSON으로 복사(Lore가 제공하는 serde 형식)해 채널로 넘긴다.
 
 ## 3. 코어 레이어(`tome-core`)
 
