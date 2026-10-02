@@ -5,7 +5,7 @@ use tauri::{Emitter, Manager};
 use tome_core::model::{self, Branch, Lock, RemoteRepository, Revision, Status};
 use tome_core::view::ViewChange;
 use tome_core::tools::{self, Selection, Tool};
-use tome_core::{CallResult, Repository, Resolution};
+use tome_core::{CallResult, Repository, Resolution, restack};
 
 /// A repository opened in the window: its working copy, branches and history.
 #[derive(Serialize)]
@@ -376,6 +376,147 @@ async fn abort_merge(path: String) -> Result<Done<Status>, String> {
     .await
 }
 
+/// A restack stopped at a conflict, kept in `restacks.json` (working copy -> this) so it can be
+/// continued or aborted after TOME restarts.
+#[derive(Serialize, Deserialize, Clone)]
+struct PendingRestack {
+    plan: restack::Plan,
+    /// The pick that stopped on a conflict.
+    index: usize,
+    files: Vec<String>,
+}
+
+fn restacks_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(app.path().app_config_dir().map_err(|e| e.to_string())?.join("restacks.json"))
+}
+
+fn read_restacks(app: &tauri::AppHandle) -> std::collections::BTreeMap<String, PendingRestack> {
+    restacks_path(app).ok().and_then(|p| std::fs::read_to_string(p).ok()).and_then(|t| serde_json::from_str(&t).ok()).unwrap_or_default()
+}
+
+fn write_pending(app: &tauri::AppHandle, path: &str, pending: Option<PendingRestack>) -> Result<(), String> {
+    let mut all = read_restacks(app);
+    match pending {
+        Some(p) => all.insert(path.to_string(), p),
+        None => all.remove(path),
+    };
+    let file = restacks_path(app)?;
+    std::fs::create_dir_all(file.parent().unwrap()).map_err(|e| e.to_string())?;
+    std::fs::write(file, serde_json::to_string_pretty(&all).map_err(|e| e.to_string())?).map_err(|e| e.to_string())
+}
+
+/// Where a restack run ended, with the status after it.
+#[derive(Serialize)]
+struct RestackOutcome {
+    step: restack::Step,
+    status: Status,
+}
+
+fn restack_outcome(app: &tauri::AppHandle, path: &str, repository: &Repository, plan: &restack::Plan, step: restack::Step) -> Result<RestackOutcome, String> {
+    let pending = match &step {
+        restack::Step::Conflict { index, files } => Some(PendingRestack { plan: plan.clone(), index: *index, files: files.clone() }),
+        restack::Step::Done { .. } => None,
+    };
+    write_pending(app, path, pending)?;
+    Ok(RestackOutcome { step, status: scanned_status(repository)? })
+}
+
+fn pick_commands(plan: &restack::Plan, from: usize) -> Vec<String> {
+    plan.picks.iter().skip(from).map(|p| format!("lore revision cherry-pick {} --message {}", &p.id[..p.id.len().min(12)], arg(&p.message))).collect()
+}
+
+/// My stack against the server (reads the server's history).
+#[tauri::command]
+async fn stack_info(path: String) -> Result<restack::Stack, String> {
+    blocking(move || repository(&path, false).stack()).await
+}
+
+/// Which files each pick of `plan` may conflict on, and others' locks on them.
+#[tauri::command]
+async fn restack_preview(path: String, plan: restack::Plan, old_base: String, old_order: Vec<String>) -> Result<restack::Preview, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        let branch = model::status(&repository.status()).map(|s| s.branch_name).unwrap_or_default();
+        let locks: Vec<(String, String)> = model::locks(&repository.locks(&branch)).into_iter().map(|l| (l.path, l.owner)).collect();
+        restack::preview(&repository, &plan, &old_base, &old_order, &locks, &identity())
+    })
+    .await
+}
+
+#[tauri::command]
+async fn restack_start(app: tauri::AppHandle, path: String, plan: restack::Plan) -> Result<Done<RestackOutcome>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        let step = restack::run(&repository, &plan, 0)?;
+        let mut commands = vec![format!("lore branch reset {}", &plan.onto[..plan.onto.len().min(12)]), format!("lore revision sync {}", &plan.onto[..plan.onto.len().min(12)])];
+        let upto = match &step {
+            restack::Step::Conflict { index, .. } => index + 1,
+            restack::Step::Done { .. } => plan.picks.len(),
+        };
+        commands.extend(pick_commands(&plan, 0).into_iter().take(upto));
+        Ok(Done { value: restack_outcome(&app, &path, &repository, &plan, step)?, commands })
+    })
+    .await
+}
+
+/// The restack stopped at a conflict in this working copy, if any.
+#[tauri::command]
+fn restack_pending(app: tauri::AppHandle, path: String) -> Option<PendingRestack> {
+    read_restacks(&app).remove(path.trim())
+}
+
+fn pending_for(app: &tauri::AppHandle, path: &str) -> Result<PendingRestack, String> {
+    read_restacks(app).remove(path).ok_or_else(|| "진행 중인 restack이 없습니다".to_string())
+}
+
+/// Settles conflicted files of the stopped pick: keep my version, the base's, or my edit.
+#[tauri::command]
+async fn restack_resolve(path: String, paths: Vec<String>, keep: restack::Keep) -> Result<Done<Status>, String> {
+    blocking(move || {
+        let repository = repository(&path, true);
+        restack::resolve(&repository, &paths, keep)?;
+        // In a cherry-pick Lore's theirs is the picked revision (mine).
+        let verb = match keep {
+            restack::Keep::Mine => "resolve-theirs",
+            restack::Keep::Base => "resolve-mine",
+            restack::Keep::Edited => "resolve",
+        };
+        Ok(Done { value: scanned_status(&repository)?, commands: vec![format!("lore revision cherry-pick {verb} {}", args(&paths))] })
+    })
+    .await
+}
+
+/// Commits the settled pick and applies the rest.
+#[tauri::command]
+async fn restack_continue(app: tauri::AppHandle, path: String) -> Result<Done<RestackOutcome>, String> {
+    blocking(move || {
+        let pending = pending_for(&app, &path)?;
+        let repository = repository(&path, false);
+        let step = restack::continue_after(&repository, &pending.plan, pending.index)?;
+        let mut commands = vec![format!("lore commit {}", arg(&pending.plan.picks[pending.index].message))];
+        commands.extend(pick_commands(&pending.plan, pending.index + 1));
+        Ok(Done { value: restack_outcome(&app, &path, &repository, &pending.plan, step)?, commands })
+    })
+    .await
+}
+
+/// Gives up the stopped restack: the branch and files go back to how they were.
+#[tauri::command]
+async fn restack_abort(app: tauri::AppHandle, path: String) -> Result<Done<Status>, String> {
+    blocking(move || {
+        let pending = pending_for(&app, &path)?;
+        let repository = repository(&path, false);
+        restack::abort(&repository, &pending.plan)?;
+        write_pending(&app, &path, None)?;
+        let head = &pending.plan.original_head;
+        Ok(Done {
+            value: scanned_status(&repository)?,
+            commands: vec!["lore revision cherry-pick abort".into(), format!("lore branch reset {}", &head[..head.len().min(12)]), format!("lore revision sync {} --reset", &head[..head.len().min(12)])],
+        })
+    })
+    .await
+}
+
 /// Every branch's revisions laid out in lanes (the Smartlog's full view).
 #[tauri::command]
 async fn graph(path: String, offline: bool) -> Result<Done<tome_core::Graph>, String> {
@@ -699,7 +840,14 @@ pub fn run() {
             preview_tool,
             run_tool,
             list_assets,
-            asset_previews
+            asset_previews,
+            stack_info,
+            restack_preview,
+            restack_start,
+            restack_pending,
+            restack_resolve,
+            restack_continue,
+            restack_abort
         ])
         .build(tauri::generate_context!())
         .expect("error while building TOME")

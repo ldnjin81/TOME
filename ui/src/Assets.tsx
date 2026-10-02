@@ -186,8 +186,9 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
   // Read previews of the folder in batches; changed files again when their time changes.
   useEffect(() => {
     if (!listing) return;
-    const want = listing.assets.filter((a) => !asked.current.has(`${a.path}@${a.modified}`));
-    want.forEach((a) => asked.current.add(`${a.path}@${a.modified}`));
+    const seen = asked.current;
+    const want = listing.assets.filter((a) => !seen.has(`${a.path}@${a.modified}`));
+    want.forEach((a) => seen.add(`${a.path}@${a.modified}`));
     let stopped = false;
     void (async () => {
       for (let i = 0; i < want.length && !stopped; i += BATCH) {
@@ -202,7 +203,7 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
     return () => {
       stopped = true;
       // Unfinished batches are asked again when the folder is shown again.
-      want.forEach((a) => !previews[a.path] && asked.current.delete(`${a.path}@${a.modified}`));
+      want.forEach((a) => !previews[a.path] && seen.delete(`${a.path}@${a.modified}`));
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [listing]);

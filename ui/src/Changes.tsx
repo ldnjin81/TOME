@@ -22,6 +22,8 @@ interface Props {
   /** Paths locked on the server (lock board), marked on the files. */
   locked: Set<string>;
   onHistory: (path: string) => void;
+  /** Why committing and pushing are off right now (a restack in progress); empty otherwise. */
+  blocked?: string;
 }
 
 const RESOLUTION_LABEL: Record<string, string> = { mine: '내 것', theirs: '상대 것', edited: '직접 수정', auto: '자동 병합' };
@@ -114,7 +116,7 @@ function FileRow({ file, onToggle, busy, onContext, onDiff, locked, onHistory }:
 }
 
 /** The working copy's changes: stage, commit, push. */
-export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext, onDiff, mergeLabel, onResolve, onAbortMerge, locked, onHistory }: Props) {
+export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext, onDiff, mergeLabel, onResolve, onAbortMerge, locked, onHistory, blocked = '' }: Props) {
   const [message, setMessage] = useState('');
   const merging = !!status.merging;
   const conflicts = status.files.filter((f) => !f.directory && f.conflict);
@@ -126,7 +128,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
   const files = status.files.filter((f) => !f.directory && !(merging && f.conflict));
   const staged = files.filter((f) => f.staged);
   const unstaged = files.filter((f) => !f.staged);
-  const canCommit = !busy && (staged.length > 0 || merging) && unresolved === 0 && message.trim().length > 0;
+  const canCommit = !busy && !blocked && (staged.length > 0 || merging) && unresolved === 0 && message.trim().length > 0;
 
   async function commit(push: boolean) {
     if (await onCommit(message.trim(), push)) setMessage('');
@@ -137,7 +139,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
       <div className="pane-actions">
         <button className="ghost" onClick={onRefresh} disabled={busy}>다시 검사</button>
         {status.local_ahead && (
-          <button className="ghost" onClick={onPush} disabled={busy || merging} title={merging ? '병합을 끝낸 뒤 push합니다' : undefined}>push</button>
+          <button className="ghost" onClick={onPush} disabled={busy || merging || !!blocked} title={blocked || (merging ? '병합을 끝낸 뒤 push합니다' : undefined)}>push</button>
         )}
       </div>
 
@@ -181,6 +183,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
         <label htmlFor="commit-message">커밋 메시지</label>
         <textarea id="commit-message" value={message} onChange={(e) => setMessage(e.target.value)} rows={3} placeholder={merging ? `Merge ${mergeLabel}` : '무엇을 바꿨나요'} />
         {merging && unresolved > 0 && <p className="muted small">충돌을 모두 정하면 커밋할 수 있습니다.</p>}
+        {blocked && <p className="muted small">{blocked}</p>}
         <div className="commit-buttons">
           <button type="submit" className="primary" disabled={!canCommit}>커밋</button>
           <button type="button" className="primary outline" disabled={!canCommit} onClick={() => void commit(true)}>커밋 후 push</button>

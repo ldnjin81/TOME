@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Asset, AssetPreview, JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { Asset, AssetPreview, Keep, PendingRestack, RestackOutcome, RestackPlan, StackInfo, JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
-import Smartlog, { branchColor, isDraft } from './Smartlog';
+import Smartlog, { branchColor, isDraft, type RestackRequest } from './Smartlog';
+import { RestackDialog, RestackPanel } from './Restack';
 import ViewDialog from './ViewDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
@@ -70,6 +71,10 @@ export default function App() {
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
   const [asset, setAsset] = useState<Asset | null>(null);
   const [previews, setPreviews] = useState<Record<string, AssetPreview>>({});
+  const [stackInfo, setStackInfo] = useState<StackInfo | null>(null);
+  const [restackReq, setRestackReq] = useState<RestackRequest | null>(null);
+  const [pendingRestack, setPendingRestack] = useState<PendingRestack | null>(null);
+  const [restackChoices, setRestackChoices] = useState<Record<string, Keep>>({});
 
   async function saveSettings(next: Settings) {
     setSettings(next);
@@ -118,6 +123,9 @@ export default function App() {
       setTab(base?.mode === 'artist' ? 'assets' : 'history');
       setAsset(null);
       setPreviews({});
+      setStackInfo(null);
+      void loadStack(where);
+      invoke<PendingRestack | null>('restack_pending', { path: where }).then(setPendingRestack, () => setPendingRestack(null));
       setLogMode('stack');
       if (base) {
         const recent = [where, ...base.recent.filter((p) => p !== where)].slice(0, RECENT_MAX);
@@ -199,6 +207,9 @@ export default function App() {
         else if (ok) {
           addToast(`${label} 완료`, 'push');
           then();
+        } else if (/diverged/i.test(message)) {
+          setError(`${label} 실패: 서버에 새 리비전이 있습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.`);
+          void loadStack();
         } else setError(`${label} 실패: ${message}`);
       });
     } catch (e) {
@@ -249,6 +260,7 @@ export default function App() {
       } else if (n.kind === 'branchPushed') {
         addToast(`${branchName || '브랜치'}에 새 리비전 r${String(n.data.revisionNumber ?? '')} push${who}`, 'push');
         invoke<Done<Status>>('working_status', { path: where.trim(), offline: false }).then((d) => setStatus(d.value), () => {});
+        void loadStack(where);
         if (latest.current.graphLoaded) void loadGraph(where);
       } else {
         addToast(`${n.kind === 'branchCreated' ? '브랜치 생성' : n.kind === 'branchDeleted' ? '브랜치 삭제' : n.kind}${branchName ? `: ${branchName}` : ''}`, 'info');
@@ -358,8 +370,18 @@ export default function App() {
   const setStatus = (status: Status) => setOverview((o) => (o ? { ...o, status } : o));
 
   /** After a commit, push or sync: new status, and the current branch's history again. */
+  /** My stack as the server sees it; quiet: offline, the Smartlog falls back to revision numbers. */
+  async function loadStack(where = path) {
+    try {
+      setStackInfo(await invoke<StackInfo>('stack_info', { path: where.trim() }));
+    } catch {
+      setStackInfo(null);
+    }
+  }
+
   async function refreshHistory(status: Status) {
     setStatus(status);
+    void loadStack();
     const revisions = await invoke<Revision[]>('branch_history', { path: path.trim(), branch: status.branch_name, offline: true }).catch(() => null);
     if (revisions) {
       setHistory(revisions);
@@ -466,6 +488,35 @@ export default function App() {
       setMergeLabel('');
       void refreshHistory(status);
     });
+  }
+
+  /** After a restack step: done refreshes everything; a conflict whose files were all settled
+   * up front is settled and continued, otherwise it waits in the panel. */
+  async function restackStepped(outcome: RestackOutcome, choices: Record<string, Keep>) {
+    setStatus(outcome.status);
+    const step = outcome.step;
+    if (step.state === 'done') {
+      setPendingRestack(null);
+      setRestackChoices({});
+      addToast('Restack 완료 · 이제 push할 수 있습니다', 'push');
+      void refreshHistory(outcome.status);
+      return;
+    }
+    const pending = await invoke<PendingRestack | null>('restack_pending', { path: path.trim() }).catch(() => null);
+    setPendingRestack(pending);
+    if (step.files.length > 0 && step.files.every((f) => choices[f] && choices[f] !== 'edited')) {
+      for (const keep of ['mine', 'base'] as Keep[]) {
+        const files = step.files.filter((f) => choices[f] === keep);
+        if (files.length && !(await run<Status>('restack_resolve', { paths: files, keep }, setStatus))) return;
+      }
+      await run<RestackOutcome>('restack_continue', {}, (o) => void restackStepped(o, choices));
+    }
+  }
+
+  function startRestack(plan: RestackPlan, choices: Record<string, Keep>) {
+    setRestackReq(null);
+    setRestackChoices(choices);
+    void run<RestackOutcome>('restack_start', { plan }, (o) => void restackStepped(o, choices));
   }
 
   async function showWorkingDiff(file: string) {
@@ -636,10 +687,28 @@ export default function App() {
               </button>
             </div>
           )}
+          {pendingRestack && status && (
+            <RestackPanel
+              pending={pendingRestack}
+              status={status}
+              busy={busy}
+              onResolve={(paths, keep) => void run<Status>('restack_resolve', { paths, keep }, setStatus)}
+              onContinue={() => void run<RestackOutcome>('restack_continue', {}, (o) => void restackStepped(o, restackChoices))}
+              onAbort={() =>
+                void run<Status>('restack_abort', {}, (s) => {
+                  setPendingRestack(null);
+                  setRestackChoices({});
+                  addToast('Restack을 중단하고 원래대로 되돌렸습니다', 'info');
+                  void refreshHistory(s);
+                })
+              }
+            />
+          )}
           {tab === 'history' && status && (
             <Smartlog
               status={status}
               history={history}
+              stack={stackInfo}
               graph={graph}
               branches={branches}
               selected={selected}
@@ -651,6 +720,8 @@ export default function App() {
               onSync={syncJob}
               me={settings?.identity ?? ''}
               onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
+              onRestack={setRestackReq}
+              restacking={!!pendingRestack}
             />
           )}
           {tab === 'assets' && status && (
@@ -679,6 +750,7 @@ export default function App() {
               mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
               locked={new Set(locks.map((l) => l.path))}
               onHistory={setHistoryOf}
+              blocked={pendingRestack ? 'restack이 충돌에서 멈춰 있습니다. 위 패널에서 정하고 “계속”을 누르세요.' : ''}
               onResolve={resolve}
               onAbortMerge={abortMerge}
             />
@@ -715,7 +787,7 @@ export default function App() {
             )
           ) : revision ? (
             <>
-              <p className={isDraft(revision, status) ? 'state draft' : 'state'}>{isDraft(revision, status) ? 'draft · 미푸시' : 'public'}</p>
+              <p className={isDraft(revision, status, stackInfo) ? 'state draft' : 'state'}>{isDraft(revision, status, stackInfo) ? 'draft · 미푸시' : 'public'}</p>
               <h2>r{revision.number}</h2>
               <p className="message-full">{revision.message}</p>
               <dl>
@@ -876,6 +948,19 @@ export default function App() {
       )}
 
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}
+
+      {restackReq && stackInfo && status && (
+        <RestackDialog
+          path={path.trim()}
+          request={restackReq}
+          oldBase={stackInfo.fork?.id ?? ''}
+          oldOrder={[...stackInfo.drafts].reverse().map((d) => d.id)}
+          originalHead={status.revision}
+          busy={busy}
+          onRun={startRestack}
+          onClose={() => setRestackReq(null)}
+        />
+      )}
 
       <Toasts toasts={toasts} onDone={(id) => setToasts((list) => list.filter((t) => t.id !== id))} />
 

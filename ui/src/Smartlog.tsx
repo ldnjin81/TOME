@@ -1,4 +1,5 @@
-import type { Branch, Graph, GraphRow, Revision, Segment, Status } from './types';
+import { useState } from 'react';
+import type { Branch, Graph, GraphRow, Pick, Revision, Segment, StackInfo, Status } from './types';
 
 /** How a lane segment is drawn: public history, folded history, my stack, uncommitted work. */
 type Line = 'public' | 'dotted' | 'stack' | 'wip' | null;
@@ -45,9 +46,19 @@ function relativeTime(ms: number) {
   return new Date(ms).toLocaleDateString();
 }
 
-/** A revision is a draft when it is on this branch locally but not yet pushed. */
-export function isDraft(revision: Revision, status: Status | undefined) {
+/** A revision is a draft when it is on this branch locally but not yet pushed. With the stack
+ * read from the server that is exact; without it, revision numbers above the server's tell it
+ * (numbers collide once the branch has diverged). */
+export function isDraft(revision: Revision, status: Status | undefined, stack?: StackInfo | null) {
+  if (stack?.remote_head) return stack.drafts.some((d) => d.id === revision.id);
   return !!status && status.local_ahead && revision.branch_id === status.branch_id && revision.number > status.remote_number;
+}
+
+/** A restack the user asked for by dragging: the picks (oldest first) onto a base. */
+export interface RestackRequest {
+  onto: string;
+  ontoLabel: string;
+  picks: Pick[];
 }
 
 interface Props {
@@ -56,6 +67,8 @@ interface Props {
   /** Every branch laid out in lanes; null until loaded. */
   graph: Graph | null;
   branches: Branch[];
+  /** My stack against the server; null until read (or offline). */
+  stack: StackInfo | null;
   selected: string | null;
   mode: 'stack' | 'all';
   busy: boolean;
@@ -67,12 +80,16 @@ interface Props {
   onContext: (e: React.MouseEvent, revision: Revision) => void;
   /** My identity: my revisions show 나. */
   me: string;
+  /** Opens the restack preview (drag and drop, or the button). */
+  onRestack: (request: RestackRequest) => void;
+  /** A restack is stopped on a conflict: no new commits or restacks until it is settled. */
+  restacking: boolean;
 }
 
 /** The author as shown: 나 for my own revisions. */
 const who = (author: string, me: string) => (author && author === me ? '나' : author);
 
-export default function Smartlog({ status, history, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me }: Props) {
+export default function Smartlog({ status, history, stack, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me, onRestack, restacking }: Props) {
   // The stack is always the working copy's branch; the graph shows every branch.
   const shown = mode;
 
@@ -90,9 +107,9 @@ export default function Smartlog({ status, history, graph, branches, selected, m
         <span className="muted">{shown === 'stack' ? status.branch_name : '모든 브랜치'}</span>
       </div>
       {shown === 'stack' ? (
-        <Stack me={me} status={status} history={history} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} />
+        <Stack me={me} status={status} history={history} stack={stack} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} onRestack={onRestack} restacking={restacking} />
       ) : (
-        <GraphView me={me} status={status} graph={graph} branches={branches} selected={selected} onSelect={onSelect} onContext={onContext} />
+        <GraphView me={me} status={status} stack={stack} graph={graph} branches={branches} selected={selected} onSelect={onSelect} onContext={onContext} />
       )}
     </div>
   );
@@ -113,11 +130,19 @@ function RevisionText({ revision, draft, tags, me }: { revision: Revision; draft
   );
 }
 
-/** My work against the remote: server head, uncommitted changes, drafts, and the base they sit on. */
+/** Where a dragged draft would land: before (newer than) or after (older than) a draft. */
+type DropAt = { id: string; side: 'before' | 'after' } | 'server' | null;
+
+const toPick = (r: Revision): Pick => ({ id: r.id, message: r.message });
+
+/** My work against the remote: server head, uncommitted changes, drafts, and the base they sit on.
+ * Drafts can be dragged: onto the server's head to move the whole stack there (restack), or
+ * between each other to reorder. */
 function Stack({
   me,
   status,
   history,
+  stack,
   selected,
   busy,
   onSelect,
@@ -125,10 +150,13 @@ function Stack({
   onSync,
   onAll,
   onContext,
+  onRestack,
+  restacking,
 }: {
   me: string;
   status: Status;
   history: Revision[];
+  stack: StackInfo | null;
   selected: string | null;
   busy: boolean;
   onSelect: (id: string) => void;
@@ -136,33 +164,90 @@ function Stack({
   onSync: () => void;
   onAll: () => void;
   onContext: (e: React.MouseEvent, revision: Revision) => void;
+  onRestack: (request: RestackRequest) => void;
+  restacking: boolean;
 }) {
-  const drafts = history.filter((r) => isDraft(r, status));
-  const base = history.find((r) => !isDraft(r, status));
+  const [dragging, setDragging] = useState<string | null>(null);
+  const [dropAt, setDropAt] = useState<DropAt>(null);
+  const exact = !!stack?.remote_head;
+  const drafts = exact ? stack!.drafts : history.filter((r) => isDraft(r, status));
+  const base = (exact ? stack!.fork : null) ?? history.find((r) => !isDraft(r, status, stack));
   const changed = status.files.filter((f) => !f.directory);
   const wip = changed.length > 0;
-  const remote = status.remote_ahead;
-  const newOnServer = base ? Math.max(status.remote_number - base.number, 0) : 0;
-  const stack = wip || drafts.length > 0;
+  const incoming = exact ? stack!.incoming : [];
+  // Lore keeps saying the server is ahead after a restack until the push; the stack knows better.
+  const remote = exact ? incoming.length > 0 : status.remote_ahead;
+  const newOnServer = exact ? incoming.length : base ? Math.max(status.remote_number - base.number, 0) : 0;
+  const diverged = remote && drafts.length > 0;
+  const stackShown = wip || drafts.length > 0;
   const older = base ? Math.max(base.number - 1, 0) : 0;
+  // Restack needs the stack as the server sees it, and no uncommitted changes.
+  const canDrag = exact && !busy && !wip && !restacking && drafts.length > 0;
+  const dragTitle = !exact ? '서버에 연결되어야 순서를 바꿀 수 있습니다' : wip ? '미커밋 변경을 먼저 커밋하거나 되돌리세요' : '끌어서 순서 바꾸기 · 서버 리비전 위로 끌면 restack';
+  const head = incoming[0];
+
+  function restackOntoServer() {
+    if (!stack || !head) return;
+    onRestack({ onto: stack.remote_head, ontoLabel: `r${head.number} ${head.message.split('\n')[0]}`, picks: [...drafts].reverse().map(toPick) });
+  }
+
+  function reorder(dragged: string, target: string, side: 'before' | 'after') {
+    if (!base || dragged === target) return;
+    const visual = drafts.filter((d) => d.id !== dragged);
+    const at = visual.findIndex((d) => d.id === target) + (side === 'after' ? 1 : 0);
+    visual.splice(at, 0, drafts.find((d) => d.id === dragged)!);
+    if (visual.every((d, i) => d.id === drafts[i].id)) return;
+    onRestack({ onto: base.id, ontoLabel: `r${base.number} ${base.message.split('\n')[0]}`, picks: [...visual].reverse().map(toPick) });
+  }
+
+  function endDrag() {
+    setDragging(null);
+    setDropAt(null);
+  }
 
   return (
-    <ol className="log stack">
+    <ol className={dragging ? 'log stack dragging' : 'log stack'}>
       {remote && (
-        <li className="lrow">
+        <li
+          className={dropAt === 'server' ? 'lrow drop-target' : 'lrow'}
+          onDragOver={(e) => {
+            if (!dragging || !diverged) return;
+            e.preventDefault();
+            setDropAt('server');
+          }}
+          onDragLeave={() => setDropAt((d) => (d === 'server' ? null : d))}
+          onDrop={(e) => {
+            e.preventDefault();
+            endDrag();
+            restackOntoServer();
+          }}
+        >
           <Lanes cells={[{ node: 'public', bottom: 'dotted' }, {}]} />
           <span className="rev-text">
             <span className="rev-title">
-              <span className="rev-no">r{status.remote_number}</span>
-              <span className="rev-message">서버의 {status.branch_name}</span>
+              <span className="rev-no">r{head?.number ?? status.remote_number}</span>
+              <span className="rev-message">{head ? head.message.split('\n')[0] || '(메시지 없음)' : `서버의 ${status.branch_name}`}</span>
               <span className="tag behind">↓ {newOnServer || '새'} 리비전</span>
             </span>
-            <span className="rev-meta">
-              아직 받지 않은 리비전이 있습니다 ·{' '}
-              <button className="link" onClick={onSync} disabled={busy}>
-                Sync
-              </button>
-            </span>
+            {diverged ? (
+              <span className="rev-meta diverged">
+                서버에 새 리비전이 있어 지금은 push할 수 없습니다 ·{' '}
+                <button className="link" onClick={restackOntoServer} disabled={busy || !canDrag} title={canDrag ? '내 스택을 서버 리비전 위로 옮겨 일직선으로 만듭니다' : dragTitle}>
+                  내 스택을 위로 옮기기 (restack)
+                </button>{' '}
+                ·{' '}
+                <button className="link" onClick={onSync} disabled={busy || restacking} title="서버 리비전을 받아 병합 리비전을 하나 만듭니다">
+                  병합해서 받기 (sync)
+                </button>
+              </span>
+            ) : (
+              <span className="rev-meta">
+                아직 받지 않은 리비전이 있습니다 ·{' '}
+                <button className="link" onClick={onSync} disabled={busy}>
+                  Sync
+                </button>
+              </span>
+            )}
           </span>
         </li>
       )}
@@ -173,37 +258,77 @@ function Stack({
           <span className="wip-card">
             <span>미커밋 변경 {changed.length}개</span>
             <span className="muted">스테이징 {changed.filter((f) => f.staged).length}</span>
-            <button className="primary small" onClick={onCommit}>
-              새 커밋
-            </button>
+            {restacking ? (
+              <span className="muted small">restack 충돌을 정하는 중 · 위 패널에서 계속하세요</span>
+            ) : (
+              <button className="primary small" onClick={onCommit}>
+                새 커밋
+              </button>
+            )}
           </span>
         </li>
       )}
 
-      {drafts.map((r, i) => (
-        <li key={r.id}>
-          <button className={r.id === selected ? 'lrow draft active' : 'lrow draft'} onClick={() => onSelect(r.id)} onContextMenu={(e) => onContext(e, r)}>
-            <Lanes cells={[{ top: remote ? 'dotted' : null }, { top: i === 0 && !wip ? null : 'stack', node: i === 0 ? 'head' : 'draft', bottom: 'stack' }]} />
-            <RevisionText me={me} revision={r} draft tags={i === 0 && <span className="tag">작업 중</span>} />
-          </button>
-        </li>
-      ))}
+      {drafts.map((r, i) => {
+        const marker = dropAt && dropAt !== 'server' && dropAt.id === r.id ? ` drop-${dropAt.side}` : '';
+        return (
+          <li
+            key={r.id}
+            className={`draft-li${marker}`}
+            onDragOver={(e) => {
+              if (!dragging || dragging === r.id) return;
+              e.preventDefault();
+              const box = e.currentTarget.getBoundingClientRect();
+              setDropAt({ id: r.id, side: e.clientY < box.top + box.height / 2 ? 'before' : 'after' });
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              const at = dropAt;
+              const dragged = dragging;
+              endDrag();
+              if (dragged && at && at !== 'server') reorder(dragged, at.id, at.side);
+            }}
+          >
+            <button
+              className={`${r.id === selected ? 'lrow draft active' : 'lrow draft'}${dragging === r.id ? ' lifted' : ''}`}
+              draggable={canDrag}
+              title={drafts.length > 1 || diverged ? dragTitle : undefined}
+              onDragStart={(e) => {
+                e.dataTransfer.effectAllowed = 'move';
+                e.dataTransfer.setData('text/plain', r.id);
+                setDragging(r.id);
+              }}
+              onDragEnd={endDrag}
+              onClick={() => onSelect(r.id)}
+              onContextMenu={(e) => onContext(e, r)}
+            >
+              <Lanes cells={[{ top: remote ? 'dotted' : null }, { top: i === 0 && !wip ? null : 'stack', node: i === 0 ? 'head' : 'draft', bottom: 'stack' }]} />
+              <RevisionText me={me} revision={r} draft tags={i === 0 && <span className="tag">작업 중</span>} />
+              {canDrag && (drafts.length > 1 || diverged) && (
+                <span className="grip" aria-hidden="true">
+                  ⠿
+                </span>
+              )}
+            </button>
+          </li>
+        );
+      })}
 
       {base && (
         <li>
           <button className={base.id === selected ? 'lrow active' : 'lrow'} onClick={() => onSelect(base.id)} onContextMenu={(e) => onContext(e, base)}>
-            <Lanes cells={[{ top: remote ? 'dotted' : null, node: 'public', bottom: older ? 'dotted' : null }, {}]} join={stack ? 'stack' : undefined} />
+            <Lanes cells={[{ top: remote ? 'dotted' : null, node: 'public', bottom: older ? 'dotted' : null }, {}]} join={stackShown ? 'stack' : undefined} />
             <RevisionText
               me={me}
               revision={base}
               draft={false}
-              tags={<span className="tag">{stack ? '내 스택의 베이스' : base.id === status.revision ? '작업본' : '최신'}</span>}
+              tags={<span className="tag">{stackShown ? '내 스택의 베이스' : base.id === status.revision ? '작업본' : '최신'}</span>}
             />
           </button>
         </li>
       )}
 
-      {!base && !stack && <li className="muted empty">리비전이 없습니다</li>}
+      {!base && !stackShown && <li className="muted empty">리비전이 없습니다</li>}
 
       {older > 0 && (
         <li className="fold">
@@ -268,7 +393,7 @@ function RowGraph({ row, width, color, draft }: { row: GraphRow; width: number; 
 }
 
 /** Every branch, laid out in lanes by tome-core (graph.rs). */
-function GraphView({ me, status, graph, branches, selected, onSelect, onContext }: { status: Status; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void; onContext: (e: React.MouseEvent, revision: Revision) => void; me: string }) {
+function GraphView({ me, status, stack, graph, branches, selected, onSelect, onContext }: { status: Status; stack: StackInfo | null; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void; onContext: (e: React.MouseEvent, revision: Revision) => void; me: string }) {
   if (!graph) return <p className="muted empty">그래프를 불러오는 중…</p>;
   // A revision without a branch id (some merges) takes its child's, so a lane keeps one color.
   const branchOf = new Map<string, string>();
@@ -288,7 +413,7 @@ function GraphView({ me, status, graph, branches, selected, onSelect, onContext 
       <ol className="log graph">
         {graph.rows.map((row) => {
           const r = row.revision;
-          const draft = isDraft(r, status);
+          const draft = isDraft(r, status, stack);
           const tint = branchColor(branchOf.get(r.id) ?? '', status.branch_id);
           return (
             <li key={r.id}>

@@ -251,3 +251,61 @@ export interface AssetPreview {
   width: number;
   height: number;
 }
+
+/** My stack against the server (restack). */
+export interface StackInfo {
+  /** My revisions the server does not have, newest first. */
+  drafts: Revision[];
+  /** Where the stack leaves the server's history. */
+  fork: Revision | null;
+  /** Server revisions after the fork that I do not have, newest first. */
+  incoming: Revision[];
+  remote_head: string;
+}
+
+export interface Pick {
+  id: string;
+  message: string;
+}
+
+export interface RestackPlan {
+  onto: string;
+  /** Oldest first. */
+  picks: Pick[];
+  original_head: string;
+}
+
+export interface RestackRisk {
+  path: string;
+  binary: boolean;
+}
+
+export interface PickPreview {
+  id: string;
+  message: string;
+  files: string[];
+  risks: RestackRisk[];
+  /** [path, owner] locked by someone else. */
+  locked: [string, string][];
+}
+
+export interface RestackPreview {
+  picks: PickPreview[];
+  base_changes: string[];
+}
+
+export type RestackStep = { state: 'done'; head: string } | { state: 'conflict'; index: number; files: string[] };
+
+export interface RestackOutcome {
+  step: RestackStep;
+  status: Status;
+}
+
+export interface PendingRestack {
+  plan: RestackPlan;
+  index: number;
+  files: string[];
+}
+
+/** Which side a conflicted file of a restack keeps. */
+export type Keep = 'mine' | 'base' | 'edited';
