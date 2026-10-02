@@ -133,16 +133,6 @@ async fn commit(path: String, message: String, push: bool) -> Result<Done<Status
     .await
 }
 
-#[tauri::command]
-async fn push(path: String, branch: String) -> Result<Done<Status>, String> {
-    blocking(move || {
-        let repository = repository(&path, false);
-        checked(repository.push(&branch))?;
-        Ok(Done { value: scanned_status(&repository)?, commands: vec!["lore push".into()] })
-    })
-    .await
-}
-
 /// Every lock on `branch` (asks the server).
 #[tauri::command]
 async fn lock_board(path: String, branch: String) -> Result<Done<Vec<Lock>>, String> {
@@ -183,6 +173,93 @@ async fn apply_view(path: String, lines: Vec<String>) -> Result<Done<ViewChange>
         Ok(Done { value: change, commands })
     })
     .await
+}
+
+/// Long operations running in worker processes, by job id.
+#[derive(Default)]
+struct Jobs {
+    next: std::sync::atomic::AtomicU64,
+    running: std::sync::Mutex<std::collections::HashMap<u64, RunningJob>>,
+}
+
+struct RunningJob {
+    child: std::process::Child,
+    /// A clone's target folder: removed when the clone is cancelled (it was empty before).
+    clone_path: Option<String>,
+    cancelled: bool,
+}
+
+/// What the window hears about a job (`lore-job` events).
+#[derive(Serialize, Clone)]
+struct JobEvent {
+    id: u64,
+    progress: Option<tome_core::ops::Progress>,
+    /// Set once at the end: (status, error).
+    done: Option<(i32, String)>,
+    cancelled: bool,
+}
+
+/// Starts a clone, sync or push in a worker process and returns its id; progress and the end
+/// arrive as `lore-job` events.
+#[tauri::command]
+fn start_job(app: tauri::AppHandle, op: tome_core::ops::Op) -> Result<u64, String> {
+    use std::io::BufRead;
+    let clone_path = match &op {
+        tome_core::ops::Op::Clone { path, .. } => {
+            if std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_some()) {
+                return Err(format!("폴더가 비어 있지 않습니다: {path}"));
+            }
+            Some(path.clone())
+        }
+        _ => None,
+    };
+    let job = tome_core::ops::Job { op, identity: identity() };
+    let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+    let mut child = std::process::Command::new(exe)
+        .arg("--lore-worker")
+        .arg(serde_json::to_string(&job).map_err(|e| e.to_string())?)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::piped())
+        .spawn()
+        .map_err(|e| format!("작업 프로세스를 시작할 수 없습니다: {e}"))?;
+    let stdout = child.stdout.take().ok_or("no worker output")?;
+    let jobs = app.state::<Jobs>();
+    let id = jobs.next.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
+    jobs.running.lock().unwrap().insert(id, RunningJob { child, clone_path, cancelled: false });
+    std::thread::spawn(move || {
+        let mut done = None;
+        for line in std::io::BufReader::new(stdout).lines().map_while(Result::ok) {
+            match serde_json::from_str::<tome_core::ops::Line>(&line) {
+                Ok(tome_core::ops::Line::Progress(progress)) => {
+                    let _ = app.emit("lore-job", JobEvent { id, progress: Some(progress), done: None, cancelled: false });
+                }
+                Ok(tome_core::ops::Line::Done { status, error }) => done = Some((status, error)),
+                Err(_) => {}
+            }
+        }
+        let finished = app.state::<Jobs>().running.lock().unwrap().remove(&id);
+        let cancelled = finished.as_ref().is_some_and(|j| j.cancelled);
+        if let Some(mut job) = finished {
+            let _ = job.child.wait();
+            if cancelled && let Some(path) = job.clone_path {
+                // The clone had an empty or new folder to itself; a cancelled one is thrown away.
+                let _ = std::fs::remove_dir_all(path);
+            }
+        }
+        let done = done.unwrap_or((-2, if cancelled { "취소함".into() } else { "작업 프로세스가 결과 없이 끝났습니다".into() }));
+        let _ = app.emit("lore-job", JobEvent { id, progress: None, done: Some(done), cancelled });
+    });
+    Ok(id)
+}
+
+/// Ends a running job's worker process (Lore picks up from what it stored on the next run).
+#[tauri::command]
+fn cancel_job(app: tauri::AppHandle, id: u64) -> Result<(), String> {
+    let jobs = app.state::<Jobs>();
+    let mut running = jobs.running.lock().unwrap();
+    let job = running.get_mut(&id).ok_or("이미 끝난 작업입니다")?;
+    job.cancelled = true;
+    job.child.kill().map_err(|e| e.to_string())
 }
 
 /// The notification subscription of the open working copy (one at a time).
@@ -379,30 +456,6 @@ async fn list_repositories(server: String) -> Result<Done<Vec<RemoteRepository>>
     .await
 }
 
-/// Clones `url` into `path` with `view` (the `.lore/view` text) as the initial view.
-#[tauri::command]
-async fn clone_repository(path: String, url: String, view: String) -> Result<Done<()>, String> {
-    blocking(move || {
-        if std::fs::read_dir(&path).is_ok_and(|mut entries| entries.next().is_some()) {
-            return Err(format!("폴더가 비어 있지 않습니다: {path}"));
-        }
-        checked(repository(&path, false).clone_from(&url, &view))?;
-        Ok(Done { value: (), commands: vec![format!("lore clone {} {}", arg(&url), arg(&path))] })
-    })
-    .await
-}
-
-/// Brings the working copy to the branch's latest revision.
-#[tauri::command]
-async fn sync(path: String) -> Result<Done<Status>, String> {
-    blocking(move || {
-        let repository = repository(&path, false);
-        checked(repository.sync())?;
-        Ok(Done { value: scanned_status(&repository)?, commands: vec!["lore sync".into()] })
-    })
-    .await
-}
-
 /// What TOME remembers between runs (`settings.json` in the app config folder).
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
@@ -541,6 +594,7 @@ fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String
 pub fn run() {
     tauri::Builder::default()
         .manage(Watch::default())
+        .manage(Jobs::default())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
             open_repository,
@@ -548,13 +602,14 @@ pub fn run() {
             working_status,
             stage_files,
             commit,
-            push,
             lock_board,
             lock_files,
             read_view,
             apply_view,
             list_repositories,
             graph,
+            start_job,
+            cancel_job,
             watch_repository,
             create_branch,
             switch_branch,
@@ -565,8 +620,6 @@ pub fn run() {
             working_patches,
             file_history,
             file_patch,
-            clone_repository,
-            sync,
             load_settings,
             save_settings,
             default_identity,
@@ -577,6 +630,16 @@ pub fn run() {
             preview_tool,
             run_tool
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running TOME");
+        .build(tauri::generate_context!())
+        .expect("error while building TOME")
+        .run(|app, event| {
+            if let tauri::RunEvent::Exit = event {
+                // Stop running jobs, end the subscription, then let Lore store what it holds.
+                for (_, mut job) in app.state::<Jobs>().running.lock().unwrap().drain() {
+                    let _ = job.child.kill();
+                }
+                drop(app.state::<Watch>().0.lock().unwrap().take());
+                tome_core::ops::finish("");
+            }
+        });
 }

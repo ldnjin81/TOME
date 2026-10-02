@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import LockBoard from './LockBoard';
@@ -10,6 +10,7 @@ import Smartlog, { branchColor, isDraft } from './Smartlog';
 import ViewDialog from './ViewDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
+import JobPanel from './JobPanel';
 import { MergeDialog, NewBranchDialog } from './BranchDialogs';
 import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 
@@ -55,6 +56,9 @@ export default function App() {
   const [newBranch, setNewBranch] = useState(false);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [historyOf, setHistoryOf] = useState<string | null>(null);
+  /** The running clone / sync / push (one at a time). */
+  const [job, setJob] = useState<{ id: number; label: string; progress: JobProgress | null; cancelling: boolean } | null>(null);
+  const jobDone = useRef<Map<number, (ok: boolean, error: string, cancelled: boolean) => void>>(new Map());
   /** Live notifications: 'on', or why they are off. */
   const [watch, setWatch] = useState<{ on: boolean; reason: string } | null>(null);
   const [mergeFrom, setMergeFrom] = useState<string | null>(null);
@@ -154,6 +158,74 @@ export default function App() {
 
   function addToast(text: string, tone: Toast['tone']) {
     setToasts((list) => [...list, { id: Date.now() + Math.random(), text, tone }]);
+  }
+
+  // Progress and the end of jobs.
+  useEffect(() => {
+    const stop = listen<JobEvent>('lore-job', (event) => {
+      const e = event.payload;
+      if (e.progress) {
+        setJob((j) => (j && j.id === e.id ? { ...j, progress: e.progress } : j));
+      }
+      if (e.done) {
+        setJob((j) => (j && j.id === e.id ? null : j));
+        const [status, message] = e.done;
+        jobDone.current.get(e.id)?.(status === 0, message, e.cancelled);
+        jobDone.current.delete(e.id);
+      }
+    });
+    return () => {
+      void stop.then((unlisten) => unlisten());
+    };
+  }, []);
+
+  /** Starts a long operation; `then` runs when it ends (not when cancelled). */
+  async function startJob(op: JobOp, label: string, then: () => void) {
+    if (job) {
+      setError('다른 작업이 진행 중입니다. 끝나거나 취소한 뒤에 하세요.');
+      return;
+    }
+    setError('');
+    try {
+      const id = await invoke<number>('start_job', { op });
+      setJob({ id, label, progress: null, cancelling: false });
+      jobDone.current.set(id, (ok, message, cancelled) => {
+        if (cancelled) addToast(`${label} 취소함${op.op === 'clone' ? ' (받던 폴더는 지웠습니다)' : ' (다시 실행하면 이어서 진행합니다)'}`, 'info');
+        else if (ok) {
+          addToast(`${label} 완료`, 'push');
+          then();
+        } else setError(`${label} 실패: ${message}`);
+      });
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  function cancelJob() {
+    if (!job) return;
+    setJob({ ...job, cancelling: true });
+    invoke('cancel_job', { id: job.id }).catch((e) => setError(String(e)));
+  }
+
+  function syncJob() {
+    const where = path.trim();
+    void startJob({ op: 'sync', path: where }, '동기화', () => {
+      invoke<Done<Status>>('working_status', { path: where, offline: false }).then((d) => void refreshHistory(d.value), (e) => setError(String(e)));
+    });
+  }
+
+  function pushJob(branch: string) {
+    const where = path.trim();
+    void startJob({ op: 'push', path: where, branch }, `${branch} push`, () => {
+      invoke<Done<Status>>('working_status', { path: where, offline: false }).then((d) => void refreshHistory(d.value), () => {});
+    });
+  }
+
+  async function commitThen(message: string, push: boolean) {
+    // The commit is quick and local; a push after it runs as a job with progress.
+    const ok = await run<Status>('commit', { message, push: false }, (s) => void refreshHistory(s));
+    if (ok && push && overview) pushJob(overview.status.branch_name);
+    return ok;
   }
 
   // Notifications from the server for the open working copy.
@@ -547,7 +619,7 @@ export default function App() {
               onMode={showMode}
               onSelect={setSelected}
               onCommit={() => showTab('changes')}
-              onSync={() => void run<Status>('sync', {}, (s) => void refreshHistory(s))}
+              onSync={syncJob}
               me={settings?.identity ?? ''}
               onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
             />
@@ -558,8 +630,8 @@ export default function App() {
               busy={busy}
               onRefresh={() => void run<Status>('working_status', { offline: true }, setStatus)}
               onStage={(paths, stage) => void run<Status>('stage_files', { paths, stage }, setStatus)}
-              onCommit={(message, push) => run<Status>('commit', { message, push }, (s) => void refreshHistory(s))}
-              onPush={() => void run<Status>('push', { branch: status.branch_name }, (s) => void refreshHistory(s))}
+              onCommit={commitThen}
+              onPush={() => pushJob(status.branch_name)}
               onContext={(e, files) => openMenu(e, 'file', files.join(', '), selectionFor({ files }))}
               onDiff={(file) => void showWorkingDiff(file)}
               mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
@@ -682,6 +754,12 @@ export default function App() {
             void saveSettings(next);
             if (target) void open(target, next.offline, next);
           }}
+          onClone={(next, target, url, view) => {
+            setSetup(false);
+            setOffline(next.offline);
+            void saveSettings(next);
+            void startJob({ op: 'clone', path: target, url, view }, `받기: ${url.split('/').pop()}`, () => void open(target, next.offline, next));
+          }}
           onCancel={() => {
             setSetup(false);
             // "나중에" on first run still counts as done, so the dialog does not return every start.
@@ -742,6 +820,8 @@ export default function App() {
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}
 
       <Toasts toasts={toasts} onDone={(id) => setToasts((list) => list.filter((t) => t.id !== id))} />
+
+      {job && <JobPanel label={job.label} progress={job.progress} cancelling={job.cancelling} onCancel={cancelJob} />}
 
       {toolRun && <OutputPanel {...toolRun} onClose={() => setToolRun(null)} />}
 

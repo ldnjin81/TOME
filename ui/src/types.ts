@@ -201,3 +201,24 @@ export interface FileRevision {
   path: string;
   size: number;
 }
+
+/** Long operations run by a worker process (crates/tome-core/src/ops.rs). */
+export type JobOp =
+  | { op: 'clone'; path: string; url: string; view: string }
+  | { op: 'sync'; path: string }
+  | { op: 'push'; path: string; branch: string };
+
+export interface JobProgress {
+  phase: string;
+  done: number;
+  total: number;
+  bytes: number;
+  bytes_total: number;
+}
+
+export interface JobEvent {
+  id: number;
+  progress: JobProgress | null;
+  done: [number, string] | null;
+  cancelled: boolean;
+}

@@ -22,11 +22,13 @@ interface Props {
   firstRun: boolean;
   /** Called with the new settings and the working copy to open (null: keep the current one). */
   onDone: (settings: Settings, open: string | null) => void;
+  /** Clone `url` into `target` (a job with progress), then open it. */
+  onClone: (settings: Settings, target: string, url: string, view: string) => void;
   onCancel: () => void;
 }
 
 /** First-run setup (and ⚙ later): the Lore server, then a working copy to open or to clone. */
-export default function SetupDialog({ settings, firstRun, onDone, onCancel }: Props) {
+export default function SetupDialog({ settings, firstRun, onDone, onClone, onCancel }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [server, setServer] = useState(settings.server || DEFAULT_SERVER);
   const [offline, setOffline] = useState(settings.offline);
@@ -77,17 +79,8 @@ export default function SetupDialog({ settings, firstRun, onDone, onCancel }: Pr
       onDone(next, openPath.trim() || null);
       return;
     }
-    setBusy('저장소를 받는 중… 큰 저장소는 오래 걸립니다');
-    setError('');
-    try {
-      const view = PRESETS.find((p) => p.name === preset)?.lines.join('\n') ?? '';
-      await invoke<Done<null>>('clone_repository', { path: target, url: `${server.trim().replace(/\/$/, '')}/${repository}`, view });
-      onDone(next, target);
-    } catch (e) {
-      setError(`받기 실패: ${e}`);
-    } finally {
-      setBusy('');
-    }
+    const view = PRESETS.find((p) => p.name === preset)?.lines.join('\n') ?? '';
+    onClone(next, target, `${server.trim().replace(/\/$/, '')}/${repository}`, view);
   }
 
   return (

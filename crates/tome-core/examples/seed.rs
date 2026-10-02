@@ -20,5 +20,7 @@ fn main() {
     assert!(commit.ok(), "{}", commit.error);
     std::fs::write(std::path::Path::new(&dir).join("README.txt"), "hello again\n").unwrap();
     std::fs::write(std::path::Path::new(&dir).join("Source/New.cpp"), "// new\n").unwrap();
+    // Store what Lore holds before the process ends (see tome_core::ops::finish).
+    tome_core::ops::finish(&dir);
     println!("seeded {dir}");
 }

@@ -11,6 +11,7 @@ use std::sync::mpsc;
 pub mod graph;
 pub mod model;
 pub mod notify;
+pub mod ops;
 pub mod tools;
 pub mod view;
 
@@ -75,13 +76,26 @@ unsafe extern "C" fn on_event(event: &LoreEvent, user_context: u64) {
 /// `globals` and `args` (and the strings they point to) must stay alive until this returns,
 /// which they do because the call blocks until the `End` event.
 pub fn call<A>(function: extern "C" fn(&LoreGlobalArgs, &A, LoreEventCallbackConfig), globals: &LoreGlobalArgs, args: &A) -> CallResult {
+    call_watching(function, globals, args, &mut |_| {})
+}
+
+/// Like [`call`], and `watch` sees each event as it arrives (for progress).
+pub fn call_watching<A>(
+    function: extern "C" fn(&LoreGlobalArgs, &A, LoreEventCallbackConfig),
+    globals: &LoreGlobalArgs,
+    args: &A,
+    watch: &mut dyn FnMut(&Value),
+) -> CallResult {
     let (sender, receiver) = mpsc::channel();
     let context = Box::into_raw(Box::new(sender)) as u64;
     function(globals, args, LoreEventCallbackConfig { user_context: context, func: Some(on_event) });
     let mut result = CallResult { events: Vec::new(), status: -1, error: String::new() };
     for message in receiver {
         match message {
-            Message::Event(value) => result.events.push(value),
+            Message::Event(value) => {
+                watch(&value);
+                result.events.push(value);
+            }
             Message::Complete(status, error) => {
                 result.status = status;
                 result.error = error;
@@ -170,7 +184,7 @@ impl Repository {
         Repository { path: path.into(), offline: false, identity: String::new() }
     }
 
-    fn globals(&self) -> LoreGlobalArgs {
+    pub(crate) fn globals(&self) -> LoreGlobalArgs {
         LoreGlobalArgs {
             repository_path: LoreString::from_bytes(self.path.as_bytes()),
             // Relative paths in a call (stage, lock, ...) are relative to the working copy root.
