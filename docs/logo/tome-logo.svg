@@ -1,5 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" fill="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-6 -6 110 98" fill="none">
   <title>TOME</title>
-  <!-- An open book seen from below: two covers rising, the page edges meeting at the spine. Symmetric about x = 50. -->
-  <path d="M16 10 L20 62 C34 62 46 71 50 90 C54 71 66 62 80 62 L84 10" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- An L that is an open book: the stem is the cover, the foot the page edge to the gutter,
+       and the right page lifts from the gutter. -->
+  <path d="M10 0 L10 86 L58 86 C66 70 78 58 98 56" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
