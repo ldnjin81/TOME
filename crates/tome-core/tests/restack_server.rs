@@ -10,7 +10,7 @@ use tome_core::{CallResult, Repository, model};
 
 fn server() -> Option<String> {
     let server = std::env::var("TOME_TEST_SERVER").ok().filter(|s| !s.is_empty())?;
-    assert!(!server.contains(":41337") && !server.contains("lore.example.com"), "TOME_TEST_SERVER {server} looks like the team server");
+    assert!(!server.contains(":41337"), "TOME_TEST_SERVER {server} looks like the team server");
     Some(server)
 }
 

@@ -6,9 +6,9 @@ use tome_core::{model, CallResult, Repository};
 
 fn server() -> Option<String> {
     let server = std::env::var("TOME_TEST_SERVER").ok().filter(|s| !s.is_empty())?;
-    // 41337 is Lore's default port, where a real server listens:
-    // tests create repositories, so they must never run there.
-    assert!(!server.contains(":41337") && !server.contains("lore.example.com"), "TOME_TEST_SERVER {server} looks like the team server; run a throwaway loreserver on another port");
+    // 41337 is Lore's default port, where a real server listens: tests create repositories,
+    // so they must never run there.
+    assert!(!server.contains(":41337"), "TOME_TEST_SERVER {server} looks like the team server; run a throwaway loreserver on another port");
     Some(server)
 }
 

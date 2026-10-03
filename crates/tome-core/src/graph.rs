@@ -416,7 +416,7 @@ mod tests {
 
     #[test]
     fn many_merges_of_unloaded_branches_stay_one_lane() {
-        // Like SampleProject read offline: every merge's branch side is missing locally.
+        // Like a real project read offline: every merge's branch side is missing locally.
         let revisions = [
             rev("M4", &["M3", "A"], "main", 4),
             rev("M3", &["M2", "B"], "main", 3),

@@ -540,7 +540,7 @@ export default function App() {
           }}
         >
           <label className="visually-hidden" htmlFor="repo-path">작업본 경로</label>
-          <input id="repo-path" list="recent-paths" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Lore 작업본 경로 (예: C:\Project\SampleProject)" spellCheck={false} />
+          <input id="repo-path" list="recent-paths" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Lore 작업본 경로 (예: C:\Project\MyGame)" spellCheck={false} />
           <datalist id="recent-paths">
             {settings?.recent.map((p) => <option key={p} value={p} />)}
           </datalist>

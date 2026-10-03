@@ -1,5 +1,5 @@
 //! Makes a small working copy on a test server for trying the window:
-//! `cargo run -p tome-core --example seed -- <dir> lore://127.0.0.1:41337/<name>`
+//! `cargo run -p tome-core --example seed -- <dir> lore://127.0.0.1:41437/<name>`
 use tome_core::Repository;
 
 fn main() {

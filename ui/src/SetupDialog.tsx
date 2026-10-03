@@ -4,7 +4,8 @@ import { open as pickFolder } from '@tauri-apps/plugin-dialog';
 import type { Done, RemoteRepository, Settings } from './types';
 import { PRESETS } from './ViewDialog';
 
-const DEFAULT_SERVER = 'lore://lore.example.com:41337';
+/** Lore's default port; the host is the team's server. */
+const SERVER_EXAMPLE = 'lore://lore.example.com:41337';
 
 /** Opens the system folder picker; null when cancelled. */
 export async function browseFolder(title: string, start?: string): Promise<string | null> {
@@ -30,7 +31,7 @@ interface Props {
 /** First-run setup (and ⚙ later): the Lore server, then a working copy to open or to clone. */
 export default function SetupDialog({ settings, firstRun, onDone, onClone, onCancel }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
-  const [server, setServer] = useState(settings.server || DEFAULT_SERVER);
+  const [server, setServer] = useState(settings.server);
   const [offline, setOffline] = useState(settings.offline);
   const [identity, setIdentity] = useState(settings.identity ?? '');
   const [source, setSource] = useState<'open' | 'clone'>('open');
@@ -101,7 +102,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
         </h3>
         <div className="field-row">
           <label className="visually-hidden" htmlFor="setup-server">서버 주소</label>
-          <input id="setup-server" className="mono" value={server} onChange={(e) => setServer(e.target.value)} spellCheck={false} placeholder={DEFAULT_SERVER} />
+          <input id="setup-server" className="mono" value={server} onChange={(e) => setServer(e.target.value)} spellCheck={false} placeholder={SERVER_EXAMPLE} />
           <button className="ghost" onClick={() => void connect()} disabled={!!busy || !server.trim()}>
             연결 확인
           </button>
@@ -136,7 +137,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
         {source === 'open' ? (
           <div className="field-row">
             <label className="visually-hidden" htmlFor="setup-open">작업본 폴더</label>
-            <input id="setup-open" className="mono" value={openPath} onChange={(e) => setOpenPath(e.target.value)} spellCheck={false} placeholder="C:\Project\SampleProject" />
+            <input id="setup-open" className="mono" value={openPath} onChange={(e) => setOpenPath(e.target.value)} spellCheck={false} placeholder="C:\Project\MyGame" />
             <button className="ghost" onClick={() => void browseFolder('작업본 폴더', openPath).then((p) => p && setOpenPath(p))} disabled={!!busy}>
               찾아보기
             </button>
