@@ -92,6 +92,8 @@ export interface Settings {
   trusted_tools: Record<string, string>;
   /** Programmer (history first) or artist (assets with thumbnails first). */
   mode: 'programmer' | 'artist' | '';
+  /** Branch groups (the part before `/`) folded away in the branch list. */
+  collapsed_branch_groups: string[];
 }
 
 export interface AuthState {

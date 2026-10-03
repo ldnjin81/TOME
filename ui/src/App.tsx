@@ -32,6 +32,24 @@ function formatTime(ms: number) {
   return date.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+/** The branch list: main first, then the current branch, then the rest by name; names with
+ * a `/` (auto/task-12, feature/x) go into a group per prefix, groups by name. */
+function orderBranches(branches: Branch[], current: string) {
+  const rank = (b: Branch) => (b.name === 'main' ? 0 : b.name === current ? 1 : 2);
+  const byName = (a: Branch, b: Branch) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { numeric: true });
+  const top: Branch[] = [];
+  const groups = new Map<string, Branch[]>();
+  for (const b of branches) {
+    const slash = b.name.indexOf('/');
+    if (slash <= 0 || b.name === current) top.push(b);
+    else groups.set(b.name.slice(0, slash), [...(groups.get(b.name.slice(0, slash)) ?? []), b]);
+  }
+  return {
+    top: top.sort(byName),
+    groups: [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([g, list]) => [g, list.sort(byName)] as [string, Branch[]]),
+  };
+}
+
 export default function App() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [setup, setSetup] = useState(false);
@@ -141,7 +159,7 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       const loaded = await invoke<Settings>('load_settings').catch(() => null);
-      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {}, mode: '' };
+      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {}, mode: '', collapsed_branch_groups: [] };
       let legacy: string | null = null;
       try {
         legacy = localStorage.getItem(LEGACY_KEY);
@@ -433,6 +451,15 @@ export default function App() {
   const status = overview?.status;
   // Lore lists a branch once per location (local and remote): show each id once.
   const branches = (overview?.branches ?? []).filter((b, i, all) => !b.archived && all.findIndex((o) => o.id === b.id) === i);
+  const branchList = useMemo(() => orderBranches(branches, status?.branch_name ?? ''), [branches, status?.branch_name]);
+  const collapsed = new Set(settings?.collapsed_branch_groups ?? []);
+  function toggleGroup(group: string) {
+    if (!settings) return;
+    const next = new Set(collapsed);
+    if (next.has(group)) next.delete(group);
+    else next.add(group);
+    void saveSettings({ ...settings, collapsed_branch_groups: [...next].sort() });
+  }
   const changedCount = status ? status.files.filter((f) => !f.directory).length : 0;
   const artist = settings?.mode === 'artist';
   const marks = useMemo(() => assetMarks(status?.files ?? [], locks), [status, locks]);
@@ -528,6 +555,29 @@ export default function App() {
     }
   }
 
+  function renderBranch(b: Branch, label: string) {
+    const current = b.name === status?.branch_name;
+    return (
+      <li key={b.id} className="branch-li">
+        <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => showBranch(b)} title={b.name}>
+          <span className="lane-dot" style={{ background: branchColor(b.id, status?.branch_id ?? '') }} />
+          <span className="name">{label}</span>
+          {current && <span className="badge">현재</span>}
+        </button>
+        {!current && (
+          <span className="branch-actions">
+            <button className="ghost small-btn" onClick={() => void switchTo(b.name)} disabled={busy || !!status?.merging} title={`${b.name}로 전환`}>
+              전환
+            </button>
+            <button className="ghost small-btn" onClick={() => setMergeFrom(b.name)} disabled={busy || !!status?.merging} title={`${b.name}를 현재 브랜치에 병합`}>
+              병합
+            </button>
+          </span>
+        )}
+      </li>
+    );
+  }
+
   return (
     <div className="app">
       <header className="toolbar">
@@ -602,29 +652,20 @@ export default function App() {
             </button>
           </h2>
           <ul>
-            {branches.map((b) => {
-              const current = b.name === status?.branch_name;
-              return (
-                <li key={b.id} className="branch-li">
-                  <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => showBranch(b)}>
-                    <span className="lane-dot" style={{ background: branchColor(b.id, status?.branch_id ?? '') }} />
-                    <span className="name">{b.name}</span>
-                    {current && <span className="badge">현재</span>}
-                  </button>
-                  {!current && (
-                    <span className="branch-actions">
-                      <button className="ghost small-btn" onClick={() => void switchTo(b.name)} disabled={busy || !!status?.merging} title={`${b.name}로 전환`}>
-                        전환
-                      </button>
-                      <button className="ghost small-btn" onClick={() => setMergeFrom(b.name)} disabled={busy || !!status?.merging} title={`${b.name}를 현재 브랜치에 병합`}>
-                        병합
-                      </button>
-                    </span>
-                  )}
-                </li>
-              );
-            })}
+            {branchList.top.map((b) => renderBranch(b, b.name))}
           </ul>
+          {branchList.groups.map(([group, list]) => {
+            const open = !collapsed.has(group) || list.some((b) => b.name === status?.branch_name);
+            return (
+              <div key={group} className="branch-group">
+                <button className="group-head" onClick={() => toggleGroup(group)} aria-expanded={open} title={open ? `${group}/ 접기` : `${group}/ 펼치기`}>
+                  <span className="tree-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
+                  {group}/ <span className="muted">{list.length}</span>
+                </button>
+                {open && <ul>{list.map((b) => renderBranch(b, b.name.slice(group.length + 1)))}</ul>}
+              </div>
+            );
+          })}
           {status && (
             <section className="working">
               <h2>작업본</h2>

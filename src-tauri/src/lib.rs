@@ -682,6 +682,8 @@ struct Settings {
     trusted_tools: std::collections::BTreeMap<String, String>,
     /// `programmer` (history and branches first) or `artist` (assets with thumbnails first).
     mode: String,
+    /// Branch groups (the part before `/`, e.g. `auto`) folded away in the branch list.
+    collapsed_branch_groups: Vec<String>,
 }
 
 fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
