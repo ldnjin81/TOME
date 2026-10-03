@@ -54,11 +54,12 @@
 
 | 구성 | 역할 |
 |---|---|
-| `lore-sys` | `lore.h` 바인딩(bindgen), 안전하지 않은 호출을 한곳에 가둔다 |
-| `session` | 저장소 하나의 핸들. 전역 인자(경로, 원격, 사용자)를 들고 명령을 낸다 |
-| 명령 큐 | 저장소마다 직렬 워커 하나(쓰기 명령은 순서 보장), 읽기 명령은 병렬. 모든 명령은 취소 토큰과 진행 이벤트를 가진다 |
-| 상태 캐시 | 브랜치·리비전 DAG·작업 트리 상태·잠금을 메모리에 둔다. 알림(`lore_notification_subscribe`)과 명령 결과로 갱신하고, UI에는 변경분만 보낸다 |
-| 그래프 배치 | 리비전 DAG의 레인 배치를 Rust에서 계산한다(부모 최대 2개라 단순). 레인 색은 브랜치 **ID** 기준 |
+| `call` | Lore C API 호출 하나를 콜백 이벤트(JSON)로 모아 결과로 돌려준다. 안전하지 않은 호출을 한곳에 가둔다 |
+| `Repository` | 작업본 하나. 전역 인자(경로, 오프라인 여부, 신원)를 들고 명령을 낸다 |
+| `ops` | 오래 걸리는 받기·동기화·push를 별도 작업 프로세스로 돌려 진행률을 받고, 취소는 그 프로세스를 끝내는 것으로 한다(Lore에 호출 단위 취소가 없다) |
+| `notify` | 서버 알림 구독(잠금·push·브랜치). 구독이 끝날 때까지 콜백 컨텍스트를 소유한다 |
+| `graph` | 리비전 DAG의 레인 배치를 Rust에서 계산한다(부모 최대 2개라 단순). 레인 색은 브랜치 **ID** 기준 |
+| `restack`·`view`·`uasset`·`assets`·`tools` | restack, View 적용, 썸네일 읽기, 에셋 목록, 커스텀 도구 |
 | 명령 기록 | 각 동작에 대응하는 `lore` CLI 명령을 함께 만들어 상태바에 보여 준다(Sublime Merge 방식) |
 | Undo | 브랜치 포인터 이동 기록(이전 리비전)을 남겨 `lore_branch_reset`으로 되돌린다. 리비전이 불변이라 안전하다 |
 
@@ -74,9 +75,8 @@ UI와는 두 경로로만 이야기한다: **명령**(Tauri command, 즉시 작�
 | View/Hydration | `.lore/view` 파일을 쓰는 방식이다(그냥 쓴 줄은 **제외**, `!` 줄은 다시 **포함**). 복제와 새 리비전을 받는 sync 때만 실체화하고, **v0.10.0은 View를 바꿔도 이미 받은 파일을 지우거나 새로 받지 않는다**(변경 없는 sync는 아무것도 안 함). 그래서 TOME이 직접 적용한다(`tome-core::view`): Lore의 필터 코드(`lore_revision::filter`)로 판정해 View 밖의 변경 없는 파일은 지우고(Lore는 이를 삭제로 보지 않는다), 변경·신규 파일과 `.loreignore` 대상은 남긴다. 다시 들어온 파일은 status에 '삭제'로 나오므로 그 경로만 `lore_file_reset`으로 받아 온다(reset은 수정 내용도 덮어쓰므로 경로를 좁힌다) | `lore.h`의 `view` 인자, 서버 통합 테스트 |
 | uasset 썸네일·구조 비교를 에디터 없이 | `.uasset` 패키지 헤더에 썸네일 테이블(`ThumbnailTableOffset`)이 있어 **에디터 없이 PNG/JPEG를 꺼낼 수 있다.** TOME은 이 썸네일 테이블만 직접 읽고(`tome-core::uasset`), 구조 비교 같은 깊은 분석은 커스텀 도구로 외부 도구를 부르게 한다 | UE 패키지 포맷(`FPackageFileSummary`) |
 
-## 5. 다음 작업
+## 5. 지금 상태 (0.1)
 
-1. 저장소 골격: Tauri 2 앱 + `tome-core` 크레이트 + `lore-sys`(bindgen), CI(Windows·macOS 빌드)
-2. 첫 수직 슬라이스: 저장소 열기 → 상태 → 브랜치·리비전 히스토리를 Smartlog 목록으로 표시(읽기 전용)
-3. 그 위에 커밋·push, 잠금 보드, View 다이얼로그 순서로 쓰기 기능
-4. 로고·아이콘 방향
+- Lore v0.10.0을 `third_party/lore` 서브모듈에서 빌드하고, C API(`lore::interface`)를 bindgen 없이 같은 프로세스에서 직접 부른다. C API에 없는 cherry-pick은 Lore 라이브러리 함수를 같은 방식으로 부른다(`tome-core::restack`).
+- 구현됨: Smartlog(스택·전체 그래프), 스테이징·커밋·push, 잠금 보드와 실시간 알림, View 적용, 브랜치·병합·충돌 해결, 파일 기록과 diff, 진행률·취소가 있는 긴 작업(별도 작업 프로세스), 커스텀 도구, 아티스트 모드(uasset 썸네일), 끌어서 놓는 restack.
+- 서버 테스트는 `TOME_TEST_SERVER`로 버리는 loreserver를 가리킬 때만 돈다(Lore 기본 포트 41337은 거부).
