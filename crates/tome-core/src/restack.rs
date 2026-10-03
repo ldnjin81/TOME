@@ -140,6 +140,8 @@ pub struct PickPreview {
     pub risks: Vec<Risk>,
     /// Files it changes that someone else has locked: (path, owner).
     pub locked: Vec<(String, String)>,
+    /// A merge revision: applied again it becomes an ordinary revision (the merge link is lost).
+    pub merge: bool,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -154,7 +156,12 @@ pub struct Preview {
 #[serde(tag = "state", rename_all = "snake_case")]
 pub enum Step {
     /// Every pick applied: the new head.
-    Done { head: String },
+    Done {
+        head: String,
+        /// Picks whose changes the new base already had: they would have made empty
+        /// revisions, so they were left out.
+        skipped: Vec<String>,
+    },
     /// The pick at `index` stopped on these conflicting files; settle them, then continue.
     Conflict { index: usize, files: Vec<String> },
 }
@@ -186,6 +193,15 @@ pub fn preview(repository: &Repository, plan: &Plan, old_base: &str, old_order: 
         files.insert(&pick.id, changed_files(repository, &pick.id)?);
     }
     let old_position = |id: &str| old_order.iter().position(|o| o == id);
+    let mut merges = HashSet::new();
+    for pick in &plan.picks {
+        let info = ok(repository.changes(&pick.id), "reading the revision")?;
+        // The second parent of a merge; all zeros otherwise.
+        let merged = info.data("revisionInfo").next().and_then(|d| d["parent"][1].as_str()).is_some_and(|p| !p.is_empty() && p != model::NO_HASH);
+        if merged {
+            merges.insert(pick.id.as_str());
+        }
+    }
     let picks = plan
         .picks
         .iter()
@@ -206,6 +222,7 @@ pub fn preview(repository: &Repository, plan: &Plan, old_base: &str, old_order: 
                 message: pick.message.clone(),
                 risks: mine.iter().filter(|f| before.contains(f.as_str())).map(|f| Risk { path: f.clone(), binary: model::is_binary_path(f) }).collect(),
                 locked: locks.iter().filter(|(path, owner)| owner != me && mine.contains(path)).cloned().collect(),
+                merge: merges.contains(pick.id.as_str()),
                 files: mine.clone(),
             }
         })
@@ -215,6 +232,8 @@ pub fn preview(repository: &Repository, plan: &Plan, old_base: &str, old_order: 
 
 /// Applies the plan's picks from `from` on; with `from == 0` it first resets the branch to
 /// `onto` (the working copy must have no changes). Stops at the first pick that conflicts.
+/// A pick that changes nothing on the new base (the base already has it) is left out. If
+/// anything fails after the branch was moved, the branch and files are put back as they were.
 pub fn run(repository: &Repository, plan: &Plan, from: usize) -> Result<Step, String> {
     if from == 0 {
         let status = model::status(&ok(repository.scan_status(), "status")?).ok_or("status returned nothing")?;
@@ -224,19 +243,53 @@ pub fn run(repository: &Repository, plan: &Plan, from: usize) -> Result<Step, St
         if status.files.iter().any(|f| !f.directory) {
             return Err("the working copy has uncommitted changes: commit or revert them first".into());
         }
+    }
+    apply(repository, plan, from).map_err(|error| match abort(repository, plan) {
+        Ok(()) => format!("{error}; the branch and files were put back as they were before the restack"),
+        Err(back) => format!("{error}; putting the branch back also failed ({back}): reset it to {} by hand", plan.original_head),
+    })
+}
+
+fn head(repository: &Repository) -> Result<String, String> {
+    Ok(model::status(&repository.status()).ok_or("status returned nothing")?.revision)
+}
+
+fn apply(repository: &Repository, plan: &Plan, from: usize) -> Result<Step, String> {
+    if from == 0 {
         ok(repository.branch_reset(&plan.onto), "resetting the branch")?;
         ok(repository.sync_to(&plan.onto, false), "syncing to the new base")?;
     }
+    let mut skipped = Vec::new();
     for (index, pick) in plan.picks.iter().enumerate().skip(from) {
+        let before = head(repository)?;
         let result = ok(repository.cherry_pick(&pick.id, &pick.message), &format!("applying \"{}\"", pick.message))?;
         let conflicted = result.data("cherryPickStartEnd").any(|d| d["hasConflicts"].as_u64().unwrap_or(0) != 0);
         if conflicted {
             let files = result.data("cherryPickConflictFile").filter_map(|d| d["path"].as_str().map(str::to_string)).collect();
             return Ok(Step::Conflict { index, files });
         }
+        if drop_if_empty(repository, &before)? {
+            skipped.push(pick.id.clone());
+        }
     }
-    let status = model::status(&repository.status()).ok_or("status returned nothing")?;
-    Ok(Step::Done { head: status.revision })
+    Ok(Step::Done { head: head(repository)?, skipped })
+}
+
+/// Lore commits a pick even when it changes nothing; such a revision is taken off the branch
+/// again (the files are the same either way). True when it was.
+fn drop_if_empty(repository: &Repository, before: &str) -> Result<bool, String> {
+    let now = head(repository)?;
+    if now == before {
+        return Ok(false);
+    }
+    // The revision's own delta cannot tell: a cherry-pick lists every file it merged as
+    // "keep", changed or not. Compare the two revisions' files instead.
+    let diff = ok(repository.revision_diff(before, &now), "checking for an empty revision")?;
+    if model::diff_files(&diff).iter().any(|f| !f.directory) {
+        return Ok(false);
+    }
+    ok(repository.branch_reset(before), "leaving out an empty revision")?;
+    Ok(true)
 }
 
 /// The side to keep for a conflicted file of a pick. In a cherry-pick Lore's "mine" is the
@@ -270,7 +323,12 @@ pub fn continue_after(repository: &Repository, plan: &Plan, index: usize) -> Res
         return Err(format!("conflicts not settled yet: {}", open.join(", ")));
     }
     let pick = plan.picks.get(index).ok_or("no such pick")?;
-    ok(repository.commit(&pick.message), &format!("committing \"{}\"", pick.message))?;
+    // Committed by hand already (or settled to nothing): there is nothing left to commit.
+    if status.files.iter().any(|f| !f.directory) {
+        let before = head(repository)?;
+        ok(repository.commit(&pick.message), &format!("committing \"{}\"", pick.message))?;
+        drop_if_empty(repository, &before)?;
+    }
     run(repository, plan, index + 1)
 }
 

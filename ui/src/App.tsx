@@ -525,7 +525,8 @@ export default function App() {
     if (step.state === 'done') {
       setPendingRestack(null);
       setRestackChoices({});
-      addToast('Restack 완료 · 이제 push할 수 있습니다', 'push');
+      const skipped = step.skipped.length ? ` · ${step.skipped.length}개는 새 베이스에 이미 있어 뺐습니다` : '';
+      addToast(`Restack 완료${skipped} · 이제 push할 수 있습니다`, 'push');
       void refreshHistory(outcome.status);
       return;
     }
@@ -536,14 +537,24 @@ export default function App() {
         const files = step.files.filter((f) => choices[f] === keep);
         if (files.length && !(await run<Status>('restack_resolve', { paths: files, keep }, setStatus))) return;
       }
-      await run<RestackOutcome>('restack_continue', {}, (o) => void restackStepped(o, choices));
+      await restackCall('restack_continue', {}, choices);
     }
+  }
+
+  /** A restack call that failed: the backend put the branch back when it could, so show
+   * that plainly and read the working copy again. */
+  async function restackCall(command: string, args: Record<string, unknown>, choices: Record<string, Keep>) {
+    const ok = await run<RestackOutcome>(command, args, (o) => void restackStepped(o, choices));
+    if (ok) return;
+    setError((e) => (/put back as they were/.test(e) ? `restack 중 오류가 나서 시작 전 상태로 되돌렸습니다. (${e.split(';')[0]})` : e));
+    setPendingRestack(await invoke<PendingRestack | null>('restack_pending', { path: path.trim() }).catch(() => null));
+    invoke<Done<Status>>('working_status', { path: path.trim(), offline: true }).then((d) => void refreshHistory(d.value), () => {});
   }
 
   function startRestack(plan: RestackPlan, choices: Record<string, Keep>) {
     setRestackReq(null);
     setRestackChoices(choices);
-    void run<RestackOutcome>('restack_start', { plan }, (o) => void restackStepped(o, choices));
+    void restackCall('restack_start', { plan }, choices);
   }
 
   async function showWorkingDiff(file: string) {
@@ -734,7 +745,7 @@ export default function App() {
               status={status}
               busy={busy}
               onResolve={(paths, keep) => void run<Status>('restack_resolve', { paths, keep }, setStatus)}
-              onContinue={() => void run<RestackOutcome>('restack_continue', {}, (o) => void restackStepped(o, restackChoices))}
+              onContinue={() => void restackCall('restack_continue', {}, restackChoices)}
               onAbort={() =>
                 void run<Status>('restack_abort', {}, (s) => {
                   setPendingRestack(null);

@@ -492,7 +492,12 @@ async fn restack_continue(app: tauri::AppHandle, path: String) -> Result<Done<Re
     blocking(move || {
         let pending = pending_for(&app, &path)?;
         let repository = repository(&path, false);
-        let step = restack::continue_after(&repository, &pending.plan, pending.index)?;
+        let step = restack::continue_after(&repository, &pending.plan, pending.index).inspect_err(|error| {
+            // A failure that put the branch back ends the restack: nothing is left to continue.
+            if error.contains("put back as they were") {
+                let _ = write_pending(&app, &path, None);
+            }
+        })?;
         let mut commands = vec![format!("lore commit {}", arg(&pending.plan.picks[pending.index].message))];
         commands.extend(pick_commands(&pending.plan, pending.index + 1));
         Ok(Done { value: restack_outcome(&app, &path, &repository, &pending.plan, step)?, commands })

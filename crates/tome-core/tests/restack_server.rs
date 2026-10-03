@@ -159,7 +159,9 @@ fn binary_conflict_keeps_my_version_or_the_base() {
         assert!(matches!(restack::continue_after(&a.repo, &plan, 0).unwrap(), Step::Done { .. }));
         assert_eq!(a.read("M_Rock.uasset"), expected, "{keep:?} after the commit");
         assert_eq!(a.read("x.txt"), b"x\n", "the pick after the conflict applied too");
-        assert_eq!(a.line(), (vec!["D2".into(), "D1 bin".into(), "R1 bob bin".into(), "B".into()], true));
+        // Keeping the base's version leaves D1 with nothing to change: it is left out.
+        let expected: Vec<String> = if keep == Keep::Mine { vec!["D2".into(), "D1 bin".into(), "R1 bob bin".into(), "B".into()] } else { vec!["D2".into(), "R1 bob bin".into(), "B".into()] };
+        assert_eq!(a.line(), (expected, true));
         ok(a.repo.push("main"), "push");
         std::fs::remove_dir_all(&root).ok();
     }
@@ -243,5 +245,104 @@ fn refuses_with_uncommitted_changes() {
     assert!(restack::run(&a.repo, &plan, 0).unwrap_err().contains("uncommitted"));
     assert_eq!(a.read("x.txt"), b"edited\n", "nothing touched");
     assert_eq!(a.line().0, ["D1", "B"]);
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn a_change_the_server_already_has_is_left_out() {
+    let Some(server) = server() else { return };
+    let (root, a, _b) = diverged(
+        &server,
+        "same",
+        &[(&[("a.txt", b"SAME\n")], "R1 same change")],
+        &[(&[("a.txt", b"SAME\n")], "D1 same change"), (&[("x.txt", b"x\n")], "D2")],
+    );
+    let stack = a.repo.stack().unwrap();
+    let plan = onto_server(&stack, &a.head());
+    let d1 = plan.picks[0].id.clone();
+    let Step::Done { skipped, .. } = restack::run(&a.repo, &plan, 0).unwrap() else { panic!("conflict") };
+    assert_eq!(skipped, [d1]);
+    assert_eq!(a.line(), (vec!["D2".into(), "R1 same change".into(), "B".into()], true), "no empty revision left behind");
+    assert_eq!(a.read("a.txt"), b"SAME\n");
+    ok(a.repo.push("main"), "push");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn a_merge_revision_is_flagged_and_moved_as_one_revision() {
+    let Some(server) = server() else { return };
+    let (root, a, _b) = diverged(&server, "merge", &[(&[("c.txt", b"bob\n")], "R1")], &[(&[("x.txt", b"x\n")], "D1")]);
+    ok(a.repo.create_branch("f"), "create f");
+    ok(a.repo.switch_branch("f"), "switch f");
+    a.commit(&[("f.txt", b"f\n")], "F1");
+    ok(a.repo.switch_branch("main"), "switch main");
+    ok(a.repo.merge_branch("f", "Merge f"), "merge f");
+    let stack = a.repo.stack().unwrap();
+    assert_eq!(stack.drafts.iter().map(|r| r.message.as_str()).collect::<Vec<_>>(), ["Merge f", "D1"]);
+    let plan = onto_server(&stack, &a.head());
+    let preview = restack::preview(&a.repo, &plan, &stack.fork.as_ref().unwrap().id, &order(&stack), &[], "alice").unwrap();
+    assert_eq!(preview.picks.iter().map(|p| (p.message.as_str(), p.merge)).collect::<Vec<_>>(), [("D1", false), ("Merge f", true)]);
+    assert!(matches!(restack::run(&a.repo, &plan, 0).unwrap(), Step::Done { .. }));
+    assert_eq!(a.line(), (vec!["Merge f".into(), "D1".into(), "R1".into(), "B".into()], true));
+    assert_eq!(a.read("f.txt"), b"f\n");
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn a_failure_part_way_puts_everything_back() {
+    let Some(server) = server() else { return };
+    let (root, a, _b) = diverged(&server, "fail", &[(&[("c.txt", b"bob\n")], "R1")], &[(&[("x.txt", b"x\n")], "D1")]);
+    let before = model::history(&a.repo.history("main", 10)).into_iter().map(|r| r.id).collect::<Vec<_>>();
+    let stack = a.repo.stack().unwrap();
+    let mut plan = onto_server(&stack, &a.head());
+    plan.picks.push(Pick { id: "f".repeat(64), message: "does not exist".into() });
+    let error = restack::run(&a.repo, &plan, 0).unwrap_err();
+    assert!(error.contains("put back"), "{error}");
+    assert_eq!(model::history(&a.repo.history("main", 10)).into_iter().map(|r| r.id).collect::<Vec<_>>(), before);
+    assert_eq!(a.read("x.txt"), b"x\n");
+    assert!(!a.dir.join("c.txt").exists());
+    let status = model::status(&ok(a.repo.scan_status(), "status")).unwrap();
+    assert!(status.files.iter().all(|f| f.directory), "{:?}", status.files);
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn continue_after_a_restart_and_a_commit_made_by_hand() {
+    let Some(server) = server() else { return };
+    let (root, a, _b) = diverged(
+        &server,
+        "resume",
+        &[(&[("M.uasset", &[0, 7, 0])], "R1 bin")],
+        &[(&[("M.uasset", &[0, 9, 0])], "D1 bin"), (&[("x.txt", b"x\n")], "D2")],
+    );
+    let stack = a.repo.stack().unwrap();
+    let plan = onto_server(&stack, &a.head());
+    assert_eq!(restack::run(&a.repo, &plan, 0).unwrap(), Step::Conflict { index: 0, files: vec!["M.uasset".into()] });
+    // TOME restarts: a new Repository for the same working copy settles and commits by hand.
+    let again = Side::open(a.dir.clone(), "alice");
+    restack::resolve(&again.repo, &["M.uasset".into()], Keep::Mine).unwrap();
+    ok(again.repo.commit("D1 bin"), "commit by hand");
+    assert!(matches!(restack::continue_after(&again.repo, &plan, 0).unwrap(), Step::Done { .. }));
+    assert_eq!(again.line(), (vec!["D2".into(), "D1 bin".into(), "R1 bin".into(), "B".into()], true), "no second D1");
+    assert_eq!(again.read("M.uasset"), [0, 9, 0]);
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn keeping_the_base_version_leaves_no_empty_revision() {
+    let Some(server) = server() else { return };
+    let (root, a, _b) = diverged(
+        &server,
+        "keepbase",
+        &[(&[("M.uasset", &[0, 7, 0])], "R1 bin")],
+        &[(&[("M.uasset", &[0, 9, 0])], "D1 bin"), (&[("x.txt", b"x\n")], "D2")],
+    );
+    let stack = a.repo.stack().unwrap();
+    let plan = onto_server(&stack, &a.head());
+    assert!(matches!(restack::run(&a.repo, &plan, 0).unwrap(), Step::Conflict { .. }));
+    restack::resolve(&a.repo, &["M.uasset".into()], Keep::Base).unwrap();
+    assert!(matches!(restack::continue_after(&a.repo, &plan, 0).unwrap(), Step::Done { .. }));
+    assert_eq!(a.line(), (vec!["D2".into(), "R1 bin".into(), "B".into()], true));
+    assert_eq!(a.read("M.uasset"), [0, 7, 0]);
     std::fs::remove_dir_all(&root).ok();
 }

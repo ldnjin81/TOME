@@ -68,7 +68,7 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
   return (
     <dialog ref={dialog} className="restack-dialog" onClose={onClose} aria-labelledby="rs-title">
       <h2 id="rs-title">{reordering ? `스택 순서 바꾸기 · ${picks.length}개` : `커밋 ${picks.length}개를 ${request.ontoLabel} 위로 옮깁니다`}</h2>
-      <p className="muted small">미리보기입니다. 아직 아무것도 바뀌지 않았습니다. 각 커밋을 새 순서대로 다시 적용하고, push 전까지는 내 작업본에만 있습니다.</p>
+      <p className="muted small">미리보기입니다. 아직 아무것도 바뀌지 않았습니다. 각 커밋을 새 순서대로 다시 적용하고, push 전까지는 내 작업본에만 있습니다. 새 베이스에 이미 들어 있는 변경은 빈 커밋으로 남기지 않고 뺍니다. 중간에 오류가 나면 시작 전 상태로 되돌립니다.</p>
 
       <ol className="rs-list">
         {shown.map((p, i) => {
@@ -88,7 +88,8 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
                   <span className="rev-no draft">draft</span> {p.message.split('\n')[0] || '(메시지 없음)'}
                   <span className="muted small"> · 파일 {info ? info.files.length : '…'}개</span>
                 </span>
-                {info && info.risks.length === 0 && info.locked.length === 0 && <span className="rs-note ok">겹치는 변경 없음</span>}
+                {info?.merge && <span className="rs-note bin">병합 리비전입니다. 옮기면 일반 리비전 하나가 되어 병합 기록(어느 브랜치를 합쳤는지)은 사라집니다.</span>}
+                {info && !info.merge && info.risks.length === 0 && info.locked.length === 0 && <span className="rs-note ok">겹치는 변경 없음</span>}
                 {info?.risks.map((r) =>
                   r.binary ? (
                     <span key={r.path} className="rs-note bin">

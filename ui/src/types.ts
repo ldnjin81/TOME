@@ -289,6 +289,8 @@ export interface PickPreview {
   risks: RestackRisk[];
   /** [path, owner] locked by someone else. */
   locked: [string, string][];
+  /** A merge revision: moved, it becomes an ordinary revision (the merge link is lost). */
+  merge: boolean;
 }
 
 export interface RestackPreview {
@@ -296,7 +298,7 @@ export interface RestackPreview {
   base_changes: string[];
 }
 
-export type RestackStep = { state: 'done'; head: string } | { state: 'conflict'; index: number; files: string[] };
+export type RestackStep = { state: 'done'; head: string; skipped: string[] } | { state: 'conflict'; index: number; files: string[] };
 
 export interface RestackOutcome {
   step: RestackStep;
