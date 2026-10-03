@@ -5,6 +5,10 @@ on:
     branches: ["**"]
   pull_request:
 
+# Read-only token: the workflow only builds and tests.
+permissions:
+  contents: read
+
 jobs:
   build:
     strategy:
