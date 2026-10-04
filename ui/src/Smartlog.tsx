@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Branch, Graph, GraphRow, Pick, Revision, Segment, StackInfo, Status } from './types';
+import { reorderPicks } from './stackLogic';
 
 /** How a lane segment is drawn: public history, folded history, my stack, uncommitted work. */
 type Line = 'public' | 'dotted' | 'stack' | 'wip' | null;
@@ -192,12 +193,10 @@ function Stack({
   }
 
   function reorder(dragged: string, target: string, side: 'before' | 'after') {
-    if (!base || dragged === target) return;
-    const visual = drafts.filter((d) => d.id !== dragged);
-    const at = visual.findIndex((d) => d.id === target) + (side === 'after' ? 1 : 0);
-    visual.splice(at, 0, drafts.find((d) => d.id === dragged)!);
-    if (visual.every((d, i) => d.id === drafts[i].id)) return;
-    onRestack({ onto: base.id, ontoLabel: `r${base.number} ${base.message.split('\n')[0]}`, picks: [...visual].reverse().map(toPick) });
+    if (!base) return;
+    const picks = reorderPicks(drafts, dragged, target, side);
+    if (!picks) return;
+    onRestack({ onto: base.id, ontoLabel: `r${base.number} ${base.message.split('\n')[0]}`, picks });
   }
 
   function endDrag() {

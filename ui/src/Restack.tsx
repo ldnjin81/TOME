@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Keep, PendingRestack, Pick, RestackPlan, RestackPreview, Status } from './types';
 import type { RestackRequest } from './Smartlog';
+import { movePick } from './restackLogic';
 
 const KEEP_LABEL: Record<Keep, string> = { mine: '내 변경 유지', base: '베이스 버전 사용', edited: '직접 고침' };
 
@@ -51,12 +52,8 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
   // Shown newest first, like the Smartlog; `picks` is oldest first.
   const shown = [...picks].reverse();
   function move(id: string, by: -1 | 1) {
-    const list = [...shown];
-    const i = list.findIndex((p) => p.id === id);
-    const j = i + by;
-    if (j < 0 || j >= list.length) return;
-    [list[i], list[j]] = [list[j], list[i]];
-    setPicks(list.reverse());
+    const next = movePick(picks, id, by);
+    if (next !== picks) setPicks(next);
   }
 
   const byId = new Map(preview?.picks.map((p) => [p.id, p]) ?? []);

@@ -15,6 +15,7 @@ import JobPanel from './JobPanel';
 import { MergeDialog, NewBranchDialog } from './BranchDialogs';
 import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 import Assets, { AssetDetails, assetMarks } from './Assets';
+import { orderBranches } from './branchLogic';
 
 type Tab = 'history' | 'assets' | 'changes' | 'locks';
 
@@ -30,24 +31,6 @@ function formatTime(ms: number) {
   if (!ms) return '';
   const date = new Date(ms);
   return date.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-/** The branch list: main first, then the current branch, then the rest by name; names with
- * a `/` (auto/task-12, feature/x) go into a group per prefix, groups by name. */
-function orderBranches(branches: Branch[], current: string) {
-  const rank = (b: Branch) => (b.name === 'main' ? 0 : b.name === current ? 1 : 2);
-  const byName = (a: Branch, b: Branch) => rank(a) - rank(b) || a.name.localeCompare(b.name, undefined, { numeric: true });
-  const top: Branch[] = [];
-  const groups = new Map<string, Branch[]>();
-  for (const b of branches) {
-    const slash = b.name.indexOf('/');
-    if (slash <= 0 || b.name === current) top.push(b);
-    else groups.set(b.name.slice(0, slash), [...(groups.get(b.name.slice(0, slash)) ?? []), b]);
-  }
-  return {
-    top: top.sort(byName),
-    groups: [...groups.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([g, list]) => [g, list.sort(byName)] as [string, Branch[]]),
-  };
 }
 
 export default function App() {

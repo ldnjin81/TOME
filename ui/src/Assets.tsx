@@ -1,22 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Asset, AssetListing, AssetPreview, ChangedFile, Lock } from './types';
+import { classTone } from './assetLogic';
 
 /** Previews are asked for in batches, so the first cards fill in before the whole folder is read. */
 const BATCH = 24;
 
 const ACTION_LABEL: Record<string, string> = { add: '추가', modify: '수정', delete: '삭제', move: '이동' };
-
-/** A colour family per kind of asset, for cards without a saved image. */
-function classTone(cls: string, kind: string) {
-  if (kind === 'umap' || cls === 'World') return 'map';
-  if (/Blueprint|BlueprintGeneratedClass/.test(cls)) return 'blueprint';
-  if (/Sound|MetaSound|Submix/.test(cls)) return 'sound';
-  if (/Anim|Pose|Blend|Montage|Chooser|IKR/.test(cls)) return 'anim';
-  if (/Material|Texture/.test(cls)) return 'material';
-  if (/Enum|Struct|DataTable|DataAsset|Curve|Input/.test(cls)) return 'data';
-  return 'other';
-}
 
 export function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
