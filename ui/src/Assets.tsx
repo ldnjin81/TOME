@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Asset, AssetListing, AssetPreview, ChangedFile, Lock } from './types';
 import { classTone } from './assetLogic';
+import { virtualGrid } from './assetVirtual';
 
-/** Previews are asked for in batches, so the first cards fill in before the whole folder is read. */
+/** 미리보기는 보이는 범위부터 작은 묶음으로 요청한다. */
 const BATCH = 24;
 
 const ACTION_LABEL: Record<string, string> = { add: '추가', modify: '수정', delete: '삭제', move: '이동' };
@@ -145,7 +146,10 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
   const [filter, setFilter] = useState('');
   const [onlyMarked, setOnlyMarked] = useState(false);
   const [size, setSize] = useState(128);
-  const asked = useRef(new Set<string>());
+  const asked = useRef(new Map<string, number>());
+  const mainRef = useRef<HTMLElement>(null);
+  const gridRef = useRef<HTMLUListElement>(null);
+  const [geometry, setGeometry] = useState({ width: 600, height: 600, scrollTop: 0, gridTop: 0 });
 
   // Start in Content when the working copy has one.
   useEffect(() => {
@@ -161,6 +165,9 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
   useEffect(() => {
     if (folder === null) return;
     let stale = false;
+    setListing(null);
+    if (mainRef.current) mainRef.current.scrollTop = 0;
+    setGeometry((g) => ({ ...g, scrollTop: 0 }));
     invoke<AssetListing>('list_assets', { path, folder }).then(
       (l) => {
         if (!stale) setListing(l);
@@ -173,31 +180,6 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, folder]);
 
-  // Read previews of the folder in batches; changed files again when their time changes.
-  useEffect(() => {
-    if (!listing) return;
-    const seen = asked.current;
-    const want = listing.assets.filter((a) => !seen.has(`${a.path}@${a.modified}`));
-    want.forEach((a) => seen.add(`${a.path}@${a.modified}`));
-    let stopped = false;
-    void (async () => {
-      for (let i = 0; i < want.length && !stopped; i += BATCH) {
-        try {
-          onPreviews(await invoke<AssetPreview[]>('asset_previews', { path, files: want.slice(i, i + BATCH).map((a) => a.path) }));
-        } catch (e) {
-          onError(String(e));
-          return;
-        }
-      }
-    })();
-    return () => {
-      stopped = true;
-      // Unfinished batches are asked again when the folder is shown again.
-      want.forEach((a) => !previews[a.path] && seen.delete(`${a.path}@${a.modified}`));
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [listing]);
-
   const shown = useMemo(() => {
     if (!listing) return [];
     const needle = filter.trim().toLowerCase();
@@ -208,12 +190,64 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
     });
   }, [listing, filter, onlyMarked, marks, previews]);
 
+  useLayoutEffect(() => {
+    const main = mainRef.current;
+    const grid = gridRef.current;
+    if (!main || !grid) return;
+    const measure = () => {
+      const gridTop = grid.getBoundingClientRect().top - main.getBoundingClientRect().top + main.scrollTop;
+      setGeometry((current) => current.width === grid.clientWidth && current.height === main.clientHeight && current.scrollTop === main.scrollTop && current.gridTop === gridTop
+        ? current : { width: grid.clientWidth, height: main.clientHeight, scrollTop: main.scrollTop, gridTop });
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(main);
+    observer.observe(grid);
+    measure();
+    return () => observer.disconnect();
+  }, [listing, filter, onlyMarked, size]);
+
+  const range = virtualGrid(shown.length, geometry.width, size, geometry.scrollTop, geometry.height, geometry.gridTop);
+  // 클래스 검색은 아직 화면에 없는 에셋의 클래스도 알아야 하므로, 검색할 때만 나머지를 뒤이어 읽는다.
+  const previewTargets = filter.trim()
+    ? [...shown.slice(range.previewFirst, range.previewEnd), ...(listing?.assets ?? [])]
+    : shown.slice(range.previewFirst, range.previewEnd);
+
+  useEffect(() => {
+    if (!listing || previewTargets.length === 0) return;
+    const seen = asked.current;
+    const queued = new Set<string>();
+    const want = previewTargets.filter((a) => {
+      if (queued.has(a.path)) return false;
+      queued.add(a.path);
+      if (!seen.has(a.path) && previews[a.path]) seen.set(a.path, a.modified);
+      return seen.get(a.path) !== a.modified;
+    });
+    let stopped = false;
+    void (async () => {
+      for (let i = 0; i < want.length && !stopped; i += BATCH) {
+        const batch = want.slice(i, i + BATCH);
+        batch.forEach((a) => seen.set(a.path, a.modified));
+        try {
+          const result = await invoke<AssetPreview[]>('asset_previews', { path, files: batch.map((a) => a.path) });
+          if (stopped) batch.forEach((a) => { if (seen.get(a.path) === a.modified) seen.delete(a.path); });
+          else onPreviews(result);
+        } catch (e) {
+          batch.forEach((a) => { if (seen.get(a.path) === a.modified) seen.delete(a.path); });
+          if (!stopped) onError(String(e));
+          return;
+        }
+      }
+    })();
+    return () => { stopped = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [listing, path, range.previewFirst, range.previewEnd, shown]);
+
   const crumbs = (folder ?? '').split('/').filter(Boolean);
 
   return (
     <div className="assets">
       <FolderTree path={path} folder={folder ?? ''} onOpen={(f) => { setFolder(f); onSelect(null); }} />
-      <section className="asset-main">
+      <section className="asset-main" ref={mainRef} onScroll={(e) => setGeometry((g) => ({ ...g, scrollTop: e.currentTarget.scrollTop }))}>
         <div className="asset-bar">
           <nav className="crumbs" aria-label="현재 폴더">
             <button className="link" onClick={() => setFolder('')}>
@@ -257,8 +291,8 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
           </ul>
         )}
         {listing && shown.length === 0 && (listing.assets.length > 0 || listing.folders.length === 0) && <p className="muted asset-empty">{listing.assets.length ? '거른 결과가 없습니다' : '이 폴더에는 에셋(.uasset·.umap)이 없습니다'}</p>}
-        <ul className="asset-grid" style={{ '--thumb': `${size}px` } as React.CSSProperties}>
-          {shown.map((a) => {
+        <ul ref={gridRef} className="asset-grid" style={{ '--thumb': `${size}px`, '--row-height': `${range.rowHeight}px`, paddingTop: range.top, paddingBottom: range.bottom } as React.CSSProperties}>
+          {shown.slice(range.first, range.end).map((a) => {
             const preview = previews[a.path];
             return (
               <li key={a.path}>

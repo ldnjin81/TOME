@@ -382,7 +382,7 @@ button.lrow:hover { background: var(--accent-soft); }
 .mode-switch button.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* Artist mode: folder tree and asset grid */
-.assets { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 12px; min-height: 0; }
+.assets { display: grid; grid-template-columns: minmax(150px, 210px) 1fr; gap: 12px; min-height: 0; height: 100%; }
 .folder-tree { border-right: 1px solid var(--line); padding-right: 8px; overflow: auto; font-size: 13px; }
 .folder-tree ul { list-style: none; margin: 0; padding: 0; }
 .tree-row { display: flex; align-items: center; gap: 2px; border-radius: 5px; }
@@ -391,7 +391,7 @@ button.lrow:hover { background: var(--accent-soft); }
 .tree-twisty { width: 18px; flex: none; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font-size: 11px; }
 .tree-name { flex: 1; min-width: 0; padding: 4px 4px; border: 0; background: none; text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tree-name.root { padding-left: 6px; color: var(--muted); }
-.asset-main { min-width: 0; }
+.asset-main { min-width: 0; min-height: 0; overflow-y: auto; }
 .asset-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 6px; }
 .crumbs { flex: 1; min-width: 160px; font-size: 13px; overflow-wrap: anywhere; }
 .crumbs .link { font-size: 13px; }
@@ -403,7 +403,9 @@ button.lrow:hover { background: var(--accent-soft); }
 .subfolder { padding: 4px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); cursor: pointer; font-size: 12.5px; }
 .subfolder:hover { border-color: var(--accent); }
 .asset-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(var(--thumb, 128px), 1fr)); gap: 10px; list-style: none; margin: 0; padding: 0; }
+.asset-grid > li { height: var(--row-height); min-height: 0; }
 .asset-card { display: flex; flex-direction: column; width: 100%; padding: 6px; border: 1px solid transparent; border-radius: 8px; background: none; text-align: left; cursor: pointer; }
+.asset-grid .asset-card { height: 100%; }
 .asset-card:hover { background: var(--surface); border-color: var(--line); }
 .asset-card.active { background: var(--accent-soft); border-color: var(--accent); }
 .thumb { position: relative; display: block; aspect-ratio: 1; max-width: 100%; border-radius: 6px; overflow: hidden; background: var(--thumb-ground); }
