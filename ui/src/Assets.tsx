@@ -202,8 +202,12 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
     const observer = new ResizeObserver(measure);
     observer.observe(main);
     observer.observe(grid);
+    main.addEventListener('scroll', measure, { passive: true });
     measure();
-    return () => observer.disconnect();
+    return () => {
+      main.removeEventListener('scroll', measure);
+      observer.disconnect();
+    };
   }, [listing, filter, onlyMarked, size]);
 
   const range = virtualGrid(shown.length, geometry.width, size, geometry.scrollTop, geometry.height, geometry.gridTop);
@@ -247,7 +251,7 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
   return (
     <div className="assets">
       <FolderTree path={path} folder={folder ?? ''} onOpen={(f) => { setFolder(f); onSelect(null); }} />
-      <section className="asset-main" ref={mainRef} onScroll={(e) => setGeometry((g) => ({ ...g, scrollTop: e.currentTarget.scrollTop }))}>
+      <section className="asset-main" ref={mainRef}>
         <div className="asset-bar">
           <nav className="crumbs" aria-label="현재 폴더">
             <button className="link" onClick={() => setFolder('')}>
