@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Keep, PendingRestack, Pick, RestackPlan, RestackPreview, Status } from './types';
 import type { RestackRequest } from './Smartlog';
+import type { FoldRequest } from './stackLogic';
 import { movePick } from './restackLogic';
 
 const KEEP_LABEL: Record<Keep, string> = { mine: '내 변경 유지', base: '베이스 버전 사용', edited: '직접 고침' };
@@ -199,5 +200,55 @@ export function RestackPanel({ pending, status, busy, onResolve, onContinue, onA
         </button>
       </div>
     </section>
+  );
+}
+
+interface FoldProps {
+  request: FoldRequest;
+  busy: boolean;
+  onFold: (message: string) => void;
+  onClose: () => void;
+}
+
+/** Fold two drafts into one: shows what is folded and lets the message be edited. */
+export function FoldDialog({ request, busy, onFold, onClose }: FoldProps) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const [message, setMessage] = useState(request.message);
+  useEffect(() => {
+    dialog.current?.showModal();
+  }, []);
+  return (
+    <dialog ref={dialog} className="small-dialog" onClose={onClose} aria-labelledby="fold-title">
+      <form
+        method="dialog"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (message.trim()) onFold(message.trim());
+        }}
+      >
+        <h2 id="fold-title">커밋 {request.group.length}개를 하나로 합칩니다</h2>
+        <ol className="fold-list">
+          {request.messages.map((m, i) => (
+            <li key={i}>{m.split('\n')[0] || '(메시지 없음)'}</li>
+          ))}
+        </ol>
+        <p className="muted small">
+          두 커밋의 변경을 합친 커밋 하나가 됩니다. push 전까지는 내 작업본에만 있습니다.
+          {request.rest.length > 0 && ` 위에 있는 커밋 ${request.rest.length}개는 합친 커밋 위에 다시 얹습니다.`}
+        </p>
+        <label className="field">
+          <span>합친 커밋 메시지</span>
+          <textarea className="fold-msg" rows={4} value={message} onChange={(e) => setMessage(e.target.value)} />
+        </label>
+        <div className="dialog-buttons">
+          <button type="button" className="ghost" onClick={() => dialog.current?.close()}>
+            취소
+          </button>
+          <button type="submit" className="primary" disabled={busy || !message.trim()}>
+            합치기
+          </button>
+        </div>
+      </form>
+    </dialog>
   );
 }

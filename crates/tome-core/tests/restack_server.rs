@@ -346,3 +346,65 @@ fn keeping_the_base_version_leaves_no_empty_revision() {
     assert_eq!(a.read("M.uasset"), [0, 7, 0]);
     std::fs::remove_dir_all(&root).ok();
 }
+
+#[test]
+fn fold_drafts_into_one_revision() {
+    let Some(server) = server() else { return };
+    // B has a.txt and b.bin. Drafts: D1 edits a.txt and adds tmp.txt, D2 deletes b.bin and
+    // tmp.txt and adds c.txt, D3 adds d.txt on top.
+    let (root, a, b) = diverged(&server, "fold", &[], &[]);
+    let base = a.head();
+    a.commit(&[("a.txt", b"1\nTWO\n3\n"), ("tmp.txt", b"t\n")], "D1");
+    std::fs::remove_file(a.dir.join("b.bin")).unwrap();
+    std::fs::remove_file(a.dir.join("tmp.txt")).unwrap();
+    std::fs::write(a.dir.join("c.txt"), b"c\n").unwrap();
+    ok(a.repo.scan_status(), "scan");
+    ok(a.repo.stage(&["b.bin".into(), "tmp.txt".into(), "c.txt".into()]), "stage");
+    ok(a.repo.commit("D2"), "D2");
+    let d3 = a.commit(&[("d.txt", b"d\n")], "D3");
+    let drafts = model::history(&a.repo.history("main", 10));
+    let (d1, d2) = (drafts[2].id.clone(), drafts[1].id.clone());
+
+    // Uncommitted changes refuse the fold and touch nothing.
+    std::fs::write(a.dir.join("d.txt"), b"edited\n").unwrap();
+    let f = restack::Fold { base: base.clone(), group: vec![d1.clone(), d2.clone()], message: "D1+D2".into(), rest: vec![Pick { id: d3.clone(), message: "D3".into() }], original_head: a.head() };
+    assert!(restack::fold(&a.repo, &f).unwrap_err().contains("uncommitted"));
+    ok(a.repo.reset_files(&["d.txt".into()]), "revert d.txt");
+
+    let (step, _) = restack::fold(&a.repo, &f).unwrap();
+    assert!(matches!(step, Step::Done { .. }), "{step:?}");
+    assert_eq!(a.line(), (vec!["D3".into(), "D1+D2".into(), "B".into()], true));
+    assert_eq!(a.read("a.txt"), b"1\nTWO\n3\n");
+    assert_eq!(a.read("c.txt"), b"c\n");
+    assert_eq!(a.read("d.txt"), b"d\n");
+    assert!(!a.dir.join("b.bin").exists(), "deleted in the group");
+    assert!(!a.dir.join("tmp.txt").exists(), "added and deleted inside the group");
+    let status = model::status(&ok(a.repo.scan_status(), "status")).unwrap();
+    assert!(status.files.iter().all(|f| f.directory), "{:?}", status.files);
+    // The folded revision carries exactly the group's net changes.
+    let folded = model::history(&a.repo.history("main", 2))[1].id.clone();
+    let mut files: Vec<String> = model::delta_files(&ok(a.repo.changes(&folded), "changes")).into_iter().filter(|f| !f.directory).map(|f| format!("{} {}", f.action, f.path)).collect();
+    files.sort();
+    assert_eq!(files, ["add c.txt", "delete b.bin", "modify a.txt"]);
+
+    ok(a.repo.push("main"), "push");
+    ok(b.repo.sync(), "bob syncs");
+    assert_eq!(b.line(), (vec!["D3".into(), "D1+D2".into(), "B".into()], true));
+    std::fs::remove_dir_all(&root).ok();
+}
+
+#[test]
+fn fold_needs_two_revisions_and_puts_back_on_failure() {
+    let Some(server) = server() else { return };
+    let (root, a, _b) = diverged(&server, "foldfail", &[], &[(&[("x.txt", b"x\n")], "D1"), (&[("y.txt", b"y\n")], "D2")]);
+    let base = model::history(&a.repo.history("main", 3))[2].id.clone();
+    let before = model::history(&a.repo.history("main", 10)).into_iter().map(|r| r.id).collect::<Vec<_>>();
+    let one = restack::Fold { base: base.clone(), group: vec![before[1].clone()], message: "x".into(), rest: vec![], original_head: a.head() };
+    assert!(restack::fold(&a.repo, &one).unwrap_err().contains("at least two"));
+    // A pick above the group that does not exist: everything goes back.
+    let bad = restack::Fold { base, group: vec![before[1].clone(), before[0].clone()], message: "D1+D2".into(), rest: vec![Pick { id: "e".repeat(64), message: "gone".into() }], original_head: a.head() };
+    assert!(restack::fold(&a.repo, &bad).unwrap_err().contains("put back"));
+    assert_eq!(model::history(&a.repo.history("main", 10)).into_iter().map(|r| r.id).collect::<Vec<_>>(), before);
+    assert_eq!(a.read("y.txt"), b"y\n");
+    std::fs::remove_dir_all(&root).ok();
+}

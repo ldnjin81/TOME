@@ -7,7 +7,8 @@ import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft, type RestackRequest } from './Smartlog';
-import { RestackDialog, RestackPanel } from './Restack';
+import { FoldDialog, RestackDialog, RestackPanel } from './Restack';
+import type { FoldRequest } from './stackLogic';
 import ViewDialog from './ViewDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
@@ -74,6 +75,7 @@ export default function App() {
   const [previews, setPreviews] = useState<Record<string, AssetPreview>>({});
   const [stackInfo, setStackInfo] = useState<StackInfo | null>(null);
   const [restackReq, setRestackReq] = useState<RestackRequest | null>(null);
+  const [foldReq, setFoldReq] = useState<FoldRequest | null>(null);
   const [pendingRestack, setPendingRestack] = useState<PendingRestack | null>(null);
   const [restackChoices, setRestackChoices] = useState<Record<string, Keep>>({});
 
@@ -757,6 +759,7 @@ export default function App() {
               onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
               onRestack={setRestackReq}
               restacking={!!pendingRestack}
+              onFold={setFoldReq}
             />
           )}
           {tab === 'assets' && status && (
@@ -983,6 +986,20 @@ export default function App() {
       )}
 
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}
+
+      {foldReq && status && (
+        <FoldDialog
+          request={foldReq}
+          busy={busy}
+          onFold={(message) => {
+            const { base, group, rest } = foldReq;
+            setFoldReq(null);
+            setRestackChoices({});
+            void restackCall('fold_drafts', { fold: { base, group, message, rest, original_head: status.revision } }, {});
+          }}
+          onClose={() => setFoldReq(null)}
+        />
+      )}
 
       {restackReq && stackInfo && status && (
         <RestackDialog

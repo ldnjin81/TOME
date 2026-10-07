@@ -244,7 +244,7 @@ pub fn run(repository: &Repository, plan: &Plan, from: usize) -> Result<Step, St
             return Err("the working copy has uncommitted changes: commit or revert them first".into());
         }
     }
-    apply(repository, plan, from).map_err(|error| match abort(repository, plan) {
+    apply(repository, plan, from, from == 0).map_err(|error| match abort(repository, plan) {
         Ok(()) => format!("{error}; the branch and files were put back as they were before the restack"),
         Err(back) => format!("{error}; putting the branch back also failed ({back}): reset it to {} by hand", plan.original_head),
     })
@@ -254,8 +254,8 @@ fn head(repository: &Repository) -> Result<String, String> {
     Ok(model::status(&repository.status()).ok_or("status returned nothing")?.revision)
 }
 
-fn apply(repository: &Repository, plan: &Plan, from: usize) -> Result<Step, String> {
-    if from == 0 {
+fn apply(repository: &Repository, plan: &Plan, from: usize, reset: bool) -> Result<Step, String> {
+    if reset {
         ok(repository.branch_reset(&plan.onto), "resetting the branch")?;
         ok(repository.sync_to(&plan.onto, false), "syncing to the new base")?;
     }
@@ -339,4 +339,71 @@ pub fn abort(repository: &Repository, plan: &Plan) -> Result<(), String> {
     ok(repository.branch_reset(&plan.original_head), "resetting the branch back")?;
     ok(repository.sync_to(&plan.original_head, true), "syncing back")?;
     Ok(())
+}
+
+/// Folding consecutive drafts into one revision.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+pub struct Fold {
+    /// The revision the group sits on.
+    pub base: String,
+    /// The drafts to fold, oldest first (consecutive, the first one's parent is `base`).
+    pub group: Vec<String>,
+    /// The message of the folded revision.
+    pub message: String,
+    /// Drafts above the group, oldest first: applied again on top of the folded revision.
+    pub rest: Vec<Pick>,
+    /// The branch head before the fold, to go back to on abort.
+    pub original_head: String,
+}
+
+/// Folds `fold.group` into one revision with the group's combined changes: the branch goes
+/// back to the base, the files that differ between the base and the group's last revision are
+/// written as they are there, and that is committed. The drafts above are then applied again
+/// like a restack, so a conflict stops the same way (continue or abort with the returned plan).
+/// Anything failing puts the branch and files back as they were.
+pub fn fold(repository: &Repository, fold: &Fold) -> Result<(Step, Plan), String> {
+    let last = fold.group.last().ok_or("nothing to fold")?.clone();
+    if fold.group.len() < 2 {
+        return Err("fold needs at least two revisions".into());
+    }
+    let status = model::status(&ok(repository.scan_status(), "status")?).ok_or("status returned nothing")?;
+    if !status.merging.is_empty() {
+        return Err("a merge is in progress: finish or abort it first".into());
+    }
+    if status.files.iter().any(|f| !f.directory) {
+        return Err("the working copy has uncommitted changes: commit or revert them first".into());
+    }
+    let back = Plan { onto: fold.base.clone(), picks: Vec::new(), original_head: fold.original_head.clone() };
+    let folded = (|| -> Result<String, String> {
+        let diff = ok(repository.revision_diff(&fold.base, &last), "comparing the group with its base")?;
+        let files: Vec<String> = model::diff_files(&diff).into_iter().filter(|f| !f.directory).map(|f| f.path).collect();
+        ok(repository.branch_reset(&fold.base), "resetting the branch")?;
+        ok(repository.sync_to(&fold.base, false), "syncing to the base")?;
+        if files.is_empty() {
+            return head(repository);
+        }
+        ok(repository.reset_files_to(&files, &last), "writing the folded files")?;
+        let changed: Vec<String> = model::status(&ok(repository.scan_status(), "status")?)
+            .ok_or("status returned nothing")?
+            .files
+            .into_iter()
+            .filter(|f| !f.directory)
+            .map(|f| f.path)
+            .collect();
+        if !changed.is_empty() {
+            ok(repository.stage(&changed), "staging the folded files")?;
+            ok(repository.commit(&fold.message), "committing the folded revision")?;
+        }
+        head(repository)
+    })()
+    .map_err(|error| match abort(repository, &back) {
+        Ok(()) => format!("{error}; the branch and files were put back as they were before the fold"),
+        Err(again) => format!("{error}; putting the branch back also failed ({again}): reset it to {} by hand", fold.original_head),
+    })?;
+    let plan = Plan { onto: folded, picks: fold.rest.clone(), original_head: fold.original_head.clone() };
+    let step = apply(repository, &plan, 0, false).map_err(|error| match abort(repository, &plan) {
+        Ok(()) => format!("{error}; the branch and files were put back as they were before the fold"),
+        Err(again) => format!("{error}; putting the branch back also failed ({again}): reset it to {} by hand", fold.original_head),
+    })?;
+    Ok((step, plan))
 }

@@ -459,6 +459,13 @@ impl Repository {
         call(restack::cherry_pick_abort_async, &self.globals(), &lore::revision::LoreRevisionCherryPickAbortArgs {})
     }
 
+    /// Writes `paths` as they are in `revision` into the working copy (a path that does not
+    /// exist there is deleted); the branch does not move.
+    pub fn reset_files_to(&self, paths: &[String], revision: &str) -> CallResult {
+        let args = lore::file::LoreFileResetArgs { paths: strings(paths), revision: LoreString::from_bytes(revision.as_bytes()), purge: 0 };
+        call(interface::lore_file_reset_async, &self.globals(), &args)
+    }
+
     /// Restores `paths` from the current revision (rewrites the working files; local edits are lost).
     pub fn reset_files(&self, paths: &[String]) -> CallResult {
         let args = lore::file::LoreFileResetArgs { paths: strings(paths), revision: LoreString::default(), purge: 0 };

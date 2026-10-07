@@ -480,3 +480,7 @@ button.lrow[draggable="true"] { cursor: grab; }
 .group-head:hover { background: var(--accent-soft); }
 .tree-caret { width: 10px; font-size: 10px; }
 .branch-group ul { padding-left: 10px; }
+.draft-actions { position: absolute; right: 34px; top: 50%; transform: translateY(-50%); display: none; }
+.draft-li:hover .draft-actions, .draft-li:focus-within .draft-actions { display: flex; }
+.fold-list { margin: 8px 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.fold-msg { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); font: inherit; resize: vertical; }

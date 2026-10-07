@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { Branch, Graph, GraphRow, Pick, Revision, Segment, StackInfo, Status } from './types';
-import { reorderPicks } from './stackLogic';
+import { foldWithBelow, reorderPicks, type FoldRequest } from './stackLogic';
 
 /** How a lane segment is drawn: public history, folded history, my stack, uncommitted work. */
 type Line = 'public' | 'dotted' | 'stack' | 'wip' | null;
@@ -85,12 +85,14 @@ interface Props {
   onRestack: (request: RestackRequest) => void;
   /** A restack is stopped on a conflict: no new commits or restacks until it is settled. */
   restacking: boolean;
+  /** Fold a draft with the one below it (opens the fold dialog). */
+  onFold: (request: FoldRequest) => void;
 }
 
 /** The author as shown: 나 for my own revisions. */
 const who = (author: string, me: string) => (author && author === me ? '나' : author);
 
-export default function Smartlog({ status, history, stack, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me, onRestack, restacking }: Props) {
+export default function Smartlog({ status, history, stack, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me, onRestack, restacking, onFold }: Props) {
   // The stack is always the working copy's branch; the graph shows every branch.
   const shown = mode;
 
@@ -108,7 +110,7 @@ export default function Smartlog({ status, history, stack, graph, branches, sele
         <span className="muted">{shown === 'stack' ? status.branch_name : '모든 브랜치'}</span>
       </div>
       {shown === 'stack' ? (
-        <Stack me={me} status={status} history={history} stack={stack} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} onRestack={onRestack} restacking={restacking} />
+        <Stack me={me} status={status} history={history} stack={stack} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} onRestack={onRestack} restacking={restacking} onFold={onFold} />
       ) : (
         <GraphView me={me} status={status} stack={stack} graph={graph} branches={branches} selected={selected} onSelect={onSelect} onContext={onContext} />
       )}
@@ -153,6 +155,7 @@ function Stack({
   onContext,
   onRestack,
   restacking,
+  onFold,
 }: {
   me: string;
   status: Status;
@@ -167,6 +170,7 @@ function Stack({
   onContext: (e: React.MouseEvent, revision: Revision) => void;
   onRestack: (request: RestackRequest) => void;
   restacking: boolean;
+  onFold: (request: FoldRequest) => void;
 }) {
   const [dragging, setDragging] = useState<string | null>(null);
   const [dropAt, setDropAt] = useState<DropAt>(null);
@@ -309,6 +313,20 @@ function Stack({
                 </span>
               )}
             </button>
+            {canDrag && i + 1 < drafts.length && (
+              <span className="draft-actions">
+                <button
+                  className="ghost small-btn"
+                  onClick={() => {
+                    const request = foldWithBelow(drafts, r.id);
+                    if (request) onFold(request);
+                  }}
+                  title="이 커밋과 바로 아래 커밋을 하나로 합칩니다"
+                >
+                  아래와 합치기
+                </button>
+              </span>
+            )}
           </li>
         );
       })}

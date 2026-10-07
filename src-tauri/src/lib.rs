@@ -459,6 +459,26 @@ async fn restack_start(app: tauri::AppHandle, path: String, plan: restack::Plan)
     .await
 }
 
+/// Folds consecutive drafts into one revision, then applies the drafts above it again; a
+/// conflict there stops like a restack (continue or abort the same way).
+#[tauri::command]
+async fn fold_drafts(app: tauri::AppHandle, path: String, fold: restack::Fold) -> Result<Done<RestackOutcome>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        let (step, plan) = restack::fold(&repository, &fold)?;
+        let short = |id: &str| id[..id.len().min(12)].to_string();
+        let mut commands = vec![
+            format!("lore branch reset {}", short(&fold.base)),
+            format!("lore revision sync {}", short(&fold.base)),
+            format!("lore file reset --revision {} <files changed in the group>", short(fold.group.last().map(String::as_str).unwrap_or(""))),
+            format!("lore commit {}", arg(&fold.message)),
+        ];
+        commands.extend(pick_commands(&plan, 0));
+        Ok(Done { value: restack_outcome(&app, &path, &repository, &plan, step)?, commands })
+    })
+    .await
+}
+
 /// The restack stopped at a conflict in this working copy, if any.
 #[tauri::command]
 fn restack_pending(app: tauri::AppHandle, path: String) -> Option<PendingRestack> {
@@ -854,7 +874,8 @@ pub fn run() {
             restack_pending,
             restack_resolve,
             restack_continue,
-            restack_abort
+            restack_abort,
+            fold_drafts
         ])
         .build(tauri::generate_context!())
         .expect("error while building TOME")
