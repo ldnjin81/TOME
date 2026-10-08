@@ -9,6 +9,7 @@ import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft, type RestackRequest } from './Smartlog';
 import { FoldDialog, RestackDialog, RestackPanel } from './Restack';
 import type { FoldRequest } from './stackLogic';
+import { explainError } from './errors';
 import ViewDialog from './ViewDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
@@ -621,7 +622,7 @@ export default function App() {
         </button>
       </header>
 
-      {error && <div className="error" role="alert">{error}</div>}
+      {error && <div className="error" role="alert">{explainError(error)}</div>}
       {status?.merging && (
         <div className="merge-bar" role="status">
           병합 중 <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> · 미해결 충돌 {status.files.filter((f) => f.unresolved).length}개 ·{' '}
@@ -842,7 +843,7 @@ export default function App() {
                 <h3>
                   변경 파일 <span className="muted">{changes?.data ? changes.data.files.length : ''}</span>
                 </h3>
-                {changes?.error && <p className="error-line">{changes.error}</p>}
+                {changes?.error && <p className="error-line">{explainError(changes.error)}</p>}
                 {!changes?.data && !changes?.error && <p className="muted">불러오는 중…</p>}
                 {changes?.data && (
                   <ul>

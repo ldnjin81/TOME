@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
 import type { Keep, PendingRestack, Pick, RestackPlan, RestackPreview, Status } from './types';
 import type { RestackRequest } from './Smartlog';
@@ -124,7 +125,7 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
         {preview && !reordering && <span className="muted small"> · 베이스 사이에 바뀐 파일 {preview.base_changes.length}개</span>}
       </p>
 
-      {error && <p className="error-line">{error}</p>}
+      {error && <p className="error-line">{explainError(error)}</p>}
       <div className="rs-tiles" aria-live="polite">
         <span className="rs-tile ok">
           <strong>{preview ? textOnly : '…'}</strong> 자동 적용 예상

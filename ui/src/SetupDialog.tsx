@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
 import { open as pickFolder } from '@tauri-apps/plugin-dialog';
 import type { Done, RemoteRepository, Settings } from './types';
@@ -182,7 +183,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
       </section>
 
       {busy && <p className="busy-line" role="status">{busy}</p>}
-      {error && <p className="error-line" role="alert">{error}</p>}
+      {error && <p className="error-line" role="alert">{explainError(error)}</p>}
 
       <div className="dialog-buttons">
         <button className="ghost" onClick={() => dialog.current?.close()} disabled={!!busy}>

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
 import type { Done, FilePatch, FileRevision } from './types';
 import { PatchView, countLines } from './DiffView';
@@ -57,7 +58,7 @@ export default function FileHistory({ path, file, offline, me, onClose, onComman
           닫기
         </button>
       </header>
-      {error && <p className="error-line">{error}</p>}
+      {error && <p className="error-line">{explainError(error)}</p>}
       {!history && !error && <p className="muted">불러오는 중…</p>}
       {history && history.length === 0 && <p className="muted">이 파일을 바꾼 리비전이 없습니다(아직 커밋되지 않은 새 파일).</p>}
       {history && history.length > 0 && (
