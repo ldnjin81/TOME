@@ -43,6 +43,7 @@ TOME은 독립 프로젝트이며 Epic Games가 만들거나 보증하거나 지
 
 ## 문서
 
+- [사용 설명서](docs/guide/ko.md) ([English](docs/guide/en.md))
 - [구조와 기술 스택 결정](docs/architecture.md)
 
 ## 라이선스

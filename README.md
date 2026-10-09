@@ -43,6 +43,7 @@ TOME is an independent project. It is not made, endorsed or supported by Epic Ga
 
 ## Documents
 
+- [User guide](docs/guide/en.md) ([한국어](docs/guide/ko.md))
 - [Architecture and stack decision](docs/architecture.md)
 
 ## License
