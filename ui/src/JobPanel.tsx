@@ -1,3 +1,4 @@
+import { t, getLocale } from './i18n';
 import type { JobProgress } from './types';
 
 function size(bytes: number) {
@@ -15,18 +16,18 @@ export default function JobPanel({ label, progress, cancelling, onCancel }: { la
         ? progress.done / progress.total
         : null
     : null;
-  const unit = progress?.phase === 'push' ? '조각' : '파일';
+  const unit = progress?.phase === 'push' ? t("조각") : t("파일");
   return (
-    <section className="job-panel" aria-label="진행 중인 작업">
+    <section className="job-panel" aria-label={t("진행 중인 작업")}>
       <div className="job-head">
         <strong>{label}</strong>
         <span className="muted job-numbers">
-          {progress && progress.total > 0 && `${unit} ${progress.done.toLocaleString()} / ${progress.total.toLocaleString()}`}
+          {progress && progress.total > 0 && `${unit} ${progress.done.toLocaleString(getLocale())} / ${progress.total.toLocaleString(getLocale())}`}
           {progress && progress.bytes_total > 0 && ` · ${size(progress.bytes)} / ${size(progress.bytes_total)}`}
-          {!progress && '준비 중…'}
+          {!progress && t("준비 중…")}
         </span>
-        <button className="ghost small-btn" onClick={onCancel} disabled={cancelling} title="작업을 멈춥니다. 다시 실행하면 이어서 진행합니다">
-          {cancelling ? '취소하는 중…' : '취소'}
+        <button className="ghost small-btn" onClick={onCancel} disabled={cancelling} title={t("작업을 멈춥니다. 다시 실행하면 이어서 진행합니다")}>
+          {cancelling ? t("취소하는 중…") : t("취소")}
         </button>
       </div>
       <div className="job-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={fraction === null ? undefined : Math.round(fraction * 100)}>

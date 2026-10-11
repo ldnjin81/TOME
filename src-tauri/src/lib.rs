@@ -207,7 +207,7 @@ fn start_job(app: tauri::AppHandle, op: tome_core::ops::Op) -> Result<u64, Strin
     let clone_path = match &op {
         tome_core::ops::Op::Clone { path, .. } => {
             if std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_some()) {
-                return Err(format!("폴더가 비어 있지 않습니다: {path}"));
+                return Err(format!("Folder is not empty: {path}"));
             }
             Some(path.clone())
         }
@@ -221,7 +221,7 @@ fn start_job(app: tauri::AppHandle, op: tome_core::ops::Op) -> Result<u64, Strin
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::piped())
         .spawn()
-        .map_err(|e| format!("작업 프로세스를 시작할 수 없습니다: {e}"))?;
+        .map_err(|e| format!("Could not start job process: {e}"))?;
     let stdout = child.stdout.take().ok_or("no worker output")?;
     let jobs = app.state::<Jobs>();
     let id = jobs.next.fetch_add(1, std::sync::atomic::Ordering::SeqCst) + 1;
@@ -246,7 +246,7 @@ fn start_job(app: tauri::AppHandle, op: tome_core::ops::Op) -> Result<u64, Strin
                 let _ = std::fs::remove_dir_all(path);
             }
         }
-        let done = done.unwrap_or((-2, if cancelled { "취소함".into() } else { "작업 프로세스가 결과 없이 끝났습니다".into() }));
+        let done = done.unwrap_or((-2, if cancelled { "Cancelled".into() } else { "Job process ended without a result".into() }));
         let _ = app.emit("lore-job", JobEvent { id, progress: None, done: Some(done), cancelled });
     });
     Ok(id)
@@ -257,7 +257,7 @@ fn start_job(app: tauri::AppHandle, op: tome_core::ops::Op) -> Result<u64, Strin
 fn cancel_job(app: tauri::AppHandle, id: u64) -> Result<(), String> {
     let jobs = app.state::<Jobs>();
     let mut running = jobs.running.lock().unwrap();
-    let job = running.get_mut(&id).ok_or("이미 끝난 작업입니다")?;
+    let job = running.get_mut(&id).ok_or("Job already finished")?;
     job.cancelled = true;
     job.child.kill().map_err(|e| e.to_string())
 }
@@ -297,7 +297,7 @@ fn branch_state(repository: &Repository) -> Result<BranchState, String> {
 /// Lore's refusal to switch over local edits, in words that say what to do.
 fn explain(error: String) -> String {
     if error.contains("Local modifications") {
-        "커밋하지 않은 변경이 있어 전환할 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.".into()
+        "Local modifications prevent switching branches".into()
     } else {
         error
     }
@@ -486,7 +486,7 @@ fn restack_pending(app: tauri::AppHandle, path: String) -> Option<PendingRestack
 }
 
 fn pending_for(app: &tauri::AppHandle, path: &str) -> Result<PendingRestack, String> {
-    read_restacks(app).remove(path).ok_or_else(|| "진행 중인 restack이 없습니다".to_string())
+    read_restacks(app).remove(path).ok_or_else(|| "No restack in progress".to_string())
 }
 
 /// Settles conflicted files of the stopped pick: keep my version, the base's, or my edit.
@@ -692,6 +692,7 @@ async fn asset_previews(app: tauri::AppHandle, path: String, files: Vec<String>)
 #[derive(Serialize, Deserialize, Default)]
 #[serde(default)]
 struct Settings {
+    language: String,
     /// Set once the first-run setup is finished.
     setup_done: bool,
     /// `lore://host:port` of the team's Lore server.
@@ -770,7 +771,7 @@ fn trust_project_tools(app: tauri::AppHandle, path: String) -> Result<(), String
     let mut settings = read_settings(&app)?;
     let print = tools::fingerprint(std::path::Path::new(&path));
     if print.is_empty() {
-        return Err(".tome/tools.json이 없습니다".into());
+        return Err(".tome/tools.json was not found".into());
     }
     settings.trusted_tools.insert(path, print);
     save_settings(app, settings)

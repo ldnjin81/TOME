@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { DiffFile, FilePatch } from './types';
 
@@ -17,9 +18,9 @@ export function countLines(patch: string) {
 
 /** One file's unified diff, lines colored by kind. */
 export function PatchView({ patch }: { patch: FilePatch | undefined }) {
-  if (!patch) return <p className="muted diff-note">이 파일의 diff를 불러오지 않았습니다.</p>;
-  if (patch.binary) return <p className="muted diff-note">바이너리 파일이라 내용 비교를 보여 주지 않습니다.</p>;
-  if (!patch.patch.trim()) return <p className="muted diff-note">내용 차이가 없습니다(이동·속성 변경).</p>;
+  if (!patch) return <p className="muted diff-note">{t("이 파일의 diff를 불러오지 않았습니다.")}</p>;
+  if (patch.binary) return <p className="muted diff-note">{t("바이너리 파일이라 내용 비교를 보여 주지 않습니다.")}</p>;
+  if (!patch.patch.trim()) return <p className="muted diff-note">{t("내용 차이가 없습니다(이동·속성 변경).")}</p>;
   return (
     <pre className="patch">
       {patch.patch.split('\n').map((line, i) => {
@@ -48,7 +49,7 @@ export function DiffDialog({ title, files, patches, initial, note, onClose }: { 
       <header className="diff-head">
         <h2 id="diff-title">{title}</h2>
         <button className="ghost" onClick={() => dialog.current?.close()}>
-          닫기
+          {t("닫기")}
         </button>
       </header>
       <div className="diff-body">

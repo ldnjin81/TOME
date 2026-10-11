@@ -80,6 +80,7 @@ export interface RemoteRepository {
 
 /** Kept between runs in the app config folder (settings.json). */
 export interface Settings {
+  language: '' | 'ko' | 'en';
   setup_done: boolean;
   server: string;
   recent: string[];

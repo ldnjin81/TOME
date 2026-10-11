@@ -1,3 +1,4 @@
+import { t, setLanguage, useLanguage, getLocale } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
@@ -32,10 +33,11 @@ function shortHash(hash: string) {
 function formatTime(ms: number) {
   if (!ms) return '';
   const date = new Date(ms);
-  return date.toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  return date.toLocaleString(getLocale(), { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
 export default function App() {
+  useLanguage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [setup, setSetup] = useState(false);
   const [path, setPath] = useState('');
@@ -81,8 +83,9 @@ export default function App() {
   const [restackChoices, setRestackChoices] = useState<Record<string, Keep>>({});
 
   async function saveSettings(next: Settings) {
+    setLanguage(next.language ?? '');
     setSettings(next);
-    await invoke('save_settings', { settings: next }).catch((e) => setError(`설정 저장 실패: ${e}`));
+    await invoke('save_settings', { settings: next }).catch((e) => setError(t("설정 저장 실패: {p0}", { p0: e })));
   }
 
   /** Runs a command that returns a Done<T>; shows its Lore commands and any error. */
@@ -145,7 +148,8 @@ export default function App() {
   useEffect(() => {
     void (async () => {
       const loaded = await invoke<Settings>('load_settings').catch(() => null);
-      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {}, mode: '', collapsed_branch_groups: [] };
+      const base: Settings = loaded ?? { setup_done: false, server: '', recent: [], offline: true, identity: '', tools: [], trusted_tools: {}, mode: '', collapsed_branch_groups: [], language: '' };
+      setLanguage(base.language ?? '');
       let legacy: string | null = null;
       try {
         legacy = localStorage.getItem(LEGACY_KEY);
@@ -199,7 +203,7 @@ export default function App() {
   /** Starts a long operation; `then` runs when it ends (not when cancelled). */
   async function startJob(op: JobOp, label: string, then: () => void) {
     if (job) {
-      setError('다른 작업이 진행 중입니다. 끝나거나 취소한 뒤에 하세요.');
+      setError(t("다른 작업이 진행 중입니다. 끝나거나 취소한 뒤에 하세요."));
       return;
     }
     setError('');
@@ -207,14 +211,14 @@ export default function App() {
       const id = await invoke<number>('start_job', { op });
       setJob({ id, label, progress: null, cancelling: false });
       jobDone.current.set(id, (ok, message, cancelled) => {
-        if (cancelled) addToast(`${label} 취소함${op.op === 'clone' ? ' (받던 폴더는 지웠습니다)' : ' (다시 실행하면 이어서 진행합니다)'}`, 'info');
+        if (cancelled) addToast(t("{p0} 취소함{p1}", { p0: label, p1: op.op === 'clone' ? t(' (받던 폴더는 지웠습니다)') : t(' (다시 실행하면 이어서 진행합니다)') }), 'info');
         else if (ok) {
-          addToast(`${label} 완료`, 'push');
+          addToast(t("{p0} 완료", { p0: label }), 'push');
           then();
         } else if (/diverged/i.test(message)) {
-          setError(`${label} 실패: 서버에 새 리비전이 있습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.`);
+          setError(t("{p0} 실패: 서버에 새 리비전이 있습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.", { p0: label }));
           void loadStack();
-        } else setError(`${label} 실패: ${message}`);
+        } else setError(t("{p0} 실패: {p1}", { p0: label, p1: message }));
       });
     } catch (e) {
       setError(String(e));
@@ -229,7 +233,7 @@ export default function App() {
 
   function syncJob() {
     const where = path.trim();
-    void startJob({ op: 'sync', path: where }, '동기화', () => {
+    void startJob({ op: 'sync', path: where }, t("동기화"), () => {
       invoke<Done<Status>>('working_status', { path: where, offline: false }).then((d) => void refreshHistory(d.value), (e) => setError(String(e)));
     });
   }
@@ -259,15 +263,15 @@ export default function App() {
       const who = typeof n.data.userId === 'string' && n.data.userId !== '<unknown>' ? ` · ${n.data.userId}` : '';
       const branchName = known.find((b) => b.id === n.data.branch)?.name ?? '';
       if (n.kind === 'resourceLocked' || n.kind === 'resourceUnlocked') {
-        addToast(`${n.kind === 'resourceLocked' ? '잠금' : '잠금 해제'}: ${paths.join(', ')}${who}`, n.kind === 'resourceLocked' ? 'lock' : 'unlock');
+        addToast(t("{p0}: {p1}{p2}", { p0: n.kind === 'resourceLocked' ? t('잠금') : t('잠금 해제'), p1: paths.join(', '), p2: who }), n.kind === 'resourceLocked' ? 'lock' : 'unlock');
         if (current) void refreshLocksQuietly(current, where);
       } else if (n.kind === 'branchPushed') {
-        addToast(`${branchName || '브랜치'}에 새 리비전 r${String(n.data.revisionNumber ?? '')} push${who}`, 'push');
+        addToast(t("{p0}에 새 리비전 r{p1} push{p2}", { p0: branchName || t('브랜치'), p1: String(n.data.revisionNumber ?? ''), p2: who }), 'push');
         invoke<Done<Status>>('working_status', { path: where.trim(), offline: false }).then((d) => setStatus(d.value), () => {});
         void loadStack(where);
         if (latest.current.graphLoaded) void loadGraph(where);
       } else {
-        addToast(`${n.kind === 'branchCreated' ? '브랜치 생성' : n.kind === 'branchDeleted' ? '브랜치 삭제' : n.kind}${branchName ? `: ${branchName}` : ''}`, 'info');
+        addToast(t("{p0}{p1}", { p0: n.kind === 'branchCreated' ? t('브랜치 생성') : n.kind === 'branchDeleted' ? t('브랜치 삭제') : n.kind, p1: branchName ? `: ${branchName}` : '' }), 'info');
       }
     });
     return () => {
@@ -423,7 +427,7 @@ export default function App() {
 
   async function browse() {
     try {
-      const picked = await browseFolder('작업본 폴더', path);
+      const picked = await browseFolder(t("작업본 폴더"), path);
       if (picked) void open(picked);
     } catch (e) {
       setError(String(e));
@@ -511,8 +515,8 @@ export default function App() {
     if (step.state === 'done') {
       setPendingRestack(null);
       setRestackChoices({});
-      const skipped = step.skipped.length ? ` · ${step.skipped.length}개는 새 베이스에 이미 있어 뺐습니다` : '';
-      addToast(`Restack 완료${skipped} · 이제 push할 수 있습니다`, 'push');
+      const skipped = step.skipped.length ? t(" · {p0}개는 새 베이스에 이미 있어 뺐습니다", { p0: step.skipped.length }) : '';
+      addToast(t("Restack 완료{p0} · 이제 push할 수 있습니다", { p0: skipped }), 'push');
       void refreshHistory(outcome.status);
       return;
     }
@@ -532,7 +536,7 @@ export default function App() {
   async function restackCall(command: string, args: Record<string, unknown>, choices: Record<string, Keep>) {
     const ok = await run<RestackOutcome>(command, args, (o) => void restackStepped(o, choices));
     if (ok) return;
-    setError((e) => (/put back as they were/.test(e) ? `restack 중 오류가 나서 시작 전 상태로 되돌렸습니다. (${e.split(';')[0]})` : e));
+    setError((e) => (/put back as they were/.test(e) ? t("restack 중 오류가 나서 시작 전 상태로 되돌렸습니다. ({p0})", { p0: e.split(';')[0] }) : e));
     setPendingRestack(await invoke<PendingRestack | null>('restack_pending', { path: path.trim() }).catch(() => null));
     invoke<Done<Status>>('working_status', { path: path.trim(), offline: true }).then((d) => void refreshHistory(d.value), () => {});
   }
@@ -546,7 +550,7 @@ export default function App() {
   async function showWorkingDiff(file: string) {
     try {
       const patches = await invoke<FilePatch[]>('working_patches', { path: path.trim(), files: [file] });
-      setDiff({ title: '미커밋 변경', files: [{ path: file, action: 'modify', directory: false }], patches, initial: file });
+      setDiff({ title: t("미커밋 변경"), files: [{ path: file, action: 'modify', directory: false }], patches, initial: file });
     } catch (e) {
       setError(String(e));
     }
@@ -559,15 +563,15 @@ export default function App() {
         <button className={b.name === branchName ? 'item active' : 'item'} onClick={() => showBranch(b)} title={b.name}>
           <span className="lane-dot" style={{ background: branchColor(b.id, status?.branch_id ?? '') }} />
           <span className="name">{label}</span>
-          {current && <span className="badge">현재</span>}
+          {current && <span className="badge">{t("현재")}</span>}
         </button>
         {!current && (
           <span className="branch-actions">
-            <button className="ghost small-btn" onClick={() => void switchTo(b.name)} disabled={busy || !!status?.merging} title={`${b.name}로 전환`}>
-              전환
+            <button className="ghost small-btn" onClick={() => void switchTo(b.name)} disabled={busy || !!status?.merging} title={t("{p0}로 전환", { p0: b.name })}>
+              {t("전환")}
             </button>
-            <button className="ghost small-btn" onClick={() => setMergeFrom(b.name)} disabled={busy || !!status?.merging} title={`${b.name}를 현재 브랜치에 병합`}>
-              병합
+            <button className="ghost small-btn" onClick={() => setMergeFrom(b.name)} disabled={busy || !!status?.merging} title={t("{p0}를 현재 브랜치에 병합", { p0: b.name })}>
+              {t("병합")}
             </button>
           </span>
         )}
@@ -586,25 +590,25 @@ export default function App() {
             void open();
           }}
         >
-          <label className="visually-hidden" htmlFor="repo-path">작업본 경로</label>
-          <input id="repo-path" list="recent-paths" value={path} onChange={(e) => setPath(e.target.value)} placeholder="Lore 작업본 경로 (예: C:\Project\MyGame)" spellCheck={false} />
+          <label className="visually-hidden" htmlFor="repo-path">{t("작업본 경로")}</label>
+          <input id="repo-path" list="recent-paths" value={path} onChange={(e) => setPath(e.target.value)} placeholder={t("Lore 작업본 경로 (예: C:\\Project\\MyGame)")} spellCheck={false} />
           <datalist id="recent-paths">
             {settings?.recent.map((p) => <option key={p} value={p} />)}
           </datalist>
           <button type="button" className="ghost" onClick={() => void browse()} disabled={busy}>
-            찾아보기
+            {t("찾아보기")}
           </button>
           <label className="check">
             <input type="checkbox" checked={offline} onChange={(e) => setOffline(e.target.checked)} />
-            오프라인
+            {t("오프라인")}
           </label>
-          <button type="submit" disabled={busy}>{busy ? '작업 중…' : '열기'}</button>
+          <button type="submit" disabled={busy}>{busy ? t("작업 중…") : t("열기")}</button>
         </form>
-        <div className="mode-switch" role="radiogroup" aria-label="화면 모드">
+        <div className="mode-switch" role="radiogroup" aria-label={t("화면 모드")}>
           {(
             [
-              ['programmer', '프로그래머'],
-              ['artist', '아티스트'],
+              ['programmer', t("프로그래머")],
+              ['artist', t("아티스트")],
             ] as const
           ).map(([id, label]) => (
             <button key={id} role="radio" aria-checked={(id === 'artist') === artist} className={(id === 'artist') === artist ? 'active' : ''} onClick={() => switchMode(id)} disabled={!settings}>
@@ -614,7 +618,7 @@ export default function App() {
         </div>
         <ToolMenu set={toolSet} disabled={!settings} onRun={(entry) => startTool(entry, selectionFor({}))} onManage={() => setManaging(true)} />
         <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
-        <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label="설정" title="설정">
+        <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label={t("설정")} title={t("설정")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
             <path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z" />
@@ -625,27 +629,27 @@ export default function App() {
       {error && <div className="error" role="alert">{explainError(error)}</div>}
       {status?.merging && (
         <div className="merge-bar" role="status">
-          병합 중 <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> · 미해결 충돌 {status.files.filter((f) => f.unresolved).length}개 ·{' '}
+          {t("병합 중")} <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> {t("· 미해결 충돌")} {status.files.filter((f) => f.unresolved).length}{t("개 ·")}{' '}
           <button className="link" onClick={() => showTab('changes')}>
-            변경 탭에서 정하기
+            {t("변경 탭에서 정하기")}
           </button>
         </div>
       )}
       {settings?.setup_done && !settings.identity && (
         <div className="warn-bar" role="status">
-          신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.{' '}
+          {t("신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.")}{' '}
           <button className="link" onClick={() => setSetup(true)}>
-            설정하기
+            {t("설정하기")}
           </button>
         </div>
       )}
 
       <main className="panes">
-        <nav className="pane branches" aria-label="브랜치">
+        <nav className="pane branches" aria-label={t("브랜치")}>
           <h2 className="branches-head">
-            브랜치
+            {t("브랜치")}
             <button className="link" onClick={() => setNewBranch(true)} disabled={!overview || busy || !!status?.merging}>
-              + 새 브랜치
+              {t("+ 새 브랜치")}
             </button>
           </h2>
           <ul>
@@ -655,7 +659,7 @@ export default function App() {
             const open = !collapsed.has(group) || list.some((b) => b.name === status?.branch_name);
             return (
               <div key={group} className="branch-group">
-                <button className="group-head" onClick={() => toggleGroup(group)} aria-expanded={open} title={open ? `${group}/ 접기` : `${group}/ 펼치기`}>
+                <button className="group-head" onClick={() => toggleGroup(group)} aria-expanded={open} title={open ? t("{p0}/ 접기", { p0: group }) : t("{p0}/ 펼치기", { p0: group })}>
                   <span className="tree-caret" aria-hidden="true">{open ? '▾' : '▸'}</span>
                   {group}/ <span className="muted">{list.length}</span>
                 </button>
@@ -665,38 +669,38 @@ export default function App() {
           })}
           {status && (
             <section className="working">
-              <h2>작업본</h2>
+              <h2>{t("작업본")}</h2>
               <p>
                 {status.branch_name} · r{status.revision_number}
-                {status.local_ahead && <span className="badge ahead">push 대기</span>}
-                {status.remote_ahead && <span className="badge behind">새 버전</span>}
+                {status.local_ahead && <span className="badge ahead">{t("push 대기")}</span>}
+                {status.remote_ahead && <span className="badge behind">{t("새 버전")}</span>}
               </p>
               <button className="link" onClick={() => showTab('changes')}>
-                {changedCount ? `변경 파일 ${changedCount}개` : '변경 확인'}
+                {changedCount ? t("변경 파일 {p0}개", { p0: changedCount }) : t("변경 확인")}
               </button>
             </section>
           )}
           {settings && (
             <section className="working identity">
-              <h2>신원</h2>
+              <h2>{t("신원")}</h2>
               <p>
-                나: <strong>{settings.identity || '(없음)'}</strong>
+                {t("나:")} <strong>{settings.identity || t("(없음)")}</strong>
               </p>
               {auth && (
                 <p className="muted small" title={auth.detail}>
                   {auth.server_requires_login
                     ? auth.logged_in.length
-                      ? `로그인: ${auth.logged_in.join(', ')}`
-                      : '이 서버는 로그인이 필요합니다'
-                    : '인증 없는 서버 · 이름으로만 기록'}
+                      ? t("로그인: {p0}", { p0: auth.logged_in.join(', ') })
+                      : t("이 서버는 로그인이 필요합니다")
+                    : t("인증 없는 서버 · 이름으로만 기록")}
                 </p>
               )}
               <button className="link" onClick={() => setSetup(true)}>
-                바꾸기
+                {t("바꾸기")}
               </button>
               {watch && (
                 <p className="muted small" title={watch.reason}>
-                  <span className={watch.on ? 'live-dot on' : 'live-dot'} /> {watch.on ? '실시간 알림 켜짐' : '실시간 알림 꺼짐(서버 연결 안 됨)'}
+                  <span className={watch.on ? 'live-dot on' : 'live-dot'} /> {watch.on ? t("실시간 알림 켜짐") : t("실시간 알림 꺼짐(서버 연결 안 됨)")}
                 </p>
               )}
             </section>
@@ -707,9 +711,9 @@ export default function App() {
           <div className="tabs" role="tablist">
             {(
               [
-                artist ? ['assets', '에셋'] : ['history', 'Smartlog'],
-                ['changes', '변경'],
-                ['locks', '잠금'],
+                artist ? ['assets', t("에셋")] : ['history', 'Smartlog'],
+                ['changes', t("변경")],
+                ['locks', t("잠금")],
               ] as [Tab, string][]
             ).map(([id, label]) => (
               <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'tab active' : 'tab'} onClick={() => showTab(id)} disabled={!overview}>
@@ -719,9 +723,9 @@ export default function App() {
           </div>
           {!overview && (
             <div className="welcome">
-              <p>작업본을 열면 내 스택과 히스토리가 여기에 나옵니다.</p>
+              <p>{t("작업본을 열면 내 스택과 히스토리가 여기에 나옵니다.")}</p>
               <button className="primary" onClick={() => setSetup(true)} disabled={!settings}>
-                작업본 열기 · 서버에서 받기
+                {t("작업본 열기 · 서버에서 받기")}
               </button>
             </div>
           )}
@@ -736,7 +740,7 @@ export default function App() {
                 void run<Status>('restack_abort', {}, (s) => {
                   setPendingRestack(null);
                   setRestackChoices({});
-                  addToast('Restack을 중단하고 원래대로 되돌렸습니다', 'info');
+                  addToast(t("Restack을 중단하고 원래대로 되돌렸습니다"), 'info');
                   void refreshHistory(s);
                 })
               }
@@ -789,7 +793,7 @@ export default function App() {
               mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
               locked={new Set(locks.map((l) => l.path))}
               onHistory={setHistoryOf}
-              blocked={pendingRestack ? 'restack이 충돌에서 멈춰 있습니다. 위 패널에서 정하고 “계속”을 누르세요.' : ''}
+              blocked={pendingRestack ? t("restack이 충돌에서 멈춰 있습니다. 위 패널에서 정하고 “계속”을 누르세요.") : ''}
               onResolve={resolve}
               onAbortMerge={abortMerge}
             />
@@ -807,7 +811,7 @@ export default function App() {
           )}
         </section>
 
-        <aside className="pane details" aria-label={tab === 'assets' ? '에셋 상세' : '리비전 상세'}>
+        <aside className="pane details" aria-label={tab === 'assets' ? t("에셋 상세") : t("리비전 상세")}>
           {tab === 'assets' ? (
             asset && status ? (
               <AssetDetails
@@ -822,29 +826,29 @@ export default function App() {
                 onChanges={() => showTab('changes')}
               />
             ) : (
-              <p className="muted">에셋을 고르세요</p>
+              <p className="muted">{t("에셋을 고르세요")}</p>
             )
           ) : revision ? (
             <>
-              <p className={isDraft(revision, status, stackInfo) ? 'state draft' : 'state'}>{isDraft(revision, status, stackInfo) ? 'draft · 미푸시' : 'public'}</p>
+              <p className={isDraft(revision, status, stackInfo) ? 'state draft' : 'state'}>{isDraft(revision, status, stackInfo) ? t("draft · 미푸시") : 'public'}</p>
               <h2>r{revision.number}</h2>
               <p className="message-full">{revision.message}</p>
               <dl>
-                <dt>작성</dt>
+                <dt>{t("작성")}</dt>
                 <dd>{revision.author}</dd>
-                <dt>시각</dt>
+                <dt>{t("시각")}</dt>
                 <dd>{formatTime(revision.timestamp)}</dd>
-                <dt>리비전</dt>
+                <dt>{t("리비전")}</dt>
                 <dd className="mono">{shortHash(revision.id)}</dd>
-                <dt>부모</dt>
-                <dd className="mono">{revision.parents.map(shortHash).join(' · ') || '없음'}</dd>
+                <dt>{t("부모")}</dt>
+                <dd className="mono">{revision.parents.map(shortHash).join(' · ') || t("없음")}</dd>
               </dl>
               <section className="rev-files">
                 <h3>
-                  변경 파일 <span className="muted">{changes?.data ? changes.data.files.length : ''}</span>
+                  {t("변경 파일")} <span className="muted">{changes?.data ? changes.data.files.length : ''}</span>
                 </h3>
                 {changes?.error && <p className="error-line">{explainError(changes.error)}</p>}
-                {!changes?.data && !changes?.error && <p className="muted">불러오는 중…</p>}
+                {!changes?.data && !changes?.error && <p className="muted">{t("불러오는 중…")}</p>}
                 {changes?.data && (
                   <ul>
                     {changes.data.files.map((f) => {
@@ -862,7 +866,7 @@ export default function App() {
                                 files: changes.data!.files,
                                 patches: changes.data!.patches,
                                 initial: f.path,
-                                note: changes.data!.first_revision ? '첫 리비전은 비교할 이전 리비전이 없어 내용 diff를 보여 주지 않습니다.' : undefined,
+                                note: changes.data!.first_revision ? t("첫 리비전은 비교할 이전 리비전이 없어 내용 diff를 보여 주지 않습니다.") : undefined,
                               })
                             }
                           >
@@ -892,7 +896,7 @@ export default function App() {
               )}
             </>
           ) : (
-            <p className="muted">리비전을 고르세요</p>
+            <p className="muted">{t("리비전을 고르세요")}</p>
           )}
         </aside>
       </main>
@@ -927,7 +931,7 @@ export default function App() {
             setSetup(false);
             setOffline(next.offline);
             void saveSettings(next);
-            void startJob({ op: 'clone', path: target, url, view }, `받기: ${url.split('/').pop()}`, () => void open(target, next.offline, next));
+            void startJob({ op: 'clone', path: target, url, view }, t("받기: {p0}", { p0: url.split('/').pop() }), () => void open(target, next.offline, next));
           }}
           onCancel={() => {
             setSetup(false);
@@ -944,7 +948,7 @@ export default function App() {
           title={menu.title}
           entries={toolsFor(toolSet, menu.context)}
           onRun={(entry) => startTool(entry, menu.selection)}
-          actions={menu.context === 'file' && menu.selection.files.length === 1 ? [{ label: '파일 기록', run: () => setHistoryOf(menu.selection.files[0]) }] : []}
+          actions={menu.context === 'file' && menu.selection.files.length === 1 ? [{ label: t("파일 기록"), run: () => setHistoryOf(menu.selection.files[0]) }] : []}
           onClose={() => setMenu(null)}
         />
       )}
@@ -1021,7 +1025,7 @@ export default function App() {
 
       {toolRun && <OutputPanel {...toolRun} onClose={() => setToolRun(null)} />}
 
-      <footer className="statusbar" aria-label="실행한 Lore 명령">
+      <footer className="statusbar" aria-label={t("실행한 Lore 명령")}>
         {commands.map((c) => (
           <code key={c}>{c}</code>
         ))}

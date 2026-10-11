@@ -1,3 +1,4 @@
+import { t, t as translate } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open as pickFile } from '@tauri-apps/plugin-dialog';
@@ -34,7 +35,7 @@ export const VARIABLES: [string, string][] = [
 ];
 
 function MenuItems({ entries, onRun, onClose }: { entries: ToolEntry[]; onRun: (e: ToolEntry) => void; onClose: () => void }) {
-  if (entries.length === 0) return <p className="menu-empty">이 위치에 등록된 도구가 없습니다</p>;
+  if (entries.length === 0) return <p className="menu-empty">{t("이 위치에 등록된 도구가 없습니다")}</p>;
   return (
     <>
       {entries.map((e) => (
@@ -43,14 +44,14 @@ function MenuItems({ entries, onRun, onClose }: { entries: ToolEntry[]; onRun: (
           role="menuitem"
           className="menu-item"
           disabled={e.disabled}
-          title={e.disabled ? '프로젝트 도구를 신뢰해야 실행됩니다' : `${e.tool.program} ${e.tool.args}`}
+          title={e.disabled ? t("프로젝트 도구를 신뢰해야 실행됩니다") : `${e.tool.program} ${e.tool.args}`}
           onClick={() => {
             onClose();
             onRun(e);
           }}
         >
-          <span>{e.tool.name || '(이름 없음)'}</span>
-          {e.project && <span className="menu-tag">{e.disabled ? '프로젝트 · 신뢰 필요' : '프로젝트'}</span>}
+          <span>{e.tool.name || t("(이름 없음)")}</span>
+          {e.project && <span className="menu-tag">{e.disabled ? t("프로젝트 · 신뢰 필요") : t("프로젝트")}</span>}
         </button>
       ))}
     </>
@@ -72,7 +73,7 @@ export function ToolMenu({ set, disabled, onRun, onManage }: { set: ToolSet | nu
   return (
     <div className="menu-anchor" ref={box}>
       <button className="ghost" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} disabled={disabled}>
-        도구 ▾
+        {t("도구 ▾")}
       </button>
       {open && (
         <div className="menu" role="menu">
@@ -86,7 +87,7 @@ export function ToolMenu({ set, disabled, onRun, onManage }: { set: ToolSet | nu
               onManage();
             }}
           >
-            도구 관리…
+            {t("도구 관리…")}
           </button>
         </div>
       )}
@@ -163,14 +164,14 @@ export function RunDialog({ path, entry, selection, onRun, onCancel }: { path: s
             <input autoFocus value={answer} onChange={(e) => setAnswer(e.target.value)} />
           </label>
         )}
-        <p className="muted">실행할 명령</p>
+        <p className="muted">{t("실행할 명령")}</p>
         <pre className="command-preview">{preview}</pre>
         <div className="dialog-buttons">
           <button type="button" className="ghost" onClick={() => dialog.current?.close()}>
-            취소
+            {t("취소")}
           </button>
           <button type="submit" className="primary" disabled={preview.startsWith('⚠')}>
-            실행
+            {t("실행")}
           </button>
         </div>
       </form>
@@ -181,16 +182,16 @@ export function RunDialog({ path, entry, selection, onRun, onCancel }: { path: s
 /** The last tool run: its command, exit code and output. */
 export function OutputPanel({ name, running, output, error, onClose }: { name: string; running: boolean; output: ToolOutput | null; error: string; onClose: () => void }) {
   const text = output ? [output.stdout, output.stderr].filter(Boolean).join(output.stdout && output.stderr ? '\n' : '') : '';
-  const status = running ? '실행 중…' : error ? '실패' : output?.exit_code == null ? '시작함' : output.exit_code === 0 ? '완료 (0)' : `종료 코드 ${output.exit_code}`;
+  const status = running ? t("실행 중…") : error ? t("실패") : output?.exit_code == null ? t("시작함") : output.exit_code === 0 ? t("완료 (0)") : t("종료 코드 {p0}", { p0: output.exit_code });
   const bad = !running && (!!error || (output?.exit_code != null && output.exit_code !== 0));
   return (
-    <section className="output-panel" aria-label="도구 출력">
+    <section className="output-panel" aria-label={t("도구 출력")}>
       <header>
         <strong>{name}</strong>
         <span className={bad ? 'out-status bad' : 'out-status'}>{status}</span>
         {output && <code className="out-command">{output.command}</code>}
-        <button className="ghost small-btn" onClick={onClose} aria-label="출력 닫기">
-          닫기
+        <button className="ghost small-btn" onClick={onClose} aria-label={t("출력 닫기")}>
+          {t("닫기")}
         </button>
       </header>
       {(error || text) && <pre className={error || output?.stderr ? 'out-text has-err' : 'out-text'}>{error || text}</pre>}
@@ -200,7 +201,7 @@ export function OutputPanel({ name, running, output, error, onClose }: { name: s
 
 function newTool(): Tool {
   const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `t${Date.now()}`;
-  return { id, name: '새 도구', program: '', args: '', cwd: '', contexts: ['file'], run: 'capture', prompt: '', confirm: false, refresh: false };
+  return { id, name: t("새 도구"), program: '', args: '', cwd: '', contexts: ['file'], run: 'capture', prompt: '', confirm: false, refresh: false };
 }
 
 /** Add, edit and remove tools: mine (app settings) and the project's (.tome/tools.json, shared). */
@@ -253,21 +254,21 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
   }
 
   async function browse() {
-    const picked = await pickFile({ multiple: false, directory: false, title: '실행할 프로그램' });
+    const picked = await pickFile({ multiple: false, directory: false, title: t("실행할 프로그램") });
     if (typeof picked === 'string') update({ program: picked });
   }
 
   return (
     <dialog ref={dialog} className="tool-manager" onClose={onClose} aria-labelledby="tm-title">
       <header className="tm-head">
-        <h2 id="tm-title">커스텀 도구</h2>
+        <h2 id="tm-title">{t("커스텀 도구")}</h2>
         <div className="segmented" role="tablist">
           <label className={scope === 'personal' ? 'active' : ''}>
-            <input type="radio" checked={scope === 'personal'} onChange={() => switchScope('personal')} />내 도구
+            <input type="radio" checked={scope === 'personal'} onChange={() => switchScope('personal')} />{t("내 도구")}
           </label>
           <label className={scope === 'project' ? 'active' : ''}>
             <input type="radio" checked={scope === 'project'} onChange={() => switchScope('project')} />
-            프로젝트 도구
+            {t("프로젝트 도구")}
           </label>
         </div>
       </header>
@@ -275,13 +276,12 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
       {scope === 'project' && (
         <div className="tm-note">
           <p className="muted">
-            작업본의 <code>.tome/tools.json</code>에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니,
-            내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.
+            {t("작업본의")} <code>.tome/tools.json</code>{t("에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니,\r\n            내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.")}
           </p>
           {set.project_error && <p className="error-line">{set.project_error}</p>}
           {set.project.length > 0 && !set.project_trusted && !dirty && (
             <div className="trust-box">
-              <strong>아직 신뢰하지 않은 프로젝트 도구입니다.</strong> 아래 명령을 확인하고 신뢰하세요.
+              <strong>{t("아직 신뢰하지 않은 프로젝트 도구입니다.")}</strong> {t("아래 명령을 확인하고 신뢰하세요.")}
               <ul className="mono">
                 {set.project.map((t) => (
                   <li key={t.id}>
@@ -290,7 +290,7 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
                 ))}
               </ul>
               <button className="primary" onClick={() => void onTrust()}>
-                확인했고 신뢰합니다
+                {t("확인했고 신뢰합니다")}
               </button>
             </div>
           )}
@@ -303,7 +303,7 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
             {list.map((t) => (
               <li key={t.id}>
                 <button className={t.id === selected ? 'tm-item active' : 'tm-item'} onClick={() => setSelected(t.id)}>
-                  {t.name || '(이름 없음)'}
+                  {t.name || translate("(이름 없음)")}
                 </button>
               </li>
             ))}
@@ -317,19 +317,19 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
                 setSelected(t.id);
               }}
             >
-              추가
+              {t("추가")}
             </button>
             <button
               className="ghost"
               disabled={!tool}
               onClick={() => {
                 if (!tool) return;
-                const copy = { ...tool, id: newTool().id, name: `${tool.name} 복사본` };
+                const copy = { ...tool, id: newTool().id, name: t("{p0} 복사본", { p0: tool.name }) };
                 setList([...list, copy]);
                 setSelected(copy.id);
               }}
             >
-              복제
+              {t("복제")}
             </button>
             <button
               className="ghost"
@@ -341,7 +341,7 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
                 setSelected(rest[0]?.id ?? null);
               }}
             >
-              삭제
+              {t("삭제")}
             </button>
           </div>
         </aside>
@@ -349,28 +349,28 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
         {tool ? (
           <div className="tm-form">
             <label className="field">
-              <span>이름</span>
+              <span>{t("이름")}</span>
               <input value={tool.name} onChange={(e) => update({ name: e.target.value })} />
             </label>
             <label className="field">
-              <span>프로그램</span>
+              <span>{t("프로그램")}</span>
               <span className="field-row">
                 <input className="mono" value={tool.program} onChange={(e) => update({ program: e.target.value })} placeholder="C:\Program Files\Microsoft VS Code\Code.exe" spellCheck={false} />
                 <button type="button" className="ghost" onClick={() => void browse()}>
-                  찾아보기
+                  {t("찾아보기")}
                 </button>
               </span>
             </label>
             <label className="field">
-              <span>인자</span>
+              <span>{t("인자")}</span>
               <input className="mono" value={tool.args} onChange={(e) => update({ args: e.target.value })} placeholder="--goto %f" spellCheck={false} />
             </label>
             <label className="field">
-              <span>작업 폴더</span>
-              <input className="mono" value={tool.cwd} onChange={(e) => update({ cwd: e.target.value })} placeholder="비우면 작업본 루트($r)" spellCheck={false} />
+              <span>{t("작업 폴더")}</span>
+              <input className="mono" value={tool.cwd} onChange={(e) => update({ cwd: e.target.value })} placeholder={t("비우면 작업본 루트($r)")} spellCheck={false} />
             </label>
             <fieldset className="field">
-              <legend>표시 위치</legend>
+              <legend>{t("표시 위치")}</legend>
               <span className="checks">
                 {(['repository', 'file', 'revision'] as ToolContext[]).map((c) => (
                   <label key={c} className="check">
@@ -379,60 +379,60 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
                       checked={tool.contexts.includes(c)}
                       onChange={(e) => update({ contexts: e.target.checked ? [...tool.contexts, c] : tool.contexts.filter((x) => x !== c) })}
                     />
-                    {CONTEXT_LABEL[c]}
+                    {t(CONTEXT_LABEL[c])}
                   </label>
                 ))}
               </span>
             </fieldset>
             <label className="field">
-              <span>실행 방식</span>
+              <span>{t("실행 방식")}</span>
               <select value={tool.run} onChange={(e) => update({ run: e.target.value as RunMode })}>
                 {(Object.keys(RUN_LABEL) as RunMode[]).map((m) => (
                   <option key={m} value={m}>
-                    {RUN_LABEL[m]}
+                    {t(RUN_LABEL[m])}
                   </option>
                 ))}
               </select>
             </label>
             <label className="field">
-              <span>실행 전에 물어보기(%a)</span>
-              <input value={tool.prompt} onChange={(e) => update({ prompt: e.target.value })} placeholder="비우면 묻지 않음 (예: 커밋 메시지)" />
+              <span>{t("실행 전에 물어보기(%a)")}</span>
+              <input value={tool.prompt} onChange={(e) => update({ prompt: e.target.value })} placeholder={t("비우면 묻지 않음 (예: 커밋 메시지)")} />
             </label>
             <span className="checks">
               <label className="check">
                 <input type="checkbox" checked={tool.confirm} onChange={(e) => update({ confirm: e.target.checked })} />
-                실행 전에 명령 확인
+                {t("실행 전에 명령 확인")}
               </label>
               <label className="check">
                 <input type="checkbox" checked={tool.refresh} onChange={(e) => update({ refresh: e.target.checked })} />
-                끝나면 작업본 새로 고침
+                {t("끝나면 작업본 새로 고침")}
               </label>
             </span>
             <details className="vars">
-              <summary>쓸 수 있는 변수</summary>
+              <summary>{t("쓸 수 있는 변수")}</summary>
               <dl>
                 {VARIABLES.map(([v, d]) => (
                   <div key={v}>
                     <dt className="mono">{v}</dt>
-                    <dd>{d}</dd>
+                    <dd>{t(d)}</dd>
                   </div>
                 ))}
               </dl>
-              <p className="muted">공백이 든 값은 "…"로 묶습니다. 셸을 거치지 않아 파일 이름이 명령을 바꿀 수 없습니다.</p>
+              <p className="muted">{t("공백이 든 값은 \"…\"로 묶습니다. 셸을 거치지 않아 파일 이름이 명령을 바꿀 수 없습니다.")}</p>
             </details>
           </div>
         ) : (
-          <p className="muted tm-empty">{scope === 'project' && !path ? '작업본을 먼저 여세요' : '“추가”로 도구를 만드세요'}</p>
+          <p className="muted tm-empty">{scope === 'project' && !path ? t("작업본을 먼저 여세요") : t("“추가”로 도구를 만드세요")}</p>
         )}
       </div>
 
       {error && <p className="error-line">{error}</p>}
       <div className="dialog-buttons">
         <button className="ghost" onClick={() => dialog.current?.close()}>
-          닫기
+          {t("닫기")}
         </button>
         <button className="primary" onClick={() => void save()} disabled={!dirty || saving || (scope === 'project' && !path)}>
-          {saving ? '저장 중…' : scope === 'project' ? '.tome/tools.json에 저장' : '저장'}
+          {saving ? t("저장 중…") : scope === 'project' ? t(".tome/tools.json에 저장") : t("저장")}
         </button>
       </div>
     </dialog>

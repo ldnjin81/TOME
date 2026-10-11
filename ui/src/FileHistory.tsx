@@ -1,3 +1,4 @@
+import { t, getLocale } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
@@ -11,7 +12,7 @@ function formatSize(bytes: number) {
 }
 
 function formatTime(ms: number) {
-  return ms ? new Date(ms).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+  return ms ? new Date(ms).toLocaleString(getLocale(), { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
 }
 
 /** The revisions that changed one file, and the selected revision's change to it. */
@@ -52,15 +53,15 @@ export default function FileHistory({ path, file, offline, me, onClose, onComman
     <dialog ref={dialog} className="diff-dialog" onClose={onClose} aria-labelledby="fh-title">
       <header className="diff-head">
         <h2 id="fh-title">
-          파일 기록 <span className="mono muted">{file}</span>
+          {t("파일 기록")} <span className="mono muted">{file}</span>
         </h2>
         <button className="ghost" onClick={() => dialog.current?.close()}>
-          닫기
+          {t("닫기")}
         </button>
       </header>
       {error && <p className="error-line">{explainError(error)}</p>}
-      {!history && !error && <p className="muted">불러오는 중…</p>}
-      {history && history.length === 0 && <p className="muted">이 파일을 바꾼 리비전이 없습니다(아직 커밋되지 않은 새 파일).</p>}
+      {!history && !error && <p className="muted">{t("불러오는 중…")}</p>}
+      {history && history.length === 0 && <p className="muted">{t("이 파일을 바꾼 리비전이 없습니다(아직 커밋되지 않은 새 파일).")}</p>}
       {history && history.length > 0 && (
         <div className="diff-body">
           <ul className="diff-files fh-list">
@@ -73,11 +74,11 @@ export default function FileHistory({ path, file, offline, me, onClose, onComman
                   <button className={r.id === selected ? 'df fh active' : 'df fh'} onClick={() => setSelected(r.id)}>
                     <span className="fh-top">
                       <span className="rev-no">r{r.number}</span>
-                      <span className="fh-msg">{r.message || '(메시지 없음)'}</span>
+                      <span className="fh-msg">{r.message || t("(메시지 없음)")}</span>
                     </span>
                     <span className="fh-meta muted">
-                      {r.author === me && me ? '나' : r.author} · {formatTime(r.timestamp)} · {formatSize(h.size)}
-                      {h.path !== file && ` · 당시 경로 ${h.path}`}
+                      {r.author === me && me ? t("나") : r.author} · {formatTime(r.timestamp)} · {formatSize(h.size)}
+                      {h.path !== file && t(" · 당시 경로 {p0}", { p0: h.path })}
                       {n && (
                         <>
                           {' '}
@@ -96,9 +97,9 @@ export default function FileHistory({ path, file, offline, me, onClose, onComman
                 r{entry.revision.number} · {entry.path}
               </p>
             )}
-            {patch === 'loading' && <p className="muted diff-note">불러오는 중…</p>}
-            {patch === null && entry && !entry.revision.parents[0] && <p className="muted diff-note">첫 리비전이라 비교할 이전 내용이 없습니다(이 리비전에서 추가됨).</p>}
-            {patch === null && entry && entry.revision.parents[0] && <p className="muted diff-note">이 리비전의 변경 내용을 불러오지 못했습니다.</p>}
+            {patch === 'loading' && <p className="muted diff-note">{t("불러오는 중…")}</p>}
+            {patch === null && entry && !entry.revision.parents[0] && <p className="muted diff-note">{t("첫 리비전이라 비교할 이전 내용이 없습니다(이 리비전에서 추가됨).")}</p>}
+            {patch === null && entry && entry.revision.parents[0] && <p className="muted diff-note">{t("이 리비전의 변경 내용을 불러오지 못했습니다.")}</p>}
             {patch && patch !== 'loading' && <PatchView patch={patch} />}
           </div>
         </div>
