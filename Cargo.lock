@@ -5192,7 +5192,7 @@ dependencies = [
 
 [[package]]
 name = "tome"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -5204,7 +5204,7 @@ dependencies = [
 
 [[package]]
 name = "tome-core"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "encoding_rs",
  "lore",
