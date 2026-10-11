@@ -1566,5 +1566,25 @@ export const dictionary = {
   "… 외 {p0}개": {
     "ko": "… 외 {p0}개",
     "en": "… and {p0} more"
+  },
+  "잠금@@상세": {
+    "ko": "잠금",
+    "en": "Lock"
+  },
+  "push": {
+    "ko": "push",
+    "en": "Push"
+  },
+  "잠금@@알림": {
+    "ko": "잠금",
+    "en": "Locked"
+  },
+  "잠금 해제@@알림": {
+    "ko": "잠금 해제",
+    "en": "Unlocked"
+  },
+  "잠금@@동작": {
+    "ko": "잠금",
+    "en": "Lock"
   }
 } as const;

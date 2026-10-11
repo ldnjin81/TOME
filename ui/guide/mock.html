@@ -1,0 +1,125 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<title>TOME</title>
+<!--
+  Screenshots for docs/guide: the app with made-up example data (no real projects, people or
+  paths) and a fake Tauri backend. scripts/guide-shots.sh opens it once per screen and
+  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup
+-->
+<script>
+const q = new URLSearchParams(location.search);
+const lang = q.get('lang') || 'en';
+const screen = q.get('screen') || 'stack';
+document.documentElement.lang = lang;
+const now = 1791100000000;
+Date.now = () => now;
+// Hash-like ids, so short ids look real (not 00000000).
+const H = (n) => { let x = (n * 2654435761) >>> 0, out = ''; for (let i = 0; i < 8; i++) { x = (x * 1103515245 + 12345) >>> 0; out += x.toString(16).padStart(8, '0'); } return out; };
+const ko = lang === 'ko';
+const msg = (k, e) => (ko ? k : e);
+const rev = (id, number, message, mins, parents, author = 'kim') => ({ id: H(id), number, parents: parents.map(H), message, author, timestamp: now - mins * 60000, branch_id: 'b1', metadata: [] });
+const B = rev(1, 41, msg('퀘스트 보상 테이블 정리', 'Tidy the quest reward table'), 300, [0], 'lee');
+const D1 = rev(11, 42, msg('인벤토리 아이콘 세트 교체', 'Replace the inventory icon set'), 90, [1]);
+const D2 = rev(12, 43, msg('인벤토리 위젯 상태 관리 정리', 'Clean up inventory widget state'), 40, [11]);
+const D3 = rev(13, 44, msg('슬롯 드래그 판정 수정', 'Fix the slot drag hit test'), 10, [12]);
+const R1 = rev(21, 42, msg('인벤토리 아이콘 해상도 올림', 'Raise inventory icon resolution'), 60, [1], 'park');
+const R2 = rev(22, 43, msg('숲 레벨 조명 다시 굽기', 'Rebake the forest lighting'), 20, [21], 'park');
+const file = (path, action, extra = {}) => ({ path, directory: false, action, staged: false, conflict: false, unresolved: false, resolution: '', ...extra });
+const files = screen === 'conflict'
+  ? [file('Content/UI/BP_Inventory.uasset', 'modify', { staged: true, conflict: true, unresolved: true })]
+  : screen === 'changes'
+    ? [file('Source/UI/InventorySlot.cpp', 'modify', { staged: true }), file('Source/UI/InventorySlot.h', 'modify', { staged: true }), file('Content/UI/WBP_Slot.uasset', 'modify'), file('Content/UI/Icons/T_Potion.uasset', 'add')]
+    : screen === 'artist' ? [file('Content/Characters/M_Stone_Wall.uasset', 'modify'), file('Content/Characters/A_Sword_Slash.uasset', 'add')] : [];
+const diverged = ['stack', 'restack', 'conflict'].includes(screen);
+const status = { branch_id: 'b1', branch_name: 'main', revision: D3.id, revision_number: 44, remote_number: diverged ? 43 : 41, remote_revision: diverged ? R2.id : B.id, local_ahead: true, remote_ahead: diverged, merging: '', files };
+const stack = { drafts: [D3, D2, D1], fork: B, incoming: diverged ? [R2, R1] : [], remote_head: diverged ? R2.id : B.id };
+const locks = [
+  { path: 'Content/Characters/SK_Knight.uasset', owner: 'park', locked_at: now - 3600000 },
+  { path: 'Content/UI/WBP_Slot.uasset', owner: 'kim', locked_at: now - 7200000 },
+  { path: 'Content/Maps/L_Arena.umap', owner: 'lee', locked_at: now - 600000 },
+];
+
+// Thumbnails drawn here, so the screenshots carry no real assets.
+function thumb(kind) {
+  const c = document.createElement('canvas'); c.width = c.height = 256; const g = c.getContext('2d');
+  const bg = g.createLinearGradient(0, 0, 0, 256); bg.addColorStop(0, '#2b2f36'); bg.addColorStop(1, '#14161a'); g.fillStyle = bg; g.fillRect(0, 0, 256, 256);
+  if (kind === 'sphere' || kind === 'stone') {
+    const r = g.createRadialGradient(100, 95, 10, 128, 128, 100);
+    r.addColorStop(0, kind === 'stone' ? '#b9b2a4' : '#9fb8d0'); r.addColorStop(0.7, kind === 'stone' ? '#5d5850' : '#3b5770'); r.addColorStop(1, '#1b1d22');
+    g.fillStyle = r; g.beginPath(); g.arc(128, 128, 96, 0, Math.PI * 2); g.fill();
+    if (kind === 'stone') { g.strokeStyle = 'rgba(30,28,25,0.55)'; g.lineWidth = 3; for (let y = 70; y < 200; y += 26) { g.beginPath(); g.moveTo(40, y); g.lineTo(216, y + 6); g.stroke(); } }
+  } else if (kind === 'figure') {
+    g.fillStyle = '#8a8f99'; g.beginPath(); g.arc(128, 62, 22, 0, Math.PI * 2); g.fill();
+    g.fillRect(104, 88, 48, 82); g.fillRect(78, 92, 22, 70); g.fillRect(156, 92, 22, 70); g.fillRect(106, 170, 18, 66); g.fillRect(132, 170, 18, 66);
+    g.fillStyle = '#c9ccd2'; g.fillRect(176, 60, 6, 120);
+  } else if (kind === 'rune') {
+    g.strokeStyle = '#6fd2c0'; g.lineWidth = 8; g.shadowColor = '#6fd2c0'; g.shadowBlur = 18;
+    g.beginPath(); g.moveTo(128, 40); g.lineTo(128, 216); g.moveTo(128, 90); g.lineTo(70, 150); g.moveTo(128, 90); g.lineTo(186, 150); g.stroke();
+  } else if (kind === 'pillar') {
+    g.fillStyle = '#77726a'; g.fillRect(96, 50, 64, 180); g.fillStyle = '#5c5851'; g.fillRect(84, 40, 88, 22); g.fillRect(84, 220, 88, 20);
+    g.fillStyle = '#14161a'; g.beginPath(); g.moveTo(160, 50); g.lineTo(130, 110); g.lineTo(160, 120); g.fill();
+  } else if (kind === 'slash') {
+    g.strokeStyle = '#e8d9a8'; g.lineWidth = 10; g.lineCap = 'round'; g.beginPath(); g.arc(128, 150, 90, Math.PI * 1.1, Math.PI * 1.85); g.stroke();
+  }
+  return c.toDataURL('image/png');
+}
+const A = (name, kind = 'uasset', size = 812345) => ({ name, path: `Content/Characters/${name}.${kind}`, kind, size, modified: now - 86400000 });
+const assets = [A('A_Sword_Slash'), A('ABP_Knight'), A('BP_Lantern'), A('L_Arena', 'umap', 64000000), A('M_Stone_Wall', 'uasset', 120000), A('MS_Footstep_Stone'), A('SK_Knight', 'uasset', 14200000), A('SM_Ruined_Pillar'), A('T_Rune_Glow', 'uasset', 4400000)];
+const previews = { A_Sword_Slash: ['AnimSequence', 'slash'], ABP_Knight: ['AnimBlueprint'], BP_Lantern: ['Blueprint'], L_Arena: [''], M_Stone_Wall: ['Material', 'stone'], MS_Footstep_Stone: ['MetaSoundSource'], SK_Knight: ['SkeletalMesh', 'figure'], SM_Ruined_Pillar: ['StaticMesh', 'pillar'], T_Rune_Glow: ['Texture2D', 'rune'] };
+const listings = {
+  '': { folder: '', folders: [{ name: 'Config', path: 'Config' }, { name: 'Content', path: 'Content' }, { name: 'Source', path: 'Source' }], assets: [] },
+  Content: { folder: 'Content', folders: [{ name: 'Characters', path: 'Content/Characters' }, { name: 'Maps', path: 'Content/Maps' }, { name: 'UI', path: 'Content/UI' }], assets: [] },
+  'Content/Characters': { folder: 'Content/Characters', folders: [], assets },
+};
+const plan = { onto: R2.id, picks: [D1, D2, D3].map((r) => ({ id: r.id, message: r.message })), original_head: D3.id };
+
+const callbacks = {}; let next = 1;
+window.__TAURI_INTERNALS__ = {
+  transformCallback: (f) => { callbacks[next] = f; return next++; },
+  invoke: async (cmd, args) => {
+    switch (cmd) {
+      case 'plugin:event|listen': return 1;
+      case 'load_settings': return { setup_done: screen !== 'setup', server: screen === 'setup' ? 'lore://lore.example.com:41337' : '', recent: ['C:\\Project\\MyGame'], offline: true, identity: 'kim', tools: [], trusted_tools: {}, mode: screen === 'artist' ? 'artist' : 'programmer', collapsed_branch_groups: [], language: lang };
+      case 'save_settings': case 'watch_repository': return null;
+      case 'default_identity': return 'kim';
+      case 'list_tools': return { personal: [], project: [], project_error: '', project_trusted: false };
+      case 'auth_state': return { server_requires_login: false, logged_in: [], detail: '' };
+      case 'list_repositories': return { value: [{ name: 'MyGame', id: 'r1' }, { name: 'MyGame-Art', id: 'r2' }, { name: 'Tools', id: 'r3' }], commands: [] };
+      case 'open_repository': return { status, branches: [{ id: 'b1', name: 'main', latest: D3.id, current: true, archived: false, creator: '', created: 0 }, { id: 'b2', name: 'feature/inventory', latest: H(7), current: false, archived: false, creator: '', created: 0 }, { id: 'b3', name: 'auto/task-12', latest: H(8), current: false, archived: false, creator: '', created: 0 }], history: [D3, D2, D1, B], commands: ['lore status', 'lore branch list', 'lore history 200 --branch main'] };
+      case 'working_status': return { value: status, commands: ['lore status --scan'] };
+      case 'lock_board': return { value: locks, commands: ['lore lock query --branch main'] };
+      case 'revision_changes': return { files: [{ path: 'Source/UI/InventorySlot.cpp', action: 'modify', directory: false }], patches: [{ path: 'Source/UI/InventorySlot.cpp', binary: false, patch: '@@ -1 +1 @@\n-a\n+b\n' }], first_revision: false };
+      case 'stack_info': return stack;
+      case 'restack_pending': return screen === 'conflict' ? { plan, index: 0, files: ['Content/UI/BP_Inventory.uasset'] } : null;
+      case 'restack_preview': return { base_changes: ['Content/UI/BP_Inventory.uasset', 'Content/Maps/Forest_BuiltData.uasset', 'Source/UI/InventoryWidget.cpp'], picks: args.plan.picks.map((p) => ({
+        id: p.id, message: p.message, merge: false,
+        files: p.id === D1.id ? ['Content/UI/BP_Inventory.uasset', 'Content/UI/Icons/T_Sword.uasset'] : p.id === D2.id ? ['Source/UI/InventoryWidget.cpp', 'Source/UI/InventoryWidget.h', 'Content/UI/WBP_Slot.uasset'] : ['Source/UI/InventorySlot.cpp'],
+        risks: p.id === D1.id ? [{ path: 'Content/UI/BP_Inventory.uasset', binary: true }] : p.id === D2.id ? [{ path: 'Source/UI/InventoryWidget.cpp', binary: false }] : [],
+        locked: p.id === D2.id ? [['Content/UI/WBP_Slot.uasset', 'park']] : [] })) };
+      case 'list_assets': return listings[args.folder] ?? { folder: args.folder, folders: [], assets: [] };
+      case 'asset_previews': return args.files.map((f) => { const n = f.split('/').pop().replace(/\.\w+$/, ''); const p = previews[n] || ['']; return { path: f, class: p[0], image: p[1] ? thumb(p[1]) : null, width: p[1] ? 256 : 0, height: p[1] ? 256 : 0 }; });
+    }
+    throw 'unknown ' + cmd;
+  },
+};
+
+// Drive the window to the screen asked for, then mark it ready for the screenshot.
+function when(test, then, tries = 80) { const v = test(); if (v) then(v); else if (tries > 0) setTimeout(() => when(test, then, tries - 1), 100); }
+const tabs = () => document.querySelectorAll('[role="tab"]');
+const ready = () => setTimeout(() => (document.title = 'ready'), 600);
+window.addEventListener('load', () => {
+  if (screen === 'changes') when(() => tabs()[1], (t) => { t.click(); ready(); });
+  else if (screen === 'locks') when(() => tabs()[2], (t) => { t.click(); ready(); });
+  else if (screen === 'restack') when(() => document.querySelector('.rev-meta.diverged button.link'), (b) => { b.click(); ready(); });
+  else if (screen === 'fold') when(() => document.querySelector('.draft-actions button'), (b) => { b.click(); ready(); });
+  else if (screen === 'artist') when(() => [...document.querySelectorAll('.subfolder')].find((x) => x.textContent.includes('Characters')), (d) => {
+    d.click(); when(() => [...document.querySelectorAll('.asset-card')].find((x) => x.textContent.includes('SK_Knight') && x.querySelector('img')), (card) => { card.click(); ready(); });
+  });
+  else when(() => document.querySelector('.lrow, .setup-dialog, dialog[open]'), ready);
+});
+</script>
+</head>
+<body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+</html>

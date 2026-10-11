@@ -372,7 +372,7 @@ export function AssetDetails({ asset, preview, marks, me, busy, online, onLock, 
         <dd>
           {change ? (change.unresolved ? t("병합 충돌 — 변경 탭에서 정하세요") : t("{p0}됨{p1}", { p0: t(ACTION_LABEL[change.action] ?? change.action), p1: change.staged ? t(' · 스테이지됨') : '' })) : t("변경 없음")}
         </dd>
-        <dt>{t("잠금")}</dt>
+        <dt>{t("잠금@@상세")}</dt>
         <dd>{lock ? (lock.owner === me ? t("내가 잠금") : t("{p0}님이 잠금", { p0: lock.owner })) : t("잠기지 않음")}</dd>
       </dl>
       <div className="asset-actions">

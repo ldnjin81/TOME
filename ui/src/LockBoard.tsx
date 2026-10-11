@@ -84,7 +84,7 @@ export default function LockBoard({ branch, me, locks, busy, onRefresh, onLock, 
       >
         <label htmlFor="lock-path">{t("작업 시작(잠금)")}</label>
         <input id="lock-path" className="mono" value={newPath} onChange={(e) => setNewPath(e.target.value)} placeholder="Content/Characters/Hero.uasset" spellCheck={false} />
-        <button type="submit" className="primary" disabled={busy || !newPath.trim()}>{t("잠금")}</button>
+        <button type="submit" className="primary" disabled={busy || !newPath.trim()}>{t("잠금@@동작")}</button>
       </form>
     </div>
   );

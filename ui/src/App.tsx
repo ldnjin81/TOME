@@ -263,7 +263,7 @@ export default function App() {
       const who = typeof n.data.userId === 'string' && n.data.userId !== '<unknown>' ? ` · ${n.data.userId}` : '';
       const branchName = known.find((b) => b.id === n.data.branch)?.name ?? '';
       if (n.kind === 'resourceLocked' || n.kind === 'resourceUnlocked') {
-        addToast(t("{p0}: {p1}{p2}", { p0: n.kind === 'resourceLocked' ? t('잠금') : t('잠금 해제'), p1: paths.join(', '), p2: who }), n.kind === 'resourceLocked' ? 'lock' : 'unlock');
+        addToast(t("{p0}: {p1}{p2}", { p0: n.kind === 'resourceLocked' ? t('잠금@@알림') : t('잠금 해제@@알림'), p1: paths.join(', '), p2: who }), n.kind === 'resourceLocked' ? 'lock' : 'unlock');
         if (current) void refreshLocksQuietly(current, where);
       } else if (n.kind === 'branchPushed') {
         addToast(t("{p0}에 새 리비전 r{p1} push{p2}", { p0: branchName || t('브랜치'), p1: String(n.data.revisionNumber ?? ''), p2: who }), 'push');

@@ -140,7 +140,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
       <div className="pane-actions">
         <button className="ghost" onClick={onRefresh} disabled={busy}>{t("다시 검사")}</button>
         {status.local_ahead && (
-          <button className="ghost" onClick={onPush} disabled={busy || merging || !!blocked} title={blocked || (merging ? t("병합을 끝낸 뒤 push합니다") : undefined)}>push</button>
+          <button className="ghost" onClick={onPush} disabled={busy || merging || !!blocked} title={blocked || (merging ? t("병합을 끝낸 뒤 push합니다") : undefined)}>{t("push")}</button>
         )}
       </div>
 

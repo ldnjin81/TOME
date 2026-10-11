@@ -13,7 +13,8 @@ describe('화면 언어', () => {
     for (const [key, value] of Object.entries(dictionary)) {
       expect(value.ko.trim(), key).not.toBe('');
       expect(value.en.trim(), key).not.toBe('');
-      expect(value.ko, key).toBe(key);
+      // A key may carry a context after @@ when the same Korean needs different English.
+      expect(value.ko, key).toBe(key.split('@@')[0]);
       expect(value.en, key).not.toMatch(/[가-힣]/);
     }
   });
