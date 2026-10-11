@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { useEffect } from 'react';
 
 export interface Toast {
@@ -15,10 +16,10 @@ export default function Toasts({ toasts, onDone }: { toasts: Toast[]; onDone: (i
   if (toasts.length === 0) return null;
   return (
     <div className="toasts" role="status" aria-live="polite">
-      {toasts.slice(-4).map((t) => (
-        <div key={t.id} className={`toast ${t.tone}`}>
-          <span>{t.text}</span>
-          <button className="toast-x" onClick={() => onDone(t.id)} aria-label="닫기">
+      {toasts.slice(-4).map((toast) => (
+        <div key={toast.id} className={`toast ${toast.tone}`}>
+          <span>{toast.text}</span>
+          <button className="toast-x" onClick={() => onDone(toast.id)} aria-label={t("닫기")}>
             ×
           </button>
         </div>

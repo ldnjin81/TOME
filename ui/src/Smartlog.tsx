@@ -1,3 +1,4 @@
+import { t, getLocale } from './i18n';
 import { useState } from 'react';
 import type { Branch, Graph, GraphRow, Pick, Revision, Segment, StackInfo, Status } from './types';
 import { foldWithBelow, reorderPicks, type FoldRequest } from './stackLogic';
@@ -38,13 +39,13 @@ function Lanes({ cells, join }: { cells: [Cell, Cell]; join?: 'stack' | 'merge' 
 function relativeTime(ms: number) {
   if (!ms) return '';
   const minutes = Math.round((Date.now() - ms) / 60000);
-  if (minutes < 1) return '방금';
-  if (minutes < 60) return `${minutes}분 전`;
+  if (minutes < 1) return t("방금");
+  if (minutes < 60) return t("{p0}분 전", { p0: minutes });
   const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}시간 전`;
+  if (hours < 24) return t("{p0}시간 전", { p0: hours });
   const days = Math.round(hours / 24);
-  if (days < 30) return `${days}일 전`;
-  return new Date(ms).toLocaleDateString();
+  if (days < 30) return t("{p0}일 전", { p0: days });
+  return new Date(ms).toLocaleDateString(getLocale());
 }
 
 /** A revision is a draft when it is on this branch locally but not yet pushed. With the stack
@@ -90,7 +91,7 @@ interface Props {
 }
 
 /** The author as shown: 나 for my own revisions. */
-const who = (author: string, me: string) => (author && author === me ? '나' : author);
+const who = (author: string, me: string) => (author && author === me ? t("나") : author);
 
 export default function Smartlog({ status, history, stack, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me, onRestack, restacking, onFold }: Props) {
   // The stack is always the working copy's branch; the graph shows every branch.
@@ -99,15 +100,15 @@ export default function Smartlog({ status, history, stack, graph, branches, sele
   return (
     <div className="smartlog-body">
       <div className="smartlog-head">
-        <div className="chips" role="group" aria-label="보기">
+        <div className="chips" role="group" aria-label={t("보기")}>
           <button className={shown === 'stack' ? 'chip active' : 'chip'} onClick={() => onMode('stack')}>
-            내 스택
+            {t("내 스택")}
           </button>
           <button className={shown === 'all' ? 'chip active' : 'chip'} onClick={() => onMode('all')}>
-            전체 그래프
+            {t("전체 그래프")}
           </button>
         </div>
-        <span className="muted">{shown === 'stack' ? status.branch_name : '모든 브랜치'}</span>
+        <span className="muted">{shown === 'stack' ? status.branch_name : t("모든 브랜치")}</span>
       </div>
       {shown === 'stack' ? (
         <Stack me={me} status={status} history={history} stack={stack} selected={selected} busy={busy} onSelect={onSelect} onCommit={onCommit} onSync={onSync} onAll={() => onMode('all')} onContext={onContext} onRestack={onRestack} restacking={restacking} onFold={onFold} />
@@ -123,11 +124,11 @@ function RevisionText({ revision, draft, tags, me }: { revision: Revision; draft
     <span className="rev-text">
       <span className="rev-title">
         <span className={draft ? 'rev-no draft' : 'rev-no'}>{draft ? 'draft' : `r${revision.number}`}</span>
-        <span className={draft ? 'rev-message strong' : 'rev-message'}>{revision.message || '(메시지 없음)'}</span>
+        <span className={draft ? 'rev-message strong' : 'rev-message'}>{revision.message || t("(메시지 없음)")}</span>
         {tags}
       </span>
       <span className="rev-meta">
-        {who(revision.author, me)} · {relativeTime(revision.timestamp)} · {draft ? `r${revision.number} · 미푸시` : 'public'}
+        {who(revision.author, me)} · {relativeTime(revision.timestamp)} · {draft ? t("r{p0} · 미푸시", { p0: revision.number }) : 'public'}
       </span>
     </span>
   );
@@ -188,7 +189,7 @@ function Stack({
   const older = base ? Math.max(base.number - 1, 0) : 0;
   // Restack needs the stack as the server sees it, and no uncommitted changes.
   const canDrag = exact && !busy && !wip && !restacking && drafts.length > 0;
-  const dragTitle = !exact ? '서버에 연결되어야 순서를 바꿀 수 있습니다' : wip ? '미커밋 변경을 먼저 커밋하거나 되돌리세요' : '끌어서 순서 바꾸기 · 서버 리비전 위로 끌면 restack';
+  const dragTitle = !exact ? t("서버에 연결되어야 순서를 바꿀 수 있습니다") : wip ? t("미커밋 변경을 먼저 커밋하거나 되돌리세요") : t("끌어서 순서 바꾸기 · 서버 리비전 위로 끌면 restack");
   const head = incoming[0];
 
   function restackOntoServer() {
@@ -229,23 +230,23 @@ function Stack({
           <span className="rev-text">
             <span className="rev-title">
               <span className="rev-no">r{head?.number ?? status.remote_number}</span>
-              <span className="rev-message">{head ? head.message.split('\n')[0] || '(메시지 없음)' : `서버의 ${status.branch_name}`}</span>
-              <span className="tag behind">↓ {newOnServer || '새'} 리비전</span>
+              <span className="rev-message">{head ? head.message.split('\n')[0] || t("(메시지 없음)") : t("서버의 {p0}", { p0: status.branch_name })}</span>
+              <span className="tag behind">↓ {newOnServer || t("새")} {t("리비전")}</span>
             </span>
             {diverged ? (
               <span className="rev-meta diverged">
-                서버에 새 리비전이 있어 지금은 push할 수 없습니다 ·{' '}
-                <button className="link" onClick={restackOntoServer} disabled={busy || !canDrag} title={canDrag ? '내 스택을 서버 리비전 위로 옮겨 일직선으로 만듭니다' : dragTitle}>
-                  내 스택을 위로 옮기기 (restack)
+                {t("서버에 새 리비전이 있어 지금은 push할 수 없습니다 ·")}{' '}
+                <button className="link" onClick={restackOntoServer} disabled={busy || !canDrag} title={canDrag ? t("내 스택을 서버 리비전 위로 옮겨 일직선으로 만듭니다") : dragTitle}>
+                  {t("내 스택을 위로 옮기기 (restack)")}
                 </button>{' '}
                 ·{' '}
-                <button className="link" onClick={onSync} disabled={busy || restacking} title="서버 리비전을 받아 병합 리비전을 하나 만듭니다">
-                  병합해서 받기 (sync)
+                <button className="link" onClick={onSync} disabled={busy || restacking} title={t("서버 리비전을 받아 병합 리비전을 하나 만듭니다")}>
+                  {t("병합해서 받기 (sync)")}
                 </button>
               </span>
             ) : (
               <span className="rev-meta">
-                아직 받지 않은 리비전이 있습니다 ·{' '}
+                {t("아직 받지 않은 리비전이 있습니다 ·")}{' '}
                 <button className="link" onClick={onSync} disabled={busy}>
                   Sync
                 </button>
@@ -259,13 +260,13 @@ function Stack({
         <li className="lrow">
           <Lanes cells={[{ top: remote ? 'dotted' : null }, { node: 'wip', bottom: 'wip' }]} />
           <span className="wip-card">
-            <span>미커밋 변경 {changed.length}개</span>
-            <span className="muted">스테이징 {changed.filter((f) => f.staged).length}</span>
+            <span>{t("미커밋 변경")} {changed.length}{t("개")}</span>
+            <span className="muted">{t("스테이징")} {changed.filter((f) => f.staged).length}</span>
             {restacking ? (
-              <span className="muted small">restack 충돌을 정하는 중 · 위 패널에서 계속하세요</span>
+              <span className="muted small">{t("restack 충돌을 정하는 중 · 위 패널에서 계속하세요")}</span>
             ) : (
               <button className="primary small" onClick={onCommit}>
-                새 커밋
+                {t("새 커밋")}
               </button>
             )}
           </span>
@@ -306,7 +307,7 @@ function Stack({
               onContextMenu={(e) => onContext(e, r)}
             >
               <Lanes cells={[{ top: remote ? 'dotted' : null }, { top: i === 0 && !wip ? null : 'stack', node: i === 0 ? 'head' : 'draft', bottom: 'stack' }]} />
-              <RevisionText me={me} revision={r} draft tags={i === 0 && <span className="tag">작업 중</span>} />
+              <RevisionText me={me} revision={r} draft tags={i === 0 && <span className="tag">{t("작업 중")}</span>} />
               {canDrag && (drafts.length > 1 || diverged) && (
                 <span className="grip" aria-hidden="true">
                   ⠿
@@ -321,9 +322,9 @@ function Stack({
                     const request = foldWithBelow(drafts, r.id);
                     if (request) onFold(request);
                   }}
-                  title="이 커밋과 바로 아래 커밋을 하나로 합칩니다"
+                  title={t("이 커밋과 바로 아래 커밋을 하나로 합칩니다")}
                 >
-                  아래와 합치기
+                  {t("아래와 합치기")}
                 </button>
               </span>
             )}
@@ -339,19 +340,19 @@ function Stack({
               me={me}
               revision={base}
               draft={false}
-              tags={<span className="tag">{stackShown ? '내 스택의 베이스' : base.id === status.revision ? '작업본' : '최신'}</span>}
+              tags={<span className="tag">{stackShown ? t("내 스택의 베이스") : base.id === status.revision ? t("작업본") : t("최신")}</span>}
             />
           </button>
         </li>
       )}
 
-      {!base && !stackShown && <li className="muted empty">리비전이 없습니다</li>}
+      {!base && !stackShown && <li className="muted empty">{t("리비전이 없습니다")}</li>}
 
       {older > 0 && (
         <li className="fold">
-          ⋮ 이전 public 리비전 {older.toLocaleString()}개 ·{' '}
+          {t("⋮ 이전 public 리비전")} {older.toLocaleString(getLocale())}{t("개 ·")}{' '}
           <button className="link" onClick={onAll}>
-            전체 그래프 보기
+            {t("전체 그래프 보기")}
           </button>
         </li>
       )}
@@ -394,11 +395,11 @@ function RowGraph({ row, width, color, draft }: { row: GraphRow; width: number; 
       {row.missing.map((p, i) =>
         p === row.revision.parents[0] ? (
           <path key={p} d={`M${x} ${MID}V${ROW}`} fill="none" stroke={own} strokeWidth="2" strokeDasharray="2 3">
-            <title>더 이전 리비전은 불러오지 않았습니다</title>
+            <title>{t("더 이전 리비전은 불러오지 않았습니다")}</title>
           </path>
         ) : (
           <g key={p}>
-            <title>병합된 쪽 리비전을 불러오지 못했습니다</title>
+            <title>{t("병합된 쪽 리비전을 불러오지 못했습니다")}</title>
             <path d={`M${x} ${MID}Q${x + LANE * 0.8} ${MID} ${x + LANE * 0.8} ${ROW - 8 - i * 2}`} fill="none" stroke="var(--public-line)" strokeWidth="2" strokeDasharray="2 3" />
             <circle cx={x + LANE * 0.8} cy={ROW - 6 - i * 2} r="2.5" fill="var(--surface)" stroke="var(--public-line)" strokeWidth="1.5" />
           </g>
@@ -411,7 +412,7 @@ function RowGraph({ row, width, color, draft }: { row: GraphRow; width: number; 
 
 /** Every branch, laid out in lanes by tome-core (graph.rs). */
 function GraphView({ me, status, stack, graph, branches, selected, onSelect, onContext }: { status: Status; stack: StackInfo | null; graph: Graph | null; branches: Branch[]; selected: string | null; onSelect: (id: string) => void; onContext: (e: React.MouseEvent, revision: Revision) => void; me: string }) {
-  if (!graph) return <p className="muted empty">그래프를 불러오는 중…</p>;
+  if (!graph) return <p className="muted empty">{t("그래프를 불러오는 중…")}</p>;
   // A revision without a branch id (some merges) takes its child's, so a lane keeps one color.
   const branchOf = new Map<string, string>();
   for (const { revision: r } of graph.rows) {
@@ -426,7 +427,7 @@ function GraphView({ me, status, stack, graph, branches, selected, onSelect, onC
   const width = Math.max(1, ...graph.rows.map((r) => r.width));
   return (
     <>
-      {graph.incomplete.length > 0 && <p className="muted note-line">일부 브랜치는 끝까지 읽지 못했습니다: {graph.incomplete.join(' · ')}</p>}
+      {graph.incomplete.length > 0 && <p className="muted note-line">{t("일부 브랜치는 끝까지 읽지 못했습니다:")} {graph.incomplete.join(' · ')}</p>}
       <ol className="log graph">
         {graph.rows.map((row) => {
           const r = row.revision;
@@ -443,7 +444,7 @@ function GraphView({ me, status, stack, graph, branches, selected, onSelect, onC
                       {name}
                     </span>
                   ))}
-                  <span className="rev-message">{r.message || '(메시지 없음)'}</span>
+                  <span className="rev-message">{r.message || t("(메시지 없음)")}</span>
                   <span className="rev-meta inline">
                     {who(r.author, me)} · {relativeTime(r.timestamp)}
                   </span>

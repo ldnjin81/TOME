@@ -1,3 +1,4 @@
+import { t, getLocale, getLanguage } from './i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Asset, AssetListing, AssetPreview, ChangedFile, Lock } from './types';
@@ -30,11 +31,11 @@ function Badges({ path, marks, me }: { path: string; marks: AssetMarks; me: stri
   const lock = marks.locks.get(path);
   return (
     <>
-      {change?.unresolved && <span className="ab conflict">충돌</span>}
-      {change && !change.unresolved && <span className={`ab change ${change.action}`}>{ACTION_LABEL[change.action] ?? change.action}</span>}
+      {change?.unresolved && <span className="ab conflict">{t("충돌")}</span>}
+      {change && !change.unresolved && <span className={`ab change ${change.action}`}>{t(ACTION_LABEL[change.action] ?? change.action)}</span>}
       {lock && (
-        <span className={lock.owner === me ? 'ab lock mine' : 'ab lock'} title={`잠금: ${lock.owner}`}>
-          🔒 {lock.owner === me ? '내 잠금' : lock.owner}
+        <span className={lock.owner === me ? 'ab lock mine' : 'ab lock'} title={t("잠금: {p0}", { p0: lock.owner })}>
+          🔒 {lock.owner === me ? t("내 잠금") : lock.owner}
         </span>
       )}
     </>
@@ -46,7 +47,7 @@ function Thumb({ asset, preview }: { asset: Asset; preview: AssetPreview | undef
   const cls = preview?.class || (asset.kind === 'umap' ? 'World' : '');
   return (
     <span className={`thumb-ph ${classTone(cls, asset.kind)}`}>
-      {preview ? cls || (asset.kind === 'umap' ? 'Map' : '미리보기 없음') : ''}
+      {preview ? cls || (asset.kind === 'umap' ? 'Map' : t("미리보기 없음")) : ''}
     </span>
   );
 }
@@ -103,7 +104,7 @@ function FolderTree({ path, folder, onOpen }: TreeProps) {
     return list.map((f) => (
       <li key={f.path}>
         <div className={f.path === folder ? 'tree-row active' : 'tree-row'} style={{ paddingLeft: 4 + depth * 14 }}>
-          <button className="tree-twisty" onClick={() => toggle(f.path)} aria-label={open.has(f.path) ? '접기' : '펼치기'} aria-expanded={open.has(f.path)}>
+          <button className="tree-twisty" onClick={() => toggle(f.path)} aria-label={open.has(f.path) ? t("접기") : t("펼치기")} aria-expanded={open.has(f.path)}>
             {children[f.path]?.length === 0 ? '' : open.has(f.path) ? '▾' : '▸'}
           </button>
           <button className="tree-name" onClick={() => onOpen(f.path)} title={f.path}>
@@ -116,10 +117,10 @@ function FolderTree({ path, folder, onOpen }: TreeProps) {
   }
 
   return (
-    <nav className="folder-tree" aria-label="폴더">
+    <nav className="folder-tree" aria-label={t("폴더")}>
       <div className={folder === '' ? 'tree-row active' : 'tree-row'}>
         <button className="tree-name root" onClick={() => onOpen('')}>
-          작업본 루트
+          {t("작업본 루트")}
         </button>
       </div>
       <ul>{render('', 0)}</ul>
@@ -253,9 +254,9 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
       <FolderTree path={path} folder={folder ?? ''} onOpen={(f) => { setFolder(f); onSelect(null); }} />
       <section className="asset-main" ref={mainRef}>
         <div className="asset-bar">
-          <nav className="crumbs" aria-label="현재 폴더">
+          <nav className="crumbs" aria-label={t("현재 폴더")}>
             <button className="link" onClick={() => setFolder('')}>
-              루트
+              {t("루트")}
             </button>
             {crumbs.map((c, i) => (
               <span key={i}>
@@ -266,21 +267,21 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
               </span>
             ))}
           </nav>
-          <input className="asset-filter" type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="이름·클래스 거르기" aria-label="이름이나 클래스로 거르기" />
+          <input className="asset-filter" type="search" value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("이름·클래스 거르기")} aria-label={t("이름이나 클래스로 거르기")} />
           <label className="check">
             <input type="checkbox" checked={onlyMarked} onChange={(e) => setOnlyMarked(e.target.checked)} />
-            변경·잠금만
+            {t("변경·잠금만")}
           </label>
-          <label className="check size" title="썸네일 크기">
+          <label className="check size" title={t("썸네일 크기")}>
             <span aria-hidden="true">▫</span>
-            <input type="range" min={88} max={224} step={8} value={size} onChange={(e) => setSize(Number(e.target.value))} aria-label="썸네일 크기" />
+            <input type="range" min={88} max={224} step={8} value={size} onChange={(e) => setSize(Number(e.target.value))} aria-label={t("썸네일 크기")} />
             <span aria-hidden="true">◻</span>
           </label>
         </div>
         {listing && (
           <p className="asset-count muted small">
-            에셋 {shown.length}
-            {shown.length !== listing.assets.length && ` / ${listing.assets.length}`}개 · 하위 폴더 {listing.folders.length}개
+            {t("에셋")} {shown.length}
+            {shown.length !== listing.assets.length && ` / ${listing.assets.length}`}{t("개 · 하위 폴더")} {listing.folders.length}{t("개")}
           </p>
         )}
         {listing && listing.folders.length > 0 && !filter && !onlyMarked && (
@@ -294,7 +295,7 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
             ))}
           </ul>
         )}
-        {listing && shown.length === 0 && (listing.assets.length > 0 || listing.folders.length === 0) && <p className="muted asset-empty">{listing.assets.length ? '거른 결과가 없습니다' : '이 폴더에는 에셋(.uasset·.umap)이 없습니다'}</p>}
+        {listing && shown.length === 0 && (listing.assets.length > 0 || listing.folders.length === 0) && <p className="muted asset-empty">{listing.assets.length ? t("거른 결과가 없습니다") : t("이 폴더에는 에셋(.uasset·.umap)이 없습니다")}</p>}
         <ul ref={gridRef} className="asset-grid" style={{ '--thumb': `${size}px`, '--row-height': `${range.rowHeight}px`, paddingTop: range.top, paddingBottom: range.bottom } as React.CSSProperties}>
           {shown.slice(range.first, range.end).map((a) => {
             const preview = previews[a.path];
@@ -352,48 +353,48 @@ export function AssetDetails({ asset, preview, marks, me, busy, online, onLock, 
       <h2 className="asset-title">{asset.name}</h2>
       <p className="asset-path mono">{asset.path}</p>
       <dl>
-        <dt>클래스</dt>
-        <dd>{preview?.class || (asset.kind === 'umap' ? 'World (맵)' : '알 수 없음')}</dd>
-        <dt>크기</dt>
+        <dt>{t("클래스")}</dt>
+        <dd>{preview?.class || (asset.kind === 'umap' ? t("World (맵)") : t("알 수 없음"))}</dd>
+        <dt>{t("크기")}</dt>
         <dd>{formatSize(asset.size)}</dd>
-        <dt>수정</dt>
-        <dd>{new Date(asset.modified).toLocaleString('ko-KR')}</dd>
+        <dt>{t("수정")}</dt>
+        <dd>{new Date(asset.modified).toLocaleString(getLocale())}</dd>
         {preview?.image && (
           <>
-            <dt>썸네일</dt>
+            <dt>{t("썸네일")}</dt>
             <dd>
               {preview.width}×{preview.height}
             </dd>
           </>
         )}
-        <dt>상태</dt>
+        <dt>{t("상태")}</dt>
         <dd>
-          {change ? (change.unresolved ? '병합 충돌 — 변경 탭에서 정하세요' : `${ACTION_LABEL[change.action] ?? change.action}됨${change.staged ? ' · 스테이지됨' : ''}`) : '변경 없음'}
+          {change ? (change.unresolved ? t("병합 충돌 — 변경 탭에서 정하세요") : t("{p0}됨{p1}", { p0: t(ACTION_LABEL[change.action] ?? change.action), p1: change.staged ? t(' · 스테이지됨') : '' })) : t("변경 없음")}
         </dd>
-        <dt>잠금</dt>
-        <dd>{lock ? `${lock.owner === me ? '내가' : lock.owner + '님이'} 잠금` : '잠기지 않음'}</dd>
+        <dt>{t("잠금")}</dt>
+        <dd>{lock ? t("{p0} 잠금", { p0: lock.owner === me ? t('내가') : lock.owner + (getLanguage() === 'ko' ? '님이' : '') }) : t("잠기지 않음")}</dd>
       </dl>
       <div className="asset-actions">
         {lock && lock.owner === me ? (
           <button className="primary" onClick={() => onLock(false)} disabled={busy || !online}>
-            잠금 풀기
+            {t("잠금 풀기")}
           </button>
         ) : (
-          <button className="primary" onClick={() => onLock(true)} disabled={busy || !online || lockedByOther} title={lockedByOther ? `${lock!.owner}님이 잠그고 있습니다` : '다른 사람이 동시에 고치지 못하게 잠급니다'}>
-            잠그기
+          <button className="primary" onClick={() => onLock(true)} disabled={busy || !online || lockedByOther} title={lockedByOther ? t("{p0}님이 잠그고 있습니다", { p0: lock!.owner }) : t("다른 사람이 동시에 고치지 못하게 잠급니다")}>
+            {t("잠그기")}
           </button>
         )}
         <button className="ghost" onClick={onHistory}>
-          파일 기록
+          {t("파일 기록")}
         </button>
         {change && (
           <button className="ghost" onClick={onChanges}>
-            변경 탭에서 보기
+            {t("변경 탭에서 보기")}
           </button>
         )}
       </div>
-      {!online && <p className="muted small">오프라인이라 잠금을 바꿀 수 없습니다.</p>}
-      {lockedByOther && <p className="warn-line">{lock!.owner}님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.</p>}
+      {!online && <p className="muted small">{t("오프라인이라 잠금을 바꿀 수 없습니다.")}</p>}
+      {lockedByOther && <p className="warn-line">{lock!.owner}{t("님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.")}</p>}
     </div>
   );
 }
