@@ -1,11 +1,11 @@
 export const dictionary = {
   "설정 저장 실패: {p0}": {
     "ko": "설정 저장 실패: {p0}",
-    "en": "Failed to save settings:{p0}"
+    "en": "Couldn't save settings: {p0}"
   },
   "다른 작업이 진행 중입니다. 끝나거나 취소한 뒤에 하세요.": {
     "ko": "다른 작업이 진행 중입니다. 끝나거나 취소한 뒤에 하세요.",
-    "en": "Other work is in progress. Do it after it's over or cancelled."
+    "en": "Another job is running. Wait for it to finish or cancel it first."
   },
   "{p0} 취소함{p1}": {
     "ko": "{p0} 취소함{p1}",
@@ -13,11 +13,11 @@ export const dictionary = {
   },
   "{p0} 완료": {
     "ko": "{p0} 완료",
-    "en": "{p0} completed"
+    "en": "{p0} done"
   },
   "{p0} 실패: 서버에 새 리비전이 있습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.": {
     "ko": "{p0} 실패: 서버에 새 리비전이 있습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.",
-    "en": "{p0} failed: The server has a new revision. Restack My stack onto it or merge it in Smartlog, then push again."
+    "en": "{p0} failed: the server has new revisions. Restack your stack onto them from My stack in the Smartlog, or merge them in, then push again."
   },
   "{p0} 실패: {p1}": {
     "ko": "{p0} 실패: {p1}",
@@ -29,7 +29,7 @@ export const dictionary = {
   },
   "{p0}: {p1}{p2}": {
     "ko": "{p0}: {p1}{p2}",
-    "en": "{p0}:{p1}{p2}"
+    "en": "{p0}: {p1}{p2}"
   },
   "{p0}에 새 리비전 r{p1} push{p2}": {
     "ko": "{p0}에 새 리비전 r{p1} push{p2}",
@@ -45,15 +45,15 @@ export const dictionary = {
   },
   " · {p0}개는 새 베이스에 이미 있어 뺐습니다": {
     "ko": " · {p0}개는 새 베이스에 이미 있어 뺐습니다",
-    "en": "·{p0}was removed as it was already in the new base."
+    "en": " · left out {p0} {p0|commit|commits} the new base already had"
   },
   "Restack 완료{p0} · 이제 push할 수 있습니다": {
     "ko": "Restack 완료{p0} · 이제 push할 수 있습니다",
-    "en": "Restack completed{p0}· Now you can push"
+    "en": "Restack done{p0} · you can push now"
   },
   "restack 중 오류가 나서 시작 전 상태로 되돌렸습니다. ({p0})": {
     "ko": "restack 중 오류가 나서 시작 전 상태로 되돌렸습니다. ({p0})",
-    "en": "An error occurred during restack, so it was returned to the state before startup. ({p0})"
+    "en": "The restack hit an error, so everything was put back as it was before. ({p0})"
   },
   "미커밋 변경": {
     "ko": "미커밋 변경",
@@ -65,7 +65,7 @@ export const dictionary = {
   },
   "{p0}로 전환": {
     "ko": "{p0}로 전환",
-    "en": "Switch to{p0}"
+    "en": "Switch to {p0}"
   },
   "전환": {
     "ko": "전환",
@@ -73,7 +73,7 @@ export const dictionary = {
   },
   "{p0}를 현재 브랜치에 병합": {
     "ko": "{p0}를 현재 브랜치에 병합",
-    "en": "Merge{p0}into the current branch"
+    "en": "Merge {p0} into the current branch"
   },
   "병합": {
     "ko": "병합",
@@ -93,7 +93,7 @@ export const dictionary = {
   },
   "오프라인": {
     "ko": "오프라인",
-    "en": "offline"
+    "en": "Offline"
   },
   "작업 중…": {
     "ko": "작업 중…",
@@ -105,15 +105,15 @@ export const dictionary = {
   },
   "화면 모드": {
     "ko": "화면 모드",
-    "en": "screen mode"
+    "en": "View mode"
   },
   "프로그래머": {
     "ko": "프로그래머",
-    "en": "programmer"
+    "en": "Programmer"
   },
   "아티스트": {
     "ko": "아티스트",
-    "en": "artist"
+    "en": "Artist"
   },
   "설정": {
     "ko": "설정",
@@ -123,41 +123,33 @@ export const dictionary = {
     "ko": "병합 중",
     "en": "Merging"
   },
-  "· 미해결 충돌": {
-    "ko": "· 미해결 충돌",
-    "en": "· Unresolved conflicts"
-  },
-  "개 ·": {
-    "ko": "개 ·",
-    "en": " items ·"
-  },
   "변경 탭에서 정하기": {
     "ko": "변경 탭에서 정하기",
-    "en": "Set in the Change tab"
+    "en": "Settle in the Changes tab"
   },
   "신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.": {
     "ko": "신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.",
-    "en": "Since the identity (my name) is empty, the author of the commit made by TOME will be empty."
+    "en": "Your identity (name) is empty, so commits made in TOME will have no author."
   },
   "설정하기": {
     "ko": "설정하기",
-    "en": "Setting up"
+    "en": "Set it"
   },
   "브랜치": {
     "ko": "브랜치",
-    "en": "branch"
+    "en": "Branches"
   },
   "+ 새 브랜치": {
     "ko": "+ 새 브랜치",
-    "en": "+ new branch"
+    "en": "+ New branch"
   },
   "{p0}/ 접기": {
     "ko": "{p0}/ 접기",
-    "en": "{p0}/ Collapse"
+    "en": "Collapse {p0}/"
   },
   "{p0}/ 펼치기": {
     "ko": "{p0}/ 펼치기",
-    "en": "{p0}/ Expand"
+    "en": "Expand {p0}/"
   },
   "작업본": {
     "ko": "작업본",
@@ -165,59 +157,59 @@ export const dictionary = {
   },
   "push 대기": {
     "ko": "push 대기",
-    "en": "push wait"
+    "en": "Not pushed"
   },
   "새 버전": {
     "ko": "새 버전",
-    "en": "New version"
+    "en": "Server ahead"
   },
   "변경 파일 {p0}개": {
     "ko": "변경 파일 {p0}개",
-    "en": "{p0} changed files"
+    "en": "{p0} changed {p0|file|files}"
   },
   "변경 확인": {
     "ko": "변경 확인",
-    "en": "Confirm change"
+    "en": "Check for changes"
   },
   "신원": {
     "ko": "신원",
-    "en": "identity"
+    "en": "Identity"
   },
   "나:": {
     "ko": "나:",
-    "en": "me:"
+    "en": "Me:"
   },
   "(없음)": {
     "ko": "(없음)",
-    "en": "(None)"
+    "en": "(none)"
   },
   "로그인: {p0}": {
     "ko": "로그인: {p0}",
-    "en": "Login:{p0}"
+    "en": "Signed in: {p0}"
   },
   "이 서버는 로그인이 필요합니다": {
     "ko": "이 서버는 로그인이 필요합니다",
-    "en": "This server requires login"
+    "en": "This server requires sign-in"
   },
   "인증 없는 서버 · 이름으로만 기록": {
     "ko": "인증 없는 서버 · 이름으로만 기록",
-    "en": "Server without authentication · Recorded by name only"
+    "en": "Server without authentication · names only"
   },
   "바꾸기": {
     "ko": "바꾸기",
-    "en": "change"
+    "en": "Change"
   },
   "실시간 알림 켜짐": {
     "ko": "실시간 알림 켜짐",
-    "en": "Real-time notifications on"
+    "en": "Live notifications on"
   },
   "실시간 알림 꺼짐(서버 연결 안 됨)": {
     "ko": "실시간 알림 꺼짐(서버 연결 안 됨)",
-    "en": "Real-time notifications off (no server connection)"
+    "en": "Live notifications off (no server connection)"
   },
   "에셋": {
     "ko": "에셋",
-    "en": "assets"
+    "en": "Assets"
   },
   "변경": {
     "ko": "변경",
@@ -233,15 +225,15 @@ export const dictionary = {
   },
   "작업본 열기 · 서버에서 받기": {
     "ko": "작업본 열기 · 서버에서 받기",
-    "en": "Open working copy · Receive from server"
+    "en": "Open a working copy · Get one from a server"
   },
   "Restack을 중단하고 원래대로 되돌렸습니다": {
     "ko": "Restack을 중단하고 원래대로 되돌렸습니다",
-    "en": "I stopped Restack and reverted back to normal."
+    "en": "Restack aborted; everything is back as it was"
   },
   "restack이 충돌에서 멈춰 있습니다. 위 패널에서 정하고 “계속”을 누르세요.": {
     "ko": "restack이 충돌에서 멈춰 있습니다. 위 패널에서 정하고 “계속”을 누르세요.",
-    "en": "Restack stopped at a conflict. Resolve it in the panel above, then select “Continue.”"
+    "en": "The restack stopped at a conflict. Settle it in the panel above, then press “Continue”."
   },
   "에셋 상세": {
     "ko": "에셋 상세",
@@ -253,7 +245,7 @@ export const dictionary = {
   },
   "에셋을 고르세요": {
     "ko": "에셋을 고르세요",
-    "en": "Choose an asset"
+    "en": "Select an asset"
   },
   "draft · 미푸시": {
     "ko": "draft · 미푸시",
@@ -265,7 +257,7 @@ export const dictionary = {
   },
   "시각": {
     "ko": "시각",
-    "en": "time"
+    "en": "Time"
   },
   "리비전": {
     "ko": "리비전",
@@ -273,7 +265,7 @@ export const dictionary = {
   },
   "부모": {
     "ko": "부모",
-    "en": "parents"
+    "en": "Parents"
   },
   "없음": {
     "ko": "없음",
@@ -289,15 +281,15 @@ export const dictionary = {
   },
   "첫 리비전은 비교할 이전 리비전이 없어 내용 diff를 보여 주지 않습니다.": {
     "ko": "첫 리비전은 비교할 이전 리비전이 없어 내용 diff를 보여 주지 않습니다.",
-    "en": "The first revision does not show a content diff as there are no previous revisions to compare it to."
+    "en": "The first revision has nothing earlier to compare with, so no content diff is shown."
   },
   "리비전을 고르세요": {
     "ko": "리비전을 고르세요",
-    "en": "Choose a revision"
+    "en": "Select a revision"
   },
   "받기: {p0}": {
     "ko": "받기: {p0}",
-    "en": "Get:{p0}"
+    "en": "Get: {p0}"
   },
   "파일 기록": {
     "ko": "파일 기록",
@@ -305,7 +297,7 @@ export const dictionary = {
   },
   "실행한 Lore 명령": {
     "ko": "실행한 Lore 명령",
-    "en": "Lore command executed"
+    "en": "Lore commands run"
   },
   "추가": {
     "ko": "추가",
@@ -329,11 +321,11 @@ export const dictionary = {
   },
   "잠금: {p0}": {
     "ko": "잠금: {p0}",
-    "en": "Lock:{p0}"
+    "en": "Locked: {p0}"
   },
   "내 잠금": {
     "ko": "내 잠금",
-    "en": "My locks"
+    "en": "My lock"
   },
   "미리보기 없음": {
     "ko": "미리보기 없음",
@@ -349,7 +341,7 @@ export const dictionary = {
   },
   "폴더": {
     "ko": "폴더",
-    "en": "folder"
+    "en": "Folders"
   },
   "작업본 루트": {
     "ko": "작업본 루트",
@@ -357,15 +349,15 @@ export const dictionary = {
   },
   "현재 폴더": {
     "ko": "현재 폴더",
-    "en": "current folder"
+    "en": "Current folder"
   },
   "루트": {
     "ko": "루트",
-    "en": "root"
+    "en": "Root"
   },
   "이름·클래스 거르기": {
     "ko": "이름·클래스 거르기",
-    "en": "Filter name/class"
+    "en": "Filter by name or class"
   },
   "이름이나 클래스로 거르기": {
     "ko": "이름이나 클래스로 거르기",
@@ -373,31 +365,23 @@ export const dictionary = {
   },
   "변경·잠금만": {
     "ko": "변경·잠금만",
-    "en": "Change/lock only"
+    "en": "Changed or locked only"
   },
   "썸네일 크기": {
     "ko": "썸네일 크기",
     "en": "Thumbnail size"
   },
-  "개 · 하위 폴더": {
-    "ko": "개 · 하위 폴더",
-    "en": " items · subfolders"
-  },
-  "개": {
-    "ko": "개",
-    "en": " items"
-  },
   "거른 결과가 없습니다": {
     "ko": "거른 결과가 없습니다",
-    "en": "There are no filtered results"
+    "en": "Nothing matches the filter"
   },
   "이 폴더에는 에셋(.uasset·.umap)이 없습니다": {
     "ko": "이 폴더에는 에셋(.uasset·.umap)이 없습니다",
-    "en": "There are no assets (.uasset·.umap) in this folder"
+    "en": "No assets (.uasset, .umap) in this folder"
   },
   "클래스": {
     "ko": "클래스",
-    "en": "class"
+    "en": "Class"
   },
   "World (맵)": {
     "ko": "World (맵)",
@@ -405,11 +389,11 @@ export const dictionary = {
   },
   "알 수 없음": {
     "ko": "알 수 없음",
-    "en": "unknown"
+    "en": "Unknown"
   },
   "크기": {
     "ko": "크기",
-    "en": "size"
+    "en": "Size"
   },
   "썸네일": {
     "ko": "썸네일",
@@ -421,7 +405,7 @@ export const dictionary = {
   },
   "병합 충돌 — 변경 탭에서 정하세요": {
     "ko": "병합 충돌 — 변경 탭에서 정하세요",
-    "en": "Merge Conflicts — resolved in the Changes tab"
+    "en": "Merge conflict — settle it in the Changes tab"
   },
   "{p0}됨{p1}": {
     "ko": "{p0}됨{p1}",
@@ -429,27 +413,23 @@ export const dictionary = {
   },
   "변경 없음": {
     "ko": "변경 없음",
-    "en": "no change"
-  },
-  "{p0} 잠금": {
-    "ko": "{p0} 잠금",
-    "en": "Locked by {p0}"
+    "en": "No changes"
   },
   "잠기지 않음": {
     "ko": "잠기지 않음",
-    "en": "not locked"
+    "en": "Not locked"
   },
   "잠금 풀기": {
     "ko": "잠금 풀기",
-    "en": "unlock"
+    "en": "Unlock"
   },
   "{p0}님이 잠그고 있습니다": {
     "ko": "{p0}님이 잠그고 있습니다",
-    "en": "{p0}is locking it"
+    "en": "{p0} has it locked"
   },
   "다른 사람이 동시에 고치지 못하게 잠급니다": {
     "ko": "다른 사람이 동시에 고치지 못하게 잠급니다",
-    "en": "Lock it to prevent others from modifying it at the same time"
+    "en": "Lock it so nobody else changes it at the same time"
   },
   "잠그기": {
     "ko": "잠그기",
@@ -457,43 +437,35 @@ export const dictionary = {
   },
   "변경 탭에서 보기": {
     "ko": "변경 탭에서 보기",
-    "en": "View in Changes tab"
+    "en": "Show in the Changes tab"
   },
   "오프라인이라 잠금을 바꿀 수 없습니다.": {
     "ko": "오프라인이라 잠금을 바꿀 수 없습니다.",
-    "en": "I'm offline so I can't change the lock."
-  },
-  "님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.": {
-    "ko": "님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.",
-    "en": "is working on it. Please wait until it is released or contact us before fixing it."
+    "en": "Offline, so locks can't be changed."
   },
   "이름을 적으세요": {
     "ko": "이름을 적으세요",
-    "en": "Please write your name"
+    "en": "Enter a name"
   },
   "공백은 쓸 수 없습니다": {
     "ko": "공백은 쓸 수 없습니다",
-    "en": "Spaces cannot be used"
+    "en": "Spaces aren't allowed"
   },
   "같은 이름의 브랜치가 있습니다": {
     "ko": "같은 이름의 브랜치가 있습니다",
-    "en": "There is a branch with the same name"
+    "en": "A branch with this name already exists"
   },
   "새 브랜치": {
     "ko": "새 브랜치",
-    "en": "new branch"
-  },
-  "의 현재 리비전에서 시작합니다.": {
-    "ko": "의 현재 리비전에서 시작합니다.",
-    "en": "Start at the current revision of ."
+    "en": "New branch"
   },
   "이름": {
     "ko": "이름",
-    "en": "name"
+    "en": "Name"
   },
   "만든 뒤 바로 전환": {
     "ko": "만든 뒤 바로 전환",
-    "en": "Convert immediately after creation"
+    "en": "Switch to it right away"
   },
   "취소": {
     "ko": "취소",
@@ -505,11 +477,11 @@ export const dictionary = {
   },
   "충돌이 없으면 바로 병합 커밋을 만듭니다. 충돌이 있으면 변경 탭에서 파일마다 정한 뒤 커밋합니다.": {
     "ko": "충돌이 없으면 바로 병합 커밋을 만듭니다. 충돌이 있으면 변경 탭에서 파일마다 정한 뒤 커밋합니다.",
-    "en": "If there are no conflicts, create a merge commit right away. If there is a conflict, decide for each file in the Changes tab and commit."
+    "en": "With no conflicts, a merge commit is made right away. With conflicts, settle each file in the Changes tab, then commit."
   },
   "커밋 메시지": {
     "ko": "커밋 메시지",
-    "en": "commit message"
+    "en": "Commit message"
   },
   "내 것": {
     "ko": "내 것",
@@ -521,19 +493,19 @@ export const dictionary = {
   },
   "직접 수정": {
     "ko": "직접 수정",
-    "en": "Edit it yourself"
+    "en": "Edited by hand"
   },
   "자동 병합": {
     "ko": "자동 병합",
-    "en": "auto merge"
+    "en": "Auto-merged"
   },
   "충돌 {p0}개 남음": {
     "ko": "충돌 {p0}개 남음",
-    "en": "{p0} conflicts remaining"
+    "en": "{p0} {p0|conflict|conflicts} left"
   },
   "충돌 모두 해결": {
     "ko": "충돌 모두 해결",
-    "en": "Resolve all conflicts"
+    "en": "All conflicts settled"
   },
   "병합 중단": {
     "ko": "병합 중단",
@@ -541,7 +513,7 @@ export const dictionary = {
   },
   "텍스트 파일은 충돌 표시(<<<<<<<)를 직접 고친 뒤 “수정 완료”를 누릅니다. 바이너리 에셋은 내 것과 상대 것 중 하나를 고릅니다.": {
     "ko": "텍스트 파일은 충돌 표시(<<<<<<<)를 직접 고친 뒤 “수정 완료”를 누릅니다. 바이너리 에셋은 내 것과 상대 것 중 하나를 고릅니다.",
-    "en": "For text files, fix the conflict markers (<<<<<<<), then select “Done editing.” For binary assets, choose Mine or Theirs."
+    "en": "For a text file, fix the conflict markers (<<<<<<<) by hand, then press “Done editing”. For a binary asset, choose Mine or Theirs."
   },
   "미해결": {
     "ko": "미해결",
@@ -549,31 +521,31 @@ export const dictionary = {
   },
   "현재 브랜치의 내용을 씁니다": {
     "ko": "현재 브랜치의 내용을 씁니다",
-    "en": "Writes the contents of the current branch"
+    "en": "Use the current branch's version"
   },
   "병합하는 브랜치의 내용을 씁니다": {
     "ko": "병합하는 브랜치의 내용을 씁니다",
-    "en": "Writes the contents of the branch being merged"
+    "en": "Use the merged branch's version"
   },
   "직접 고친 지금 내용을 씁니다": {
     "ko": "직접 고친 지금 내용을 씁니다",
-    "en": "I am writing the content now that I have corrected it myself."
+    "en": "Use the file as you edited it"
   },
   "수정 완료": {
     "ko": "수정 완료",
-    "en": "Edit completed"
+    "en": "Done editing"
   },
   "되돌리기": {
     "ko": "되돌리기",
-    "en": "revert"
+    "en": "Undo"
   },
   "남은 것 모두 내 것": {
     "ko": "남은 것 모두 내 것",
-    "en": "Everything that's left is mine"
+    "en": "All remaining: mine"
   },
   "남은 것 모두 상대 것": {
     "ko": "남은 것 모두 상대 것",
-    "en": "Everything that's left is the other person's"
+    "en": "All remaining: theirs"
   },
   "스테이징 해제": {
     "ko": "스테이징 해제",
@@ -585,11 +557,11 @@ export const dictionary = {
   },
   "서버에 잠긴 파일입니다. 잠근 사람이 풀기 전에는 push할 때 거부될 수 있습니다": {
     "ko": "서버에 잠긴 파일입니다. 잠근 사람이 풀기 전에는 push할 때 거부될 수 있습니다",
-    "en": "This file is locked on the server. A push may be rejected until the locker unlocks it."
+    "en": "Locked on the server. A push may be refused until the lock holder unlocks it."
   },
   "잠김": {
     "ko": "잠김",
-    "en": "locked"
+    "en": "Locked"
   },
   "이 파일을 바꾼 리비전들": {
     "ko": "이 파일을 바꾼 리비전들",
@@ -597,7 +569,7 @@ export const dictionary = {
   },
   "{p0} 기록": {
     "ko": "{p0} 기록",
-    "en": "{p0}Record"
+    "en": "{p0} history"
   },
   "기록": {
     "ko": "기록",
@@ -609,15 +581,15 @@ export const dictionary = {
   },
   "{p0} 변경 내용 보기": {
     "ko": "{p0} 변경 내용 보기",
-    "en": "View{p0}changes"
+    "en": "View changes in {p0}"
   },
   "다시 검사": {
     "ko": "다시 검사",
-    "en": "Check again"
+    "en": "Rescan"
   },
   "병합을 끝낸 뒤 push합니다": {
     "ko": "병합을 끝낸 뒤 push합니다",
-    "en": "After completing the merge, push it"
+    "en": "Push after the merge is finished"
   },
   "스테이징됨": {
     "ko": "스테이징됨",
@@ -633,19 +605,19 @@ export const dictionary = {
   },
   "무엇을 바꿨나요": {
     "ko": "무엇을 바꿨나요",
-    "en": "What changed"
+    "en": "What did you change?"
   },
   "충돌을 모두 정하면 커밋할 수 있습니다.": {
     "ko": "충돌을 모두 정하면 커밋할 수 있습니다.",
-    "en": "Once you have resolved all the conflicts, you can commit."
+    "en": "Commit once all conflicts are settled."
   },
   "커밋": {
     "ko": "커밋",
-    "en": "commit"
+    "en": "Commit"
   },
   "커밋 후 push": {
     "ko": "커밋 후 push",
-    "en": "After commit, push"
+    "en": "Commit and push"
   },
   "이 파일의 diff를 불러오지 않았습니다.": {
     "ko": "이 파일의 diff를 불러오지 않았습니다.",
@@ -653,11 +625,11 @@ export const dictionary = {
   },
   "바이너리 파일이라 내용 비교를 보여 주지 않습니다.": {
     "ko": "바이너리 파일이라 내용 비교를 보여 주지 않습니다.",
-    "en": "Because it is a binary file, it does not show content comparison."
+    "en": "Binary file — no content comparison."
   },
   "내용 차이가 없습니다(이동·속성 변경).": {
     "ko": "내용 차이가 없습니다(이동·속성 변경).",
-    "en": "There is no content difference (movement/property change)."
+    "en": "No content difference (moved or properties changed)."
   },
   "닫기": {
     "ko": "닫기",
@@ -665,11 +637,11 @@ export const dictionary = {
   },
   "서버에 새 리비전이 있어 push할 수 없습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.": {
     "ko": "서버에 새 리비전이 있어 push할 수 없습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.",
-    "en": "The server has a new revision. Restack My stack onto it or merge it in Smartlog, then push again."
+    "en": "The server has new revisions, so you can't push. Restack your stack onto them from My stack in the Smartlog, or merge them in, then push again."
   },
   "다른 곳(다른 TOME 창이나 명령줄)에서 이 브랜치를 먼저 바꿨습니다. 동기화한 뒤 다시 스테이징하고 커밋하세요.": {
     "ko": "다른 곳(다른 TOME 창이나 명령줄)에서 이 브랜치를 먼저 바꿨습니다. 동기화한 뒤 다시 스테이징하고 커밋하세요.",
-    "en": "You changed this branch first somewhere else (in another TOME window or command line). After syncing, stage and commit again."
+    "en": "This branch was changed elsewhere first (another TOME window or the command line). Sync, then stage and commit again."
   },
   "커밋하지 않은 변경이 있어 동기화하거나 브랜치를 바꿀 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.": {
     "ko": "커밋하지 않은 변경이 있어 동기화하거나 브랜치를 바꿀 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.",
@@ -677,7 +649,7 @@ export const dictionary = {
   },
   "다른 사람이 잠근 파일입니다. 잠금 탭에서 누가 잠갔는지 확인하고, 풀릴 때까지 기다리거나 그 사람에게 연락하세요.": {
     "ko": "다른 사람이 잠근 파일입니다. 잠금 탭에서 누가 잠갔는지 확인하고, 풀릴 때까지 기다리거나 그 사람에게 연락하세요.",
-    "en": "This file is locked by someone else. Check who has locked it in the Lock tab and wait for it to be unlocked or contact that person."
+    "en": "Someone else has this file locked. See who in the Locks tab, and wait until it's unlocked or get in touch with them."
   },
   "이미 풀린 잠금입니다. 잠금 목록을 새로 고치세요.": {
     "ko": "이미 풀린 잠금입니다. 잠금 목록을 새로 고치세요.",
@@ -689,15 +661,15 @@ export const dictionary = {
   },
   "Lore 서버에 연결할 수 없습니다. 서버 주소와 네트워크를 확인하세요. 서버 없이 할 수 있는 작업은 \"오프라인\"을 켜고 계속할 수 있습니다.": {
     "ko": "Lore 서버에 연결할 수 없습니다. 서버 주소와 네트워크를 확인하세요. 서버 없이 할 수 있는 작업은 \"오프라인\"을 켜고 계속할 수 있습니다.",
-    "en": "Unable to connect to Lore server. Check the server address and network. Anything you can do without a server can be continued with “Offline” turned on."
+    "en": "Can't reach the Lore server. Check the server address and the network. Work that needs no server can go on with “Offline” turned on."
   },
   "서버에 그 저장소가 없습니다. 주소 끝의 저장소 이름을 확인하세요.": {
     "ko": "서버에 그 저장소가 없습니다. 주소 끝의 저장소 이름을 확인하세요.",
-    "en": "The repository does not exist on the server. Check the repository name at the end of the address."
+    "en": "That repository isn't on the server. Check the repository name at the end of the address."
   },
   "그 폴더에는 이미 Lore 작업본이 있습니다. 다른 빈 폴더를 고르거나, 그 작업본을 여세요.": {
     "ko": "그 폴더에는 이미 Lore 작업본이 있습니다. 다른 빈 폴더를 고르거나, 그 작업본을 여세요.",
-    "en": "There is already a working copy of Lore in that folder. Select another empty folder, or open that working copy."
+    "en": "That folder already holds a Lore working copy. Choose another, empty folder, or open that working copy."
   },
   "같은 이름의 브랜치가 이미 있습니다. 다른 이름을 쓰거나 그 브랜치로 전환하세요.": {
     "ko": "같은 이름의 브랜치가 이미 있습니다. 다른 이름을 쓰거나 그 브랜치로 전환하세요.",
@@ -705,7 +677,7 @@ export const dictionary = {
   },
   "아직 정하지 않은 충돌 파일이 있습니다. 파일마다 남길 쪽을 정한 뒤 다시 하세요.": {
     "ko": "아직 정하지 않은 충돌 파일이 있습니다. 파일마다 남길 쪽을 정한 뒤 다시 하세요.",
-    "en": "There are conflicting files that have not yet been determined. Decide which pages to keep for each file and try again."
+    "en": "Some conflicted files aren't settled yet. Choose which side to keep for each file, then try again."
   },
   "이 브랜치는 지울 수 없습니다(보호된 브랜치, 기본 브랜치, 또는 지금 쓰는 브랜치).": {
     "ko": "이 브랜치는 지울 수 없습니다(보호된 브랜치, 기본 브랜치, 또는 지금 쓰는 브랜치).",
@@ -713,7 +685,7 @@ export const dictionary = {
   },
   "리비전이나 브랜치를 찾을 수 없습니다. 오프라인이면 아직 서버에서 받지 않은 것일 수 있으니 동기화해 보세요.": {
     "ko": "리비전이나 브랜치를 찾을 수 없습니다. 오프라인이면 아직 서버에서 받지 않은 것일 수 있으니 동기화해 보세요.",
-    "en": "No revision or branch found. If it's offline, you may not have received it from the server yet, so try syncing it."
+    "en": "Revision or branch not found. If you're offline it may not have been fetched yet, so try syncing."
   },
   "Lore 작업본 폴더가 아닙니다. 올바른 폴더를 고르거나, 설정에서 서버에서 받기를 쓰세요.": {
     "ko": "Lore 작업본 폴더가 아닙니다. 올바른 폴더를 고르거나, 설정에서 서버에서 받기를 쓰세요.",
@@ -721,23 +693,19 @@ export const dictionary = {
   },
   "커밋하지 않은 변경이 있어 시작할 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.": {
     "ko": "커밋하지 않은 변경이 있어 시작할 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.",
-    "en": "Unable to start because there are uncommitted changes. Commit or revert the change and try again."
+    "en": "Can't start: there are uncommitted changes. Commit or revert them, then try again."
   },
   "병합이 진행 중입니다. 먼저 병합을 끝내거나 중단하세요.": {
     "ko": "병합이 진행 중입니다. 먼저 병합을 끝내거나 중단하세요.",
-    "en": "Merge is in progress. Finish or abort the merge first."
+    "en": "A merge is in progress. Finish or abort it first."
   },
   "합치려면 커밋이 두 개 이상 필요합니다.": {
     "ko": "합치려면 커밋이 두 개 이상 필요합니다.",
-    "en": "You need at least two commits to merge them."
-  },
-  "{p0}{p1} (원문: {p2})": {
-    "ko": "{p0}{p1} (원문: {p2})",
-    "en": "{p0}{p1}(Original text:{p2})"
+    "en": "Folding needs at least two commits."
   },
   "이 파일을 바꾼 리비전이 없습니다(아직 커밋되지 않은 새 파일).": {
     "ko": "이 파일을 바꾼 리비전이 없습니다(아직 커밋되지 않은 새 파일).",
-    "en": "No revisions have changed this file (new files not yet committed)."
+    "en": "No revision has changed this file yet (a new file that isn't committed)."
   },
   "(메시지 없음)": {
     "ko": "(메시지 없음)",
@@ -749,27 +717,27 @@ export const dictionary = {
   },
   " · 당시 경로 {p0}": {
     "ko": " · 당시 경로 {p0}",
-    "en": "· Path at the time{p0}"
+    "en": " · then at {p0}"
   },
   "첫 리비전이라 비교할 이전 내용이 없습니다(이 리비전에서 추가됨).": {
     "ko": "첫 리비전이라 비교할 이전 내용이 없습니다(이 리비전에서 추가됨).",
-    "en": "Since this is the first revision, there is no previous content to compare to (which was added in this revision)."
+    "en": "This is the first revision, so there is nothing earlier to compare with (added in this revision)."
   },
   "이 리비전의 변경 내용을 불러오지 못했습니다.": {
     "ko": "이 리비전의 변경 내용을 불러오지 못했습니다.",
-    "en": "Changes for this revision failed to load."
+    "en": "Couldn't load this revision's changes."
   },
   "조각": {
     "ko": "조각",
-    "en": "piece"
+    "en": "fragments"
   },
   "파일": {
     "ko": "파일",
-    "en": "file"
+    "en": "files"
   },
   "진행 중인 작업": {
     "ko": "진행 중인 작업",
-    "en": "work in progress"
+    "en": "Running job"
   },
   "준비 중…": {
     "ko": "준비 중…",
@@ -777,39 +745,27 @@ export const dictionary = {
   },
   "작업을 멈춥니다. 다시 실행하면 이어서 진행합니다": {
     "ko": "작업을 멈춥니다. 다시 실행하면 이어서 진행합니다",
-    "en": "Stop working. If you run it again, it will continue."
+    "en": "Stop the job. Running it again picks up where it stopped."
   },
   "취소하는 중…": {
     "ko": "취소하는 중…",
-    "en": "Canceling..."
+    "en": "Cancelling…"
   },
   "경로·작업자 찾기": {
     "ko": "경로·작업자 찾기",
-    "en": "Find path or owner"
+    "en": "Find a path or owner"
   },
   "잠금 찾기": {
     "ko": "잠금 찾기",
-    "en": "Find the lock"
+    "en": "Find a lock"
   },
   "새로 고침": {
     "ko": "새로 고침",
     "en": "Refresh"
   },
-  "· 잠금": {
-    "ko": "· 잠금",
-    "en": "· Lock"
-  },
-  "개 · 작업자": {
-    "ko": "개 · 작업자",
-    "en": " items · workers"
-  },
-  "명": {
-    "ko": "명",
-    "en": " people"
-  },
   "찾는 잠금이 없습니다": {
     "ko": "찾는 잠금이 없습니다",
-    "en": "No locks found"
+    "en": "No matching locks"
   },
   "잠긴 파일이 없습니다": {
     "ko": "잠긴 파일이 없습니다",
@@ -829,15 +785,15 @@ export const dictionary = {
   },
   "인증 없는 서버는 잠근 사람을 기록하지 않습니다(Lore 서버가 소유자를 로그인 토큰에서만 가져옴)": {
     "ko": "인증 없는 서버는 잠근 사람을 기록하지 않습니다(Lore 서버가 소유자를 로그인 토큰에서만 가져옴)",
-    "en": "Servers without authentication do not record who locked out (Lore servers get the owner only from the login token)"
+    "en": "A server without authentication doesn't record who locked a file (the Lore server takes the owner from the sign-in token only)"
   },
   "작업 시작(잠금)": {
     "ko": "작업 시작(잠금)",
-    "en": "Start task (lock)"
+    "en": "Start work (lock)"
   },
   "내 변경 유지": {
     "ko": "내 변경 유지",
-    "en": "keep my changes"
+    "en": "Keep my change"
   },
   "베이스 버전 사용": {
     "ko": "베이스 버전 사용",
@@ -845,31 +801,27 @@ export const dictionary = {
   },
   "직접 고침": {
     "ko": "직접 고침",
-    "en": "fix it yourself"
+    "en": "Edited by hand"
   },
   "스택 순서 바꾸기 · {p0}개": {
     "ko": "스택 순서 바꾸기 · {p0}개",
-    "en": "Change stack order ·{p0}"
+    "en": "Reorder stack · {p0}"
   },
   "커밋 {p0}개를 {p1} 위로 옮깁니다": {
     "ko": "커밋 {p0}개를 {p1} 위로 옮깁니다",
-    "en": "Move {p0} commits onto {p1}"
+    "en": "Move {p0} {p0|commit|commits} onto {p1}"
   },
   "미리보기입니다. 아직 아무것도 바뀌지 않았습니다. 각 커밋을 새 순서대로 다시 적용하고, push 전까지는 내 작업본에만 있습니다. 새 베이스에 이미 들어 있는 변경은 빈 커밋으로 남기지 않고 뺍니다. 중간에 오류가 나면 시작 전 상태로 되돌립니다.": {
     "ko": "미리보기입니다. 아직 아무것도 바뀌지 않았습니다. 각 커밋을 새 순서대로 다시 적용하고, push 전까지는 내 작업본에만 있습니다. 새 베이스에 이미 들어 있는 변경은 빈 커밋으로 남기지 않고 뺍니다. 중간에 오류가 나면 시작 전 상태로 되돌립니다.",
-    "en": "This is a preview. Nothing has changed. TOME will reapply each commit in the new order, keeping the result in your working copy until you push. Changes already in the new base are omitted. If an error occurs, TOME restores the starting state."
+    "en": "This is a preview; nothing has changed yet. Each commit is applied again in the new order and stays in your working copy until you push. Changes the new base already has are left out instead of becoming empty commits. If anything fails part way, everything goes back to how it was."
   },
   "{p0} 위로 (나중에 적용)": {
     "ko": "{p0} 위로 (나중에 적용)",
-    "en": "{p0}Up (applies later)"
+    "en": "{p0}: move up (applied later)"
   },
   "{p0} 아래로 (먼저 적용)": {
     "ko": "{p0} 아래로 (먼저 적용)",
-    "en": "{p0}down (applied first)"
-  },
-  "· 파일": {
-    "ko": "· 파일",
-    "en": "· File"
+    "en": "{p0}: move down (applied first)"
   },
   "병합 리비전입니다. 옮기면 일반 리비전 하나가 되어 병합 기록(어느 브랜치를 합쳤는지)은 사라집니다.": {
     "ko": "병합 리비전입니다. 옮기면 일반 리비전 하나가 되어 병합 기록(어느 브랜치를 합쳤는지)은 사라집니다.",
@@ -881,7 +833,7 @@ export const dictionary = {
   },
   "· 바이너리라 자동 병합 불가 — 충돌하면:": {
     "ko": "· 바이너리라 자동 병합 불가 — 충돌하면:",
-    "en": "· No automatic merging of binaries — if there is a conflict:"
+    "en": "· binary, can't be merged — if it conflicts:"
   },
   "{p0} 충돌 시": {
     "ko": "{p0} 충돌 시",
@@ -889,31 +841,23 @@ export const dictionary = {
   },
   "그때 묻기": {
     "ko": "그때 묻기",
-    "en": "ask then"
+    "en": "Ask then"
   },
   "· 텍스트 — 자동 병합을 시도합니다": {
     "ko": "· 텍스트 — 자동 병합을 시도합니다",
-    "en": "· Text — Attempt to auto-merge"
-  },
-  "님이 잠금": {
-    "ko": "님이 잠금",
-    "en": "locked by"
+    "en": "· text — will try to merge automatically"
   },
   "베이스": {
     "ko": "베이스",
-    "en": "base"
+    "en": "Base"
   },
   "새 베이스": {
     "ko": "새 베이스",
     "en": "New base"
   },
-  "· 베이스 사이에 바뀐 파일": {
-    "ko": "· 베이스 사이에 바뀐 파일",
-    "en": "· Files changed between bases"
-  },
   "자동 적용 예상": {
     "ko": "자동 적용 예상",
-    "en": "Automatic application expected"
+    "en": "Expected to apply cleanly"
   },
   "바이너리 충돌 가능": {
     "ko": "바이너리 충돌 가능",
@@ -921,11 +865,11 @@ export const dictionary = {
   },
   "다른 사람 잠금": {
     "ko": "다른 사람 잠금",
-    "en": "other people lock"
+    "en": "Locked by others"
   },
   "순서가 그대로입니다": {
     "ko": "순서가 그대로입니다",
-    "en": "The order is the same"
+    "en": "The order hasn't changed"
   },
   "Restack 실행": {
     "ko": "Restack 실행",
@@ -935,21 +879,13 @@ export const dictionary = {
     "ko": "restack 충돌",
     "en": "Restack conflict"
   },
-  "Restack 중 ·": {
-    "ko": "Restack 중 ·",
-    "en": "Restack ·"
-  },
-  "적용에서 충돌": {
-    "ko": "적용에서 충돌",
-    "en": "Conflict while applying"
-  },
   "내 변경과 새 베이스가 같은 파일을 바꿨습니다. 파일마다 남길 쪽을 정한 뒤 계속하세요. 텍스트 파일은 작업본에서 직접 고친 뒤 “직접 고침”을 누를 수도 있습니다.": {
     "ko": "내 변경과 새 베이스가 같은 파일을 바꿨습니다. 파일마다 남길 쪽을 정한 뒤 계속하세요. 텍스트 파일은 작업본에서 직접 고친 뒤 “직접 고침”을 누를 수도 있습니다.",
-    "en": "Your changes and the new base modified the same files. Choose which version to keep for each file, then continue. For text files, you can edit the working copy and choose “Use edited file.”"
+    "en": "Your change and the new base changed the same files. Choose which side to keep for each file, then continue. For a text file you can also fix it in the working copy and press “Edited by hand”."
   },
   "정함": {
     "ko": "정함",
-    "en": "decided"
+    "en": "Settled"
   },
   "작업본에서 고친 내용을 그대로 씁니다": {
     "ko": "작업본에서 고친 내용을 그대로 씁니다",
@@ -957,19 +893,15 @@ export const dictionary = {
   },
   "restack 전으로 브랜치와 파일을 되돌립니다": {
     "ko": "restack 전으로 브랜치와 파일을 되돌립니다",
-    "en": "Restore the branch and files to their state before restack"
+    "en": "Put the branch and files back as they were before the restack"
   },
   "중단하고 되돌리기": {
     "ko": "중단하고 되돌리기",
-    "en": "abort and revert"
+    "en": "Abort and put back"
   },
   "계속": {
     "ko": "계속",
-    "en": "continue"
-  },
-  "개를 하나로 합칩니다": {
-    "ko": "개를 하나로 합칩니다",
-    "en": " commits into one"
+    "en": "Continue"
   },
   "두 커밋의 변경을 합친 커밋 하나가 됩니다. push 전까지는 내 작업본에만 있습니다.": {
     "ko": "두 커밋의 변경을 합친 커밋 하나가 됩니다. push 전까지는 내 작업본에만 있습니다.",
@@ -977,11 +909,11 @@ export const dictionary = {
   },
   " 위에 있는 커밋 {p0}개는 합친 커밋 위에 다시 얹습니다.": {
     "ko": " 위에 있는 커밋 {p0}개는 합친 커밋 위에 다시 얹습니다.",
-    "en": "The above commit{p0}is placed back on top of the merged commit."
+    "en": " The {p0} {p0|commit|commits} above will be applied again on top of the folded one."
   },
   "합친 커밋 메시지": {
     "ko": "합친 커밋 메시지",
-    "en": "Combined commit message"
+    "en": "Folded commit message"
   },
   "합치기": {
     "ko": "합치기",
@@ -989,15 +921,15 @@ export const dictionary = {
   },
   "서버에 연결하는 중…": {
     "ko": "서버에 연결하는 중…",
-    "en": "Connecting to server..."
+    "en": "Connecting to the server…"
   },
   "연결 실패: {p0}": {
     "ko": "연결 실패: {p0}",
-    "en": "Connection failed:{p0}"
+    "en": "Couldn't connect: {p0}"
   },
   "TOME 시작하기": {
     "ko": "TOME 시작하기",
-    "en": "Getting started with TOME"
+    "en": "Set up TOME"
   },
   "Lore 서버": {
     "ko": "Lore 서버",
@@ -1005,31 +937,27 @@ export const dictionary = {
   },
   "서버 주소": {
     "ko": "서버 주소",
-    "en": "server address"
+    "en": "Server address"
   },
   "연결 확인": {
     "ko": "연결 확인",
     "en": "Check connection"
   },
-  "연결됨 · 저장소": {
-    "ko": "연결됨 · 저장소",
-    "en": "Connected · repositories"
-  },
   "내 이름(신원)": {
     "ko": "내 이름(신원)",
-    "en": "my name (identity)"
+    "en": "My name (identity)"
   },
   "예: kim-pc": {
     "ko": "예: kim-pc",
-    "en": "Example: kim-pc"
+    "en": "e.g. kim-pc"
   },
   "인증 없는 서버에서는 이 이름이 커밋 작성자로 기록됩니다. PC마다 다르게 쓰면(kim-pc, kim-laptop) 어디서 커밋했는지 구분됩니다.": {
     "ko": "인증 없는 서버에서는 이 이름이 커밋 작성자로 기록됩니다. PC마다 다르게 쓰면(kim-pc, kim-laptop) 어디서 커밋했는지 구분됩니다.",
-    "en": "On servers without authentication, this name is recorded as the author of the commit. If you use it differently for each PC (kim-pc, kim-laptop), you can tell where the commit was made."
+    "en": "On a server without authentication this name is recorded as the commit author. Use one per PC (kim-pc, kim-laptop) to tell where a commit came from."
   },
   "열 때 오프라인으로 읽기(서버 없이 로컬 데이터만)": {
     "ko": "열 때 오프라인으로 읽기(서버 없이 로컬 데이터만)",
-    "en": "Read offline when opened (only local data, no server)"
+    "en": "Read offline when opening (local data only, no server)"
   },
   "이미 있는 작업본 열기": {
     "ko": "이미 있는 작업본 열기",
@@ -1037,35 +965,35 @@ export const dictionary = {
   },
   "서버에서 받기": {
     "ko": "서버에서 받기",
-    "en": "Clone from server"
+    "en": "Get from the server"
   },
   "먼저 서버에 연결하면 저장소 목록이 나옵니다.": {
     "ko": "먼저 서버에 연결하면 저장소 목록이 나옵니다.",
-    "en": "First, connect to the server and you will see a list of repositories."
+    "en": "Connect to the server first to see its repositories."
   },
   "서버에 저장소가 없습니다.": {
     "ko": "서버에 저장소가 없습니다.",
-    "en": "There is no repository on the server."
+    "en": "The server has no repositories."
   },
   "저장소": {
     "ko": "저장소",
-    "en": "repository"
+    "en": "Repository"
   },
   "받을 위치": {
     "ko": "받을 위치",
-    "en": "Where to get it"
+    "en": "Where to put it"
   },
   "폴더 이름": {
     "ko": "폴더 이름",
-    "en": "folder name"
+    "en": "Folder name"
   },
   "받을 범위(View)": {
     "ko": "받을 범위(View)",
-    "en": "Clone scope (View)"
+    "en": "What to get (View)"
   },
   "받을 범위": {
     "ko": "받을 범위",
-    "en": "Clone scope"
+    "en": "What to get"
   },
   "나중에": {
     "ko": "나중에",
@@ -1073,7 +1001,7 @@ export const dictionary = {
   },
   "받고 열기": {
     "ko": "받고 열기",
-    "en": "Clone and open"
+    "en": "Get and open"
   },
   "시작": {
     "ko": "시작",
@@ -1097,7 +1025,7 @@ export const dictionary = {
   },
   "{p0}일 전": {
     "ko": "{p0}일 전",
-    "en": "{p0} days ago"
+    "en": "{p0} {p0|day|days} ago"
   },
   "보기": {
     "ko": "보기",
@@ -1113,7 +1041,7 @@ export const dictionary = {
   },
   "모든 브랜치": {
     "ko": "모든 브랜치",
-    "en": "all branches"
+    "en": "All branches"
   },
   "r{p0} · 미푸시": {
     "ko": "r{p0} · 미푸시",
@@ -1121,7 +1049,7 @@ export const dictionary = {
   },
   "서버에 연결되어야 순서를 바꿀 수 있습니다": {
     "ko": "서버에 연결되어야 순서를 바꿀 수 있습니다",
-    "en": "You must be connected to the server to change the order."
+    "en": "Connect to the server to reorder"
   },
   "미커밋 변경을 먼저 커밋하거나 되돌리세요": {
     "ko": "미커밋 변경을 먼저 커밋하거나 되돌리세요",
@@ -1129,31 +1057,27 @@ export const dictionary = {
   },
   "끌어서 순서 바꾸기 · 서버 리비전 위로 끌면 restack": {
     "ko": "끌어서 순서 바꾸기 · 서버 리비전 위로 끌면 restack",
-    "en": "Change order by dragging · Restack by dragging over server revision"
+    "en": "Drag to reorder · drag onto the server revision to restack"
   },
   "서버의 {p0}": {
     "ko": "서버의 {p0}",
-    "en": "{p0}on server"
-  },
-  "새": {
-    "ko": "새",
-    "en": "New"
+    "en": "{p0} on the server"
   },
   "서버에 새 리비전이 있어 지금은 push할 수 없습니다 ·": {
     "ko": "서버에 새 리비전이 있어 지금은 push할 수 없습니다 ·",
-    "en": "There is a new revision on the server so you can't push it now ·"
+    "en": "The server has new revisions, so you can't push yet ·"
   },
   "내 스택을 서버 리비전 위로 옮겨 일직선으로 만듭니다": {
     "ko": "내 스택을 서버 리비전 위로 옮겨 일직선으로 만듭니다",
-    "en": "Move my stack above the server revision to make it line up"
+    "en": "Move my stack onto the server revision to keep the history a straight line"
   },
   "내 스택을 위로 옮기기 (restack)": {
     "ko": "내 스택을 위로 옮기기 (restack)",
-    "en": "Move my stack up (restack)"
+    "en": "Move my stack on top (restack)"
   },
   "서버 리비전을 받아 병합 리비전을 하나 만듭니다": {
     "ko": "서버 리비전을 받아 병합 리비전을 하나 만듭니다",
-    "en": "Receives a server revision and creates a merge revision"
+    "en": "Get the server revisions and make one merge revision"
   },
   "병합해서 받기 (sync)": {
     "ko": "병합해서 받기 (sync)",
@@ -1161,11 +1085,11 @@ export const dictionary = {
   },
   "아직 받지 않은 리비전이 있습니다 ·": {
     "ko": "아직 받지 않은 리비전이 있습니다 ·",
-    "en": "Server revisions are available ·"
+    "en": "There are revisions you haven't got yet ·"
   },
   "restack 충돌을 정하는 중 · 위 패널에서 계속하세요": {
     "ko": "restack 충돌을 정하는 중 · 위 패널에서 계속하세요",
-    "en": "Fixing restack conflict · Continue from panel above"
+    "en": "Settling a restack conflict · continue in the panel above"
   },
   "새 커밋": {
     "ko": "새 커밋",
@@ -1173,11 +1097,11 @@ export const dictionary = {
   },
   "작업 중": {
     "ko": "작업 중",
-    "en": "Working"
+    "en": "In progress"
   },
   "이 커밋과 바로 아래 커밋을 하나로 합칩니다": {
     "ko": "이 커밋과 바로 아래 커밋을 하나로 합칩니다",
-    "en": "Merge this commit and the commit immediately below into one"
+    "en": "Fold this commit and the one right below into one"
   },
   "아래와 합치기": {
     "ko": "아래와 합치기",
@@ -1185,7 +1109,7 @@ export const dictionary = {
   },
   "내 스택의 베이스": {
     "ko": "내 스택의 베이스",
-    "en": "base of my stack"
+    "en": "Base of my stack"
   },
   "최신": {
     "ko": "최신",
@@ -1193,23 +1117,19 @@ export const dictionary = {
   },
   "리비전이 없습니다": {
     "ko": "리비전이 없습니다",
-    "en": "There are no revisions"
-  },
-  "⋮ 이전 public 리비전": {
-    "ko": "⋮ 이전 public 리비전",
-    "en": "⋮ Previous public revision"
+    "en": "No revisions"
   },
   "전체 그래프 보기": {
     "ko": "전체 그래프 보기",
-    "en": "See full graph"
+    "en": "Show full graph"
   },
   "더 이전 리비전은 불러오지 않았습니다": {
     "ko": "더 이전 리비전은 불러오지 않았습니다",
-    "en": "No older revisions were loaded"
+    "en": "Older revisions weren't loaded"
   },
   "병합된 쪽 리비전을 불러오지 못했습니다": {
     "ko": "병합된 쪽 리비전을 불러오지 못했습니다",
-    "en": "Failed to load merged page revision"
+    "en": "Couldn't load the merged side's revision"
   },
   "그래프를 불러오는 중…": {
     "ko": "그래프를 불러오는 중…",
@@ -1225,15 +1145,15 @@ export const dictionary = {
   },
   "파일 우클릭": {
     "ko": "파일 우클릭",
-    "en": "Right click on file"
+    "en": "File right-click"
   },
   "리비전 우클릭": {
     "ko": "리비전 우클릭",
-    "en": "Right click on revision"
+    "en": "Revision right-click"
   },
   "실행하고 출력 보기": {
     "ko": "실행하고 출력 보기",
-    "en": "Run and see output"
+    "en": "Run and show output"
   },
   "새 콘솔 창에서": {
     "ko": "새 콘솔 창에서",
@@ -1249,11 +1169,11 @@ export const dictionary = {
   },
   "선택한 파일의 저장소 기준 경로": {
     "ko": "선택한 파일의 저장소 기준 경로",
-    "en": "Selected file path relative to the repository"
+    "en": "Selected files' paths in the repository"
   },
   "선택한 파일 이름": {
     "ko": "선택한 파일 이름",
-    "en": "Selected file name"
+    "en": "Selected file names"
   },
   "선택한 리비전 ID": {
     "ko": "선택한 리비전 ID",
@@ -1265,7 +1185,7 @@ export const dictionary = {
   },
   "실행 전에 물어본 입력": {
     "ko": "실행 전에 물어본 입력",
-    "en": "Input asked before execution"
+    "en": "Answer to the question asked before running"
   },
   "작업본 루트 폴더": {
     "ko": "작업본 루트 폴더",
@@ -1273,19 +1193,19 @@ export const dictionary = {
   },
   "현재 브랜치": {
     "ko": "현재 브랜치",
-    "en": "current branch"
+    "en": "Current branch"
   },
   "글자 % 또는 $": {
     "ko": "글자 % 또는 $",
-    "en": "letters % or $"
+    "en": "A literal % or $"
   },
   "이 위치에 등록된 도구가 없습니다": {
     "ko": "이 위치에 등록된 도구가 없습니다",
-    "en": "There are no tools registered at this location"
+    "en": "No tools here yet"
   },
   "프로젝트 도구를 신뢰해야 실행됩니다": {
     "ko": "프로젝트 도구를 신뢰해야 실행됩니다",
-    "en": "Project tools must be trusted to run"
+    "en": "Trust the project tools to run them"
   },
   "(이름 없음)": {
     "ko": "(이름 없음)",
@@ -1293,11 +1213,11 @@ export const dictionary = {
   },
   "프로젝트 · 신뢰 필요": {
     "ko": "프로젝트 · 신뢰 필요",
-    "en": "Project · Trust required"
+    "en": "Project · needs trust"
   },
   "프로젝트": {
     "ko": "프로젝트",
-    "en": "project"
+    "en": "Project"
   },
   "도구 ▾": {
     "ko": "도구 ▾",
@@ -1305,15 +1225,15 @@ export const dictionary = {
   },
   "도구 관리…": {
     "ko": "도구 관리…",
-    "en": "Tool Management…"
+    "en": "Manage tools…"
   },
   "실행할 명령": {
     "ko": "실행할 명령",
-    "en": "command to run"
+    "en": "Command to run"
   },
   "실행": {
     "ko": "실행",
-    "en": "execution"
+    "en": "Run"
   },
   "실행 중…": {
     "ko": "실행 중…",
@@ -1321,7 +1241,7 @@ export const dictionary = {
   },
   "실패": {
     "ko": "실패",
-    "en": "failure"
+    "en": "Failed"
   },
   "시작함": {
     "ko": "시작함",
@@ -1329,15 +1249,15 @@ export const dictionary = {
   },
   "완료 (0)": {
     "ko": "완료 (0)",
-    "en": "Completed (0)"
+    "en": "Done (0)"
   },
   "종료 코드 {p0}": {
     "ko": "종료 코드 {p0}",
-    "en": "Exit code{p0}"
+    "en": "Exit code {p0}"
   },
   "도구 출력": {
     "ko": "도구 출력",
-    "en": "tool output"
+    "en": "Tool output"
   },
   "출력 닫기": {
     "ko": "출력 닫기",
@@ -1345,47 +1265,39 @@ export const dictionary = {
   },
   "새 도구": {
     "ko": "새 도구",
-    "en": "new tool"
+    "en": "New tool"
   },
   "실행할 프로그램": {
     "ko": "실행할 프로그램",
-    "en": "program to run"
+    "en": "Program to run"
   },
   "커스텀 도구": {
     "ko": "커스텀 도구",
-    "en": "custom tools"
+    "en": "Custom tools"
   },
   "내 도구": {
     "ko": "내 도구",
-    "en": "my tools"
+    "en": "My tools"
   },
   "프로젝트 도구": {
     "ko": "프로젝트 도구",
-    "en": "project tools"
-  },
-  "작업본의": {
-    "ko": "작업본의",
-    "en": "working copy"
-  },
-  "에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니,\r\n            내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.": {
-    "ko": "에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니,\r\n            내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.",
-    "en": "Save it to . When you commit, your team uses the same tools. Anyone can change the commands in the repository,\r\n            Every time the content changes, you have to check it and trust it to run it."
+    "en": "Project tools"
   },
   "아직 신뢰하지 않은 프로젝트 도구입니다.": {
     "ko": "아직 신뢰하지 않은 프로젝트 도구입니다.",
-    "en": "This is a project tool I don't trust yet."
+    "en": "You haven't trusted these project tools yet."
   },
   "아래 명령을 확인하고 신뢰하세요.": {
     "ko": "아래 명령을 확인하고 신뢰하세요.",
-    "en": "Check and trust the commands below."
+    "en": "Review the commands below and trust them."
   },
   "확인했고 신뢰합니다": {
     "ko": "확인했고 신뢰합니다",
-    "en": "I checked it and I trust it"
+    "en": "I've reviewed them and trust them"
   },
   "{p0} 복사본": {
     "ko": "{p0} 복사본",
-    "en": "{p0}copy"
+    "en": "{p0} (copy)"
   },
   "복제": {
     "ko": "복제",
@@ -1393,7 +1305,7 @@ export const dictionary = {
   },
   "프로그램": {
     "ko": "프로그램",
-    "en": "program"
+    "en": "Program"
   },
   "인자": {
     "ko": "인자",
@@ -1401,15 +1313,15 @@ export const dictionary = {
   },
   "작업 폴더": {
     "ko": "작업 폴더",
-    "en": "working folder"
+    "en": "Working folder"
   },
   "비우면 작업본 루트($r)": {
     "ko": "비우면 작업본 루트($r)",
-    "en": "If empty, the working copy root ($r)"
+    "en": "Empty: the working copy root ($r)"
   },
   "표시 위치": {
     "ko": "표시 위치",
-    "en": "display position"
+    "en": "Show in"
   },
   "실행 방식": {
     "ko": "실행 방식",
@@ -1417,27 +1329,27 @@ export const dictionary = {
   },
   "실행 전에 물어보기(%a)": {
     "ko": "실행 전에 물어보기(%a)",
-    "en": "Ask before execution (%a)"
+    "en": "Ask before running (%a)"
   },
   "비우면 묻지 않음 (예: 커밋 메시지)": {
     "ko": "비우면 묻지 않음 (예: 커밋 메시지)",
-    "en": "If empty, don't ask (e.g. commit message)"
+    "en": "Empty: don't ask (e.g. a commit message)"
   },
   "실행 전에 명령 확인": {
     "ko": "실행 전에 명령 확인",
-    "en": "Check command before execution"
+    "en": "Confirm the command before running"
   },
   "끝나면 작업본 새로 고침": {
     "ko": "끝나면 작업본 새로 고침",
-    "en": "Refresh the working copy when finished"
+    "en": "Refresh the working copy afterwards"
   },
   "쓸 수 있는 변수": {
     "ko": "쓸 수 있는 변수",
-    "en": "Variables that can be used"
+    "en": "Available variables"
   },
   "공백이 든 값은 \"…\"로 묶습니다. 셸을 거치지 않아 파일 이름이 명령을 바꿀 수 없습니다.": {
     "ko": "공백이 든 값은 \"…\"로 묶습니다. 셸을 거치지 않아 파일 이름이 명령을 바꿀 수 없습니다.",
-    "en": "Values ​​containing spaces are enclosed in “…”. The file name cannot be renamed to the command as it does not go through the shell."
+    "en": "Wrap values with spaces in \"…\". No shell is involved, so a file name can't change the command."
   },
   "작업본을 먼저 여세요": {
     "ko": "작업본을 먼저 여세요",
@@ -1445,7 +1357,7 @@ export const dictionary = {
   },
   "“추가”로 도구를 만드세요": {
     "ko": "“추가”로 도구를 만드세요",
-    "en": "Create tools with “Add”"
+    "en": "Make a tool with “Add”"
   },
   "저장 중…": {
     "ko": "저장 중…",
@@ -1465,55 +1377,27 @@ export const dictionary = {
   },
   "콘텐츠 제외": {
     "ko": "콘텐츠 제외",
-    "en": "Content exclusion"
+    "en": "Everything but Content"
   },
   "View — 받을 범위": {
     "ko": "View — 받을 범위",
-    "en": "View — Clone scope"
-  },
-  "한 줄에 글롭 하나. 그냥 쓰면": {
-    "ko": "한 줄에 글롭 하나. 그냥 쓰면",
-    "en": "One glob per line. Just use it"
+    "en": "View — what to get"
   },
   "제외": {
     "ko": "제외",
-    "en": "exception"
-  },
-  "로 시작하면 다시": {
-    "ko": "로 시작하면 다시",
-    "en": "If you start with again"
+    "en": "excluded"
   },
   "포함": {
     "ko": "포함",
-    "en": "include"
-  },
-  "합니다. 비우면 전부 받습니다.": {
-    "ko": "합니다. 비우면 전부 받습니다.",
-    "en": ". Leave it empty to include everything."
+    "en": "included"
   },
   "프리셋": {
     "ko": "프리셋",
-    "en": "preset"
+    "en": "Presets"
   },
   "View 밖으로 나간 파일 중 변경 없는 파일은 디스크에서 지우고, 변경했거나 새로 만든 파일은 남겨 둡니다. 다시 들어온 파일은 현재 리비전에서 받아 옵니다.": {
     "ko": "View 밖으로 나간 파일 중 변경 없는 파일은 디스크에서 지우고, 변경했거나 새로 만든 파일은 남겨 둡니다. 다시 들어온 파일은 현재 리비전에서 받아 옵니다.",
-    "en": "Unchanged files outside the View are removed from disk; edited and new files stay. Files brought back into the View are restored from the current revision."
-  },
-  "지움": {
-    "ko": "지움",
-    "en": "erase"
-  },
-  "· 받아 옴": {
-    "ko": "· 받아 옴",
-    "en": "· Restored"
-  },
-  "· 남겨 둠": {
-    "ko": "· 남겨 둠",
-    "en": "· Leave it behind"
-  },
-  "… 외": {
-    "ko": "… 외",
-    "en": "… except"
+    "en": "Unchanged files that leave the View are deleted from disk; changed or new files stay. Files that come back into the View are fetched from the current revision."
   },
   "적용 중…": {
     "ko": "적용 중…",
@@ -1521,7 +1405,7 @@ export const dictionary = {
   },
   "적용": {
     "ko": "적용",
-    "en": "apply"
+    "en": "Apply"
   },
   "언어": {
     "ko": "언어",
@@ -1577,7 +1461,7 @@ export const dictionary = {
   },
   " (받던 폴더는 지웠습니다)": {
     "ko": " (받던 폴더는 지웠습니다)",
-    "en": " (download folder removed)"
+    "en": " (the partial folder was removed)"
   },
   " (다시 실행하면 이어서 진행합니다)": {
     "ko": " (다시 실행하면 이어서 진행합니다)",
@@ -1601,14 +1485,86 @@ export const dictionary = {
   },
   "{p0} · 잠금 {p1}개 · 작업자 {p2}명": {
     "ko": "{p0} · 잠금 {p1}개 · 작업자 {p2}명",
-    "en": "{p0} · {p1} locks · {p2} owners"
+    "en": "{p0} · {p1} {p1|lock|locks} · {p2} {p2|owner|owners}"
   },
-  "내가": {
-    "ko": "내가",
-    "en": "me"
+  "· 미해결 충돌 {p0}개 ·": {
+    "ko": "· 미해결 충돌 {p0}개 ·",
+    "en": " · {p0} unresolved {p0|conflict|conflicts} ·"
   },
-  "님이": {
-    "ko": "님이",
-    "en": "is"
+  "에셋 {p0} / {p1}개 · 하위 폴더 {p2}개": {
+    "ko": "에셋 {p0} / {p1}개 · 하위 폴더 {p2}개",
+    "en": "{p0} of {p1} assets · {p2} {p2|subfolder|subfolders}"
+  },
+  "에셋 {p0}개 · 하위 폴더 {p1}개": {
+    "ko": "에셋 {p0}개 · 하위 폴더 {p1}개",
+    "en": "{p0} {p0|asset|assets} · {p1} {p1|subfolder|subfolders}"
+  },
+  "내가 잠금": {
+    "ko": "내가 잠금",
+    "en": "Locked by you"
+  },
+  "{p0}님이 잠금": {
+    "ko": "{p0}님이 잠금",
+    "en": "Locked by {p0}"
+  },
+  "{p0}님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.": {
+    "ko": "{p0}님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.",
+    "en": "{p0} is working on it. Wait until it's unlocked, or get in touch, before changing it."
+  },
+  "{p0}의 현재 리비전에서 시작합니다.": {
+    "ko": "{p0}의 현재 리비전에서 시작합니다.",
+    "en": "Starts at the current revision of {p0}."
+  },
+  "· 파일 {p0}개": {
+    "ko": "· 파일 {p0}개",
+    "en": "· {p0} {p0|file|files}"
+  },
+  "· 베이스 사이에 바뀐 파일 {p0}개": {
+    "ko": "· 베이스 사이에 바뀐 파일 {p0}개",
+    "en": "· {p0} {p0|file|files} changed between the bases"
+  },
+  "Restack 중 · {p0}/{p1} {p2} 적용에서 충돌": {
+    "ko": "Restack 중 · {p0}/{p1} {p2} 적용에서 충돌",
+    "en": "Restacking · {p0}/{p1}: conflict while applying {p2}"
+  },
+  "⋮ 이전 public 리비전 {p0}개 ·": {
+    "ko": "⋮ 이전 public 리비전 {p0}개 ·",
+    "en": "⋮ {p0} earlier public {p0|revision|revisions} ·"
+  },
+  "↓ {p0} 리비전": {
+    "ko": "↓ {p0} 리비전",
+    "en": "↓ {p0} new {p0|revision|revisions}"
+  },
+  "↓ 새 리비전": {
+    "ko": "↓ 새 리비전",
+    "en": "↓ new revisions"
+  },
+  "미커밋 변경 {p0}개": {
+    "ko": "미커밋 변경 {p0}개",
+    "en": "{p0} uncommitted {p0|change|changes}"
+  },
+  "스테이징 {p0}": {
+    "ko": "스테이징 {p0}",
+    "en": "{p0} staged"
+  },
+  "연결됨 · 저장소 {p0}개": {
+    "ko": "연결됨 · 저장소 {p0}개",
+    "en": "Connected · {p0} {p0|repository|repositories}"
+  },
+  "작업본의 {p0}에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니, 내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.": {
+    "ko": "작업본의 {p0}에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니, 내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.",
+    "en": "Saved to {p0} in the working copy. Commit it and the team uses the same tools. Anyone can change the commands in the repository, so they run only after you review and trust them each time they change."
+  },
+  "한 줄에 글롭 하나. 그냥 쓰면 {p0}, {p1}로 시작하면 다시 {p2}합니다. 비우면 전부 받습니다.": {
+    "ko": "한 줄에 글롭 하나. 그냥 쓰면 {p0}, {p1}로 시작하면 다시 {p2}합니다. 비우면 전부 받습니다.",
+    "en": "One glob per line. A plain line is {p0}; a line starting with {p1} is {p2} again. Leave it empty to get everything."
+  },
+  "지움 {p0} · 받아 옴 {p1} · 남겨 둠 {p2}": {
+    "ko": "지움 {p0} · 받아 옴 {p1} · 남겨 둠 {p2}",
+    "en": "Removed {p0} · restored {p1} · kept {p2}"
+  },
+  "… 외 {p0}개": {
+    "ko": "… 외 {p0}개",
+    "en": "… and {p0} more"
   }
 } as const;

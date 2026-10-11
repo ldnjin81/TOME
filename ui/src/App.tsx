@@ -629,7 +629,7 @@ export default function App() {
       {error && <div className="error" role="alert">{explainError(error)}</div>}
       {status?.merging && (
         <div className="merge-bar" role="status">
-          {t("병합 중")} <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> {t("· 미해결 충돌")} {status.files.filter((f) => f.unresolved).length}{t("개 ·")}{' '}
+          {t("병합 중")} <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> {t("· 미해결 충돌 {p0}개 ·", { p0: status.files.filter((f) => f.unresolved).length })}{' '}
           <button className="link" onClick={() => showTab('changes')}>
             {t("변경 탭에서 정하기")}
           </button>

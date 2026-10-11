@@ -231,7 +231,7 @@ function Stack({
             <span className="rev-title">
               <span className="rev-no">r{head?.number ?? status.remote_number}</span>
               <span className="rev-message">{head ? head.message.split('\n')[0] || t("(메시지 없음)") : t("서버의 {p0}", { p0: status.branch_name })}</span>
-              <span className="tag behind">↓ {newOnServer || t("새")} {t("리비전")}</span>
+              <span className="tag behind">{newOnServer ? t("↓ {p0} 리비전", { p0: newOnServer }) : t("↓ 새 리비전")}</span>
             </span>
             {diverged ? (
               <span className="rev-meta diverged">
@@ -260,8 +260,8 @@ function Stack({
         <li className="lrow">
           <Lanes cells={[{ top: remote ? 'dotted' : null }, { node: 'wip', bottom: 'wip' }]} />
           <span className="wip-card">
-            <span>{t("미커밋 변경")} {changed.length}{t("개")}</span>
-            <span className="muted">{t("스테이징")} {changed.filter((f) => f.staged).length}</span>
+            <span>{t("미커밋 변경 {p0}개", { p0: changed.length })}</span>
+            <span className="muted">{t("스테이징 {p0}", { p0: changed.filter((f) => f.staged).length })}</span>
             {restacking ? (
               <span className="muted small">{t("restack 충돌을 정하는 중 · 위 패널에서 계속하세요")}</span>
             ) : (
@@ -350,7 +350,7 @@ function Stack({
 
       {older > 0 && (
         <li className="fold">
-          {t("⋮ 이전 public 리비전")} {older.toLocaleString(getLocale())}{t("개 ·")}{' '}
+          {t("⋮ 이전 public 리비전 {p0}개 ·", { p0: older.toLocaleString(getLocale()) })}{' '}
           <button className="link" onClick={onAll}>
             {t("전체 그래프 보기")}
           </button>

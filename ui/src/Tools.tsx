@@ -1,4 +1,4 @@
-import { t, t as translate } from './i18n';
+import { t, t as translate, tn } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { open as pickFile } from '@tauri-apps/plugin-dialog';
@@ -276,7 +276,7 @@ export function ToolManager({ set, path, onSavePersonal, onSaveProject, onTrust,
       {scope === 'project' && (
         <div className="tm-note">
           <p className="muted">
-            {t("작업본의")} <code>.tome/tools.json</code>{t("에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니,\r\n            내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.")}
+            {tn("작업본의 {p0}에 저장합니다. 커밋하면 팀이 같은 도구를 씁니다. 저장소의 명령은 누구나 바꿀 수 있으니, 내용이 바뀔 때마다 확인 후 신뢰해야 실행됩니다.", { p0: <code>.tome/tools.json</code> })}
           </p>
           {set.project_error && <p className="error-line">{set.project_error}</p>}
           {set.project.length > 0 && !set.project_trusted && !dirty && (

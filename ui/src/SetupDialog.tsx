@@ -123,7 +123,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
             {t("연결 확인")}
           </button>
         </div>
-        {repositories && <p className="ok-line">{t("연결됨 · 저장소")} {repositories.length}{t("개")}</p>}
+        {repositories && <p className="ok-line">{t("연결됨 · 저장소 {p0}개", { p0: repositories.length })}</p>}
         <label className="field">
           <span>{t("내 이름(신원)")}</span>
           <input id="setup-identity" value={identity} onChange={(e) => setIdentity(e.target.value)} placeholder={t("예: kim-pc")} spellCheck={false} />

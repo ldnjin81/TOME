@@ -1,4 +1,4 @@
-import { t } from './i18n';
+import { t, tn } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
@@ -86,7 +86,7 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
               <span className="rs-body">
                 <span className="rs-title">
                   <span className="rev-no draft">draft</span> {p.message.split('\n')[0] || t("(메시지 없음)")}
-                  <span className="muted small"> {t("· 파일")} {info ? info.files.length : '…'}{t("개")}</span>
+                  <span className="muted small"> {info ? t("· 파일 {p0}개", { p0: info.files.length }) : t("· 파일 {p0}개", { p0: '…' })}</span>
                 </span>
                 {info?.merge && <span className="rs-note bin">{t("병합 리비전입니다. 옮기면 일반 리비전 하나가 되어 병합 기록(어느 브랜치를 합쳤는지)은 사라집니다.")}</span>}
                 {info && !info.merge && info.risks.length === 0 && info.locked.length === 0 && <span className="rs-note ok">{t("겹치는 변경 없음")}</span>}
@@ -113,7 +113,7 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
                 )}
                 {info?.locked.map(([file, owner]) => (
                   <span key={file} className="rs-note lock">
-                    🔒 <span className="mono">{file}</span> · {owner}{t("님이 잠금")}
+                    🔒 <span className="mono">{file}</span> · {t("{p0}님이 잠금", { p0: owner })}
                   </span>
                 ))}
               </span>
@@ -123,7 +123,7 @@ export function RestackDialog({ path, request, oldBase, oldOrder, originalHead, 
       </ol>
       <p className="rs-base">
         <span className="rev-no">{reordering ? t("베이스") : t("새 베이스")}</span> {request.ontoLabel}
-        {preview && !reordering && <span className="muted small"> {t("· 베이스 사이에 바뀐 파일")} {preview.base_changes.length}{t("개")}</span>}
+        {preview && !reordering && <span className="muted small"> {t("· 베이스 사이에 바뀐 파일 {p0}개", { p0: preview.base_changes.length })}</span>}
       </p>
 
       {error && <p className="error-line">{explainError(error)}</p>}
@@ -167,7 +167,7 @@ export function RestackPanel({ pending, status, busy, onResolve, onContinue, onA
   return (
     <section className="conflicts restack-panel" aria-label={t("restack 충돌")}>
       <h3>
-        {t("Restack 중 ·")} {pending.index + 1}/{pending.plan.picks.length} <span className="rs-pick">“{pick?.message.split('\n')[0]}”</span> {t("적용에서 충돌")}
+        {tn("Restack 중 · {p0}/{p1} {p2} 적용에서 충돌", { p0: pending.index + 1, p1: pending.plan.picks.length, p2: <span className="rs-pick">“{pick?.message.split('\n')[0]}”</span> })}
         <span className="tag conflict-tag">{t("미해결")} {open}</span>
       </h3>
       <p className="muted small">{t("내 변경과 새 베이스가 같은 파일을 바꿨습니다. 파일마다 남길 쪽을 정한 뒤 계속하세요. 텍스트 파일은 작업본에서 직접 고친 뒤 “직접 고침”을 누를 수도 있습니다.")}</p>

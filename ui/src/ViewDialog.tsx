@@ -1,4 +1,4 @@
-import { t } from './i18n';
+import { t, tn } from './i18n';
 import { useEffect, useRef, useState } from 'react';
 import type { ViewChange } from './types';
 
@@ -31,7 +31,7 @@ export default function ViewDialog({ initial, busy, result, onApply, onClose }: 
     <dialog ref={dialog} className="view-dialog" onClose={onClose} aria-labelledby="view-title">
       <h2 id="view-title">{t("View — 받을 범위")}</h2>
       <p className="muted">
-        {t("한 줄에 글롭 하나. 그냥 쓰면")} <b>{t("제외")}</b>, <code>!</code>{t("로 시작하면 다시")} <b>{t("포함")}</b>{t("합니다. 비우면 전부 받습니다.")}
+        {tn("한 줄에 글롭 하나. 그냥 쓰면 {p0}, {p1}로 시작하면 다시 {p2}합니다. 비우면 전부 받습니다.", { p0: <b>{t("제외")}</b>, p1: <code>!</code>, p2: <b>{t("포함")}</b> })}
       </p>
       <div className="presets" role="group" aria-label={t("프리셋")}>
         {PRESETS.map((p) => (
@@ -44,11 +44,11 @@ export default function ViewDialog({ initial, busy, result, onApply, onClose }: 
 
       {result && (
         <div className="view-result" role="status">
-          {t("지움")} {result.removed.length} {t("· 받아 옴")} {result.restored.length} {t("· 남겨 둠")} {result.kept.length}
+          {t("지움 {p0} · 받아 옴 {p1} · 남겨 둠 {p2}", { p0: result.removed.length, p1: result.restored.length, p2: result.kept.length })}
           {result.kept.length > 0 && (
             <ul className="mono">
               {result.kept.slice(0, 20).map((p) => <li key={p}>{p}</li>)}
-              {result.kept.length > 20 && <li className="muted">{t("… 외")} {result.kept.length - 20}{t("개")}</li>}
+              {result.kept.length > 20 && <li className="muted">{t("… 외 {p0}개", { p0: result.kept.length - 20 })}</li>}
             </ul>
           )}
         </div>

@@ -1,4 +1,4 @@
-import { t, getLocale, getLanguage } from './i18n';
+import { t, getLocale } from './i18n';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Asset, AssetListing, AssetPreview, ChangedFile, Lock } from './types';
@@ -280,8 +280,9 @@ export default function Assets({ path, marks, me, selected, previews, onPreviews
         </div>
         {listing && (
           <p className="asset-count muted small">
-            {t("에셋")} {shown.length}
-            {shown.length !== listing.assets.length && ` / ${listing.assets.length}`}{t("개 · 하위 폴더")} {listing.folders.length}{t("개")}
+            {shown.length !== listing.assets.length
+              ? t("에셋 {p0} / {p1}개 · 하위 폴더 {p2}개", { p0: shown.length, p1: listing.assets.length, p2: listing.folders.length })
+              : t("에셋 {p0}개 · 하위 폴더 {p1}개", { p0: shown.length, p1: listing.folders.length })}
           </p>
         )}
         {listing && listing.folders.length > 0 && !filter && !onlyMarked && (
@@ -372,7 +373,7 @@ export function AssetDetails({ asset, preview, marks, me, busy, online, onLock, 
           {change ? (change.unresolved ? t("병합 충돌 — 변경 탭에서 정하세요") : t("{p0}됨{p1}", { p0: t(ACTION_LABEL[change.action] ?? change.action), p1: change.staged ? t(' · 스테이지됨') : '' })) : t("변경 없음")}
         </dd>
         <dt>{t("잠금")}</dt>
-        <dd>{lock ? t("{p0} 잠금", { p0: lock.owner === me ? t('내가') : lock.owner + (getLanguage() === 'ko' ? '님이' : '') }) : t("잠기지 않음")}</dd>
+        <dd>{lock ? (lock.owner === me ? t("내가 잠금") : t("{p0}님이 잠금", { p0: lock.owner })) : t("잠기지 않음")}</dd>
       </dl>
       <div className="asset-actions">
         {lock && lock.owner === me ? (
@@ -394,7 +395,7 @@ export function AssetDetails({ asset, preview, marks, me, busy, online, onLock, 
         )}
       </div>
       {!online && <p className="muted small">{t("오프라인이라 잠금을 바꿀 수 없습니다.")}</p>}
-      {lockedByOther && <p className="warn-line">{lock!.owner}{t("님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.")}</p>}
+      {lockedByOther && <p className="warn-line">{t("{p0}님이 작업 중입니다. 고치기 전에 풀릴 때까지 기다리거나 연락하세요.", { p0: lock!.owner })}</p>}
     </div>
   );
 }

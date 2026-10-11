@@ -1,4 +1,4 @@
-import { useSyncExternalStore } from 'react';
+import { createElement, Fragment, useSyncExternalStore, type ReactNode } from 'react';
 import { dictionary } from './i18n.data';
 
 export type LanguageSetting = '' | 'ko' | 'en';
@@ -34,9 +34,31 @@ export function useLanguage(): Language {
   return useSyncExternalStore(subscribe, getLanguage, () => 'ko');
 }
 
-export function t(key: string, params?: Record<string, string | number | boolean | null | undefined>): string {
+type Params = Record<string, string | number | boolean | null | undefined>;
+
+function lookup(key: string): string {
   const entry = dictionary[key as keyof typeof dictionary];
-  const text: string = entry ? entry[getLanguage()] : key;
+  return entry ? entry[getLanguage()] : key;
+}
+
+/** `{name|one|other}` picks the form for the number in `name` (English plurals). */
+function plurals(text: string, params?: Record<string, unknown>): string {
+  return text.replace(/\{(\w+)\|([^|}]*)\|([^}]*)\}/g, (_whole, name: string, one: string, other: string) =>
+    Number(params?.[name]) === 1 ? one : other);
+}
+
+export function t(key: string, params?: Params): string {
+  const text = plurals(lookup(key), params);
   return params ? text.replace(/\{(\w+)\}/g, (whole, name: string) =>
     Object.prototype.hasOwnProperty.call(params, name) ? String(params[name] ?? '') : whole) : text;
+}
+
+/** Like `t`, with elements (bold, code, a span) placed where the sentence names them. */
+export function tn(key: string, params: Record<string, ReactNode>): ReactNode[] {
+  const text = plurals(lookup(key), params);
+  return text.split(/(\{\w+\})/).map((part, i) => {
+    const name = /^\{(\w+)\}$/.exec(part)?.[1];
+    const node = name && Object.prototype.hasOwnProperty.call(params, name) ? params[name] : part;
+    return createElement(Fragment, { key: i }, node);
+  });
 }

@@ -28,7 +28,7 @@ export function NewBranchDialog({ from, taken, busy, onCreate, onClose }: { from
         }}
       >
         <h2 id="nb-title">{t("새 브랜치")}</h2>
-        <p className="muted">{from}{t("의 현재 리비전에서 시작합니다.")}</p>
+        <p className="muted">{t("{p0}의 현재 리비전에서 시작합니다.", { p0: from })}</p>
         <label className="field">
           <span>{t("이름")}</span>
           <input autoFocus className="mono" value={name} onChange={(e) => setName(e.target.value)} placeholder="feature/inventory-drag" spellCheck={false} />
