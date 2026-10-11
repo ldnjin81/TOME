@@ -111,6 +111,7 @@ pub fn run(job: &Job, on_progress: &mut dyn FnMut(&Progress)) -> CallResult {
                 dependency_tags: interface::LoreArray::default(),
                 dependency_recursive: 0,
                 dependency_depth_limit: 0,
+                view: LoreString::default(),
             };
             call_watching(interface::lore_revision_sync_async, &repository.globals(), &args, &mut watch)
         }

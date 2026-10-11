@@ -293,6 +293,7 @@ impl Repository {
             dependency_tags: interface::LoreArray::default(),
             dependency_recursive: 0,
             dependency_depth_limit: 0,
+            view: LoreString::default(),
         };
         call(interface::lore_revision_sync_async, &self.globals(), &args)
     }
@@ -428,6 +429,7 @@ impl Repository {
             dependency_tags: interface::LoreArray::default(),
             dependency_recursive: 0,
             dependency_depth_limit: 0,
+            view: LoreString::default(),
         };
         call(interface::lore_revision_sync_async, &self.globals(), &args)
     }

@@ -21,7 +21,7 @@ unmodified; their source is at the address given.
 | asn1-rs-impl | 0.2.0 | MIT/Apache-2.0 — | https://github.com/rusticata/asn1-rs.git |
 | async-stream | 0.3.6 | MIT [557930f3a6b3](#t-557930f3a6b3) | https://github.com/tokio-rs/async-stream |
 | async-stream-impl | 0.3.6 | MIT [557930f3a6b3](#t-557930f3a6b3) | https://github.com/tokio-rs/async-stream |
-| async-trait | 0.1.89 | MIT OR Apache-2.0 [85ad950cce87](#t-85ad950cce87) [30fefc3a7d6a](#t-30fefc3a7d6a) | https://github.com/dtolnay/async-trait |
+| async-trait | 0.1.92 | MIT OR Apache-2.0 [85ad950cce87](#t-85ad950cce87) [30fefc3a7d6a](#t-30fefc3a7d6a) | https://github.com/dtolnay/async-trait |
 | atomic-waker | 1.1.2 | Apache-2.0 OR MIT [954f335b8baf](#t-954f335b8baf) [30fefc3a7d6a](#t-30fefc3a7d6a) [20746cc8a2fd](#t-20746cc8a2fd) | https://github.com/smol-rs/atomic-waker |
 | axum | 0.8.9 | MIT [ea495feff089](#t-ea495feff089) | https://github.com/tokio-rs/axum |
 | axum-core | 0.5.6 | MIT [008c87afcd2e](#t-008c87afcd2e) | https://github.com/tokio-rs/axum |
@@ -89,7 +89,6 @@ unmodified; their source is at the address given.
 | dyn-clone | 1.0.20 | MIT OR Apache-2.0 [85ad950cce87](#t-85ad950cce87) [30fefc3a7d6a](#t-30fefc3a7d6a) | https://github.com/dtolnay/dyn-clone |
 | either | 1.16.0 | MIT OR Apache-2.0 [954f335b8baf](#t-954f335b8baf) [fdd1c2117bcf](#t-fdd1c2117bcf) | https://github.com/rayon-rs/either |
 | encoding_rs | 0.8.42 | (Apache-2.0 OR MIT) AND BSD-3-Clause [1961703c2782](#t-1961703c2782) [283ea6cc2997](#t-283ea6cc2997) [7dc2f6402447](#t-7dc2f6402447) [b1d6d97b0476](#t-b1d6d97b0476) | https://github.com/hsivonen/encoding_rs |
-| enum_dispatch | 0.3.13 | MIT OR Apache-2.0 [5c0ef05f8439](#t-5c0ef05f8439) | https://gitlab.com/antonok/enum_dispatch |
 | equivalent | 1.0.2 | Apache-2.0 OR MIT [954f335b8baf](#t-954f335b8baf) [4428cd87371a](#t-4428cd87371a) | https://github.com/indexmap-rs/equivalent |
 | erased-serde | 0.4.10 | MIT OR Apache-2.0 [85ad950cce87](#t-85ad950cce87) [30fefc3a7d6a](#t-30fefc3a7d6a) | https://github.com/dtolnay/erased-serde |
 | fastbloom | 0.14.1 | MIT OR Apache-2.0 [85ad950cce87](#t-85ad950cce87) [a80c9442e227](#t-a80c9442e227) | https://github.com/tomtomwombat/fastbloom/ |
@@ -171,7 +170,7 @@ unmodified; their source is at the address given.
 | lore-io | 0.10.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-macro | 0.10.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-notification | 0.10.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-proto | 0.1.62 | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-proto | 0.1.64 | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-revision | 0.10.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-storage | 0.10.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-telemetry | 0.10.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
@@ -655,7 +654,7 @@ limitations under the License.
 ```
 
 <a id="t-30fefc3a7d6a"></a>
-### LICENSE-MIT — adler2 2.0.1, allocator-api2 0.2.21, anyhow 1.0.103, async-trait 0.1.89, atomic-waker 1.1.2, camino 1.2.2, cargo-platform 0.1.9, cargo_metadata 0.19.2, diffy 0.5.2, displaydoc 0.2.5, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, fastrand 2.4.1, glam 0.33.0, itoa 1.0.18, minimal-lexical 0.2.1, once_cell 1.21.4, pin-project 1.1.13, pin-project-internal 1.1.13, pin-project-lite 0.2.17, portable-atomic 1.13.1, proc-macro2 1.0.106, quote 1.0.45, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.2, semver 1.0.28, serde 1.0.228, serde-untagged 0.1.9, serde_bytes 0.11.19, serde_core 1.0.228, serde_derive 1.0.228, serde_derive_internals 0.29.1, serde_json 1.0.149, serde_path_to_error 0.1.20, serde_repr 0.1.21, servo_arc 0.4.3, syn 2.0.117, syn 3.0.6, thiserror 2.0.18, thiserror-impl 2.0.18, typeid 1.0.3, unicode-ident 1.0.24, zmij 1.0.21
+### LICENSE-MIT — adler2 2.0.1, allocator-api2 0.2.21, anyhow 1.0.103, async-trait 0.1.92, atomic-waker 1.1.2, camino 1.2.2, cargo-platform 0.1.9, cargo_metadata 0.19.2, diffy 0.5.2, displaydoc 0.2.5, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, fastrand 2.4.1, glam 0.33.0, itoa 1.0.18, minimal-lexical 0.2.1, once_cell 1.21.4, pin-project 1.1.13, pin-project-internal 1.1.13, pin-project-lite 0.2.17, portable-atomic 1.13.1, proc-macro2 1.0.106, quote 1.0.45, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.2, semver 1.0.28, serde 1.0.228, serde-untagged 0.1.9, serde_bytes 0.11.19, serde_core 1.0.228, serde_derive 1.0.228, serde_derive_internals 0.29.1, serde_json 1.0.149, serde_path_to_error 0.1.20, serde_repr 0.1.21, servo_arc 0.4.3, syn 2.0.117, syn 3.0.6, thiserror 2.0.18, thiserror-impl 2.0.18, typeid 1.0.3, unicode-ident 1.0.24, zmij 1.0.21
 
 ```text
 Permission is hereby granted, free of charge, to any
@@ -768,7 +767,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 ```
 
 <a id="t-85ad950cce87"></a>
-### LICENSE-APACHE — allocator-api2 0.2.21, anyhow 1.0.103, async-trait 0.1.89, constant_time_eq 0.4.2, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, fastbloom 0.14.1, itoa 1.0.18, libc 0.2.186, proc-macro2 1.0.106, quote 1.0.45, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.2, ryu 1.0.23, semver 1.0.28, serde 1.0.228, serde-untagged 0.1.9, serde_bytes 0.11.19, serde_core 1.0.228, serde_derive 1.0.228, serde_derive_internals 0.29.1, serde_json 1.0.149, serde_path_to_error 0.1.20, serde_repr 0.1.21, serde_urlencoded 0.7.1, syn 2.0.117, syn 3.0.6, thiserror 2.0.18, thiserror-impl 2.0.18, typeid 1.0.3, unicode-ident 1.0.24
+### LICENSE-APACHE — allocator-api2 0.2.21, anyhow 1.0.103, async-trait 0.1.92, constant_time_eq 0.4.2, dtoa 1.0.11, dyn-clone 1.0.20, erased-serde 0.4.10, fastbloom 0.14.1, itoa 1.0.18, libc 0.2.186, proc-macro2 1.0.106, quote 1.0.45, ref-cast 1.0.27, ref-cast-impl 1.0.27, rustc-hash 2.1.2, ryu 1.0.23, semver 1.0.28, serde 1.0.228, serde-untagged 0.1.9, serde_bytes 0.11.19, serde_core 1.0.228, serde_derive 1.0.228, serde_derive_internals 0.29.1, serde_json 1.0.149, serde_path_to_error 0.1.20, serde_repr 0.1.21, serde_urlencoded 0.7.1, syn 2.0.117, syn 3.0.6, thiserror 2.0.18, thiserror-impl 2.0.18, typeid 1.0.3, unicode-ident 1.0.24
 
 ```text
 Apache License
@@ -6251,33 +6250,6 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ```
 
-<a id="t-5c0ef05f8439"></a>
-### LICENSE — enum_dispatch 0.3.13
-
-```text
-MIT License
-
-Copyright (c) 2019 Anton Lazarev
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
 <a id="t-4428cd87371a"></a>
 ### LICENSE-MIT — equivalent 1.0.2
 
@@ -9639,7 +9611,7 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 <a id="t-0fa95d4f03d8"></a>
-### LICENSE — lore 0.10.1-nightly, lore-base 0.10.1-nightly, lore-credential 0.10.1-nightly, lore-error-set 0.1.0, lore-error-set-macro 0.1.0, lore-io 0.10.1-nightly, lore-macro 0.10.1-nightly, lore-notification 0.10.1-nightly, lore-proto 0.1.62, lore-revision 0.10.1-nightly, lore-storage 0.10.1-nightly, lore-telemetry 0.10.1-nightly, lore-transport 0.10.1-nightly
+### LICENSE — lore 0.10.1-nightly, lore-base 0.10.1-nightly, lore-credential 0.10.1-nightly, lore-error-set 0.1.0, lore-error-set-macro 0.1.0, lore-io 0.10.1-nightly, lore-macro 0.10.1-nightly, lore-notification 0.10.1-nightly, lore-proto 0.1.64, lore-revision 0.10.1-nightly, lore-storage 0.10.1-nightly, lore-telemetry 0.10.1-nightly, lore-transport 0.10.1-nightly
 
 ```text
 MIT License
