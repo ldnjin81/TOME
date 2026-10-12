@@ -10,7 +10,7 @@ name = "tome_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.7.1" }
+tauri-build = { version = "2.7.1", features = [] }
 
 [dependencies]
 tome-core = { path = "../crates/tome-core" }
