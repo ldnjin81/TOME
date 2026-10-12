@@ -72,11 +72,11 @@ UI와는 두 경로로만 이야기한다: **명령**(Tauri command, 즉시 작�
 | draft(로컬 커밋)가 리비전 번호를 받나 | **받는다.** 커밋 결과 이벤트에 `revision_number`가 있다. 미푸시 표시는 "원격 latest보다 앞선 리비전"으로 계산한다(`lore_branch_latest_list` + 로컬 브랜치) | `lore_revision_commit_revision_event_data_t.revision_number` |
 | rebase/cherry-pick/squash 지원 범위 | **cherry-pick·amend·revert·reset·bisect는 있다. rebase·squash·split·fold 함수는 없다.** Restack = 새 베이스에서 스택을 차례로 `cherry_pick` + 브랜치 `reset`으로 구현한다. Fold/Squash는 앞 리비전으로 `reset` 후 합친 트리를 다시 커밋(또는 `amend`)하는 방식으로 직접 구성한다 | `lore_revision_cherry_pick_async`, `lore_revision_amend_async`, `lore_branch_reset_async` |
 | 팀 전체 잠금 목록·알림 | **목록: 된다.** `lore_lock_file_query`가 브랜치 단위로 `owner`·`path`를 비우면 전부 돌려준다(경로, 소유자, 잠근 시각). **실시간: 된다.** `lore_notification_subscribe`가 `RESOURCE_LOCKED/UNLOCKED`, `BRANCH_PUSHED/CREATED/DELETED`를 push로 준다. **"잠금 해제 요청": API가 없다** → TOME 자체 채널이 필요(예: 저장소 메타데이터에 요청 기록, 또는 외부 메신저 연동) | `lore_lock_file_query_args_t`, Notification Events |
-| View/Hydration | `.lore/view` 파일을 쓰는 방식이다(그냥 쓴 줄은 **제외**, `!` 줄은 다시 **포함**). 복제와 새 리비전을 받는 sync 때만 실체화하고, **v0.10.0은 View를 바꿔도 이미 받은 파일을 지우거나 새로 받지 않는다**(변경 없는 sync는 아무것도 안 함). 그래서 TOME이 직접 적용한다(`tome-core::view`): Lore의 필터 코드(`lore_revision::filter`)로 판정해 View 밖의 변경 없는 파일은 지우고(Lore는 이를 삭제로 보지 않는다), 변경·신규 파일과 `.loreignore` 대상은 남긴다. 다시 들어온 파일은 status에 '삭제'로 나오므로 그 경로만 `lore_file_reset`으로 받아 온다(reset은 수정 내용도 덮어쓰므로 경로를 좁힌다) | `lore.h`의 `view` 인자, 서버 통합 테스트 |
+| View/Hydration | `.lore/view` 파일로 정한다(그냥 쓴 줄은 **제외**, `!` 줄은 다시 **포함**). v0.10.0은 View를 바꿔도 이미 받은 파일을 다시 맞추지 않아 TOME이 직접 지우고 되살렸지만, **v0.10.1부터 `lore sync --view <파일>`이 View 변경을 적용한다**. TOME은 현재 리비전으로 이 동기화를 부르고(Lore가 View 밖 파일을 지우고, 다시 들어온 파일을 받고, View를 저장), 적용 전후의 디스크를 비교해 지운·받은·남긴 파일을 보여 준다. 바꾼 파일은 지우지 않는다. Lore는 View를 소문자로 저장하므로 적용 뒤 사용자가 쓴 그대로 다시 쓴다 | `lore_revision_sync_async`(`view`), `lore_revision::filter` |
 | uasset 썸네일·구조 비교를 에디터 없이 | `.uasset` 패키지 헤더에 썸네일 테이블(`ThumbnailTableOffset`)이 있어 **에디터 없이 PNG/JPEG를 꺼낼 수 있다.** TOME은 이 썸네일 테이블만 직접 읽고(`tome-core::uasset`), 구조 비교 같은 깊은 분석은 커스텀 도구로 외부 도구를 부르게 한다 | UE 패키지 포맷(`FPackageFileSummary`) |
 
 ## 5. 지금 상태 (0.1)
 
-- Lore v0.10.0을 `third_party/lore` 서브모듈에서 빌드하고, C API(`lore::interface`)를 bindgen 없이 같은 프로세스에서 직접 부른다. C API에 없는 cherry-pick은 Lore 라이브러리 함수를 같은 방식으로 부른다(`tome-core::restack`).
+- Lore v0.10.1을 `third_party/lore` 서브모듈에서 빌드하고, C API(`lore::interface`)를 bindgen 없이 같은 프로세스에서 직접 부른다. C API에 없는 cherry-pick은 Lore 라이브러리 함수를 같은 방식으로 부른다(`tome-core::restack`).
 - 구현됨: Smartlog(스택·전체 그래프), 스테이징·커밋·push, 잠금 보드와 실시간 알림, View 적용, 브랜치·병합·충돌 해결, 파일 기록과 diff, 진행률·취소가 있는 긴 작업(별도 작업 프로세스), 커스텀 도구, 아티스트 모드(uasset 썸네일), 끌어서 놓는 restack.
 - 서버 테스트는 `TOME_TEST_SERVER`로 버리는 loreserver를 가리킬 때만 돈다(Lore 기본 포트 41337은 거부).

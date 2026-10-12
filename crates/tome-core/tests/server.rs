@@ -82,10 +82,21 @@ fn commit_push_lock_and_view() {
     let after = model::status(&ok(repo.scan_status(), "scan with view")).unwrap();
     assert!(after.files.iter().all(|f| f.path != "Content/Hero.uasset"), "{:?}", after.files);
 
+    assert_eq!(repo.view(), vec!["/Content/".to_string()], "Lore keeps the new view");
+
     let change = repo.apply_view(&[]).unwrap();
     assert_eq!(change.restored, vec!["Content/Hero.uasset".to_string()]);
     assert!(dir.join("Content/Hero.uasset").exists());
     assert!(dir.join("Content/Notes.txt").exists());
+    assert!(repo.view().iter().all(|l| l.trim().is_empty()), "{:?}", repo.view());
+
+    // A tracked file with local edits stays, with its edits, when the view leaves it out.
+    std::fs::write(dir.join("Content/Hero.uasset"), b"edited asset").unwrap();
+    let change = repo.apply_view(&["/Content/".to_string()]).unwrap();
+    assert!(change.kept.contains(&"Content/Hero.uasset".to_string()), "{change:?}");
+    assert_eq!(std::fs::read(dir.join("Content/Hero.uasset")).unwrap(), b"edited asset");
+    repo.apply_view(&[]).unwrap();
+    ok(repo.reset_files(&["Content/Hero.uasset".to_string()]), "revert the edit");
 
     // The server lists the repository, and a clone of it gets the committed files.
     let root = server.as_str();

@@ -1,14 +1,10 @@
 //! Applying a View change to the working files.
 //!
-//! Lore v0.10.0 reads `.lore/view` on clone and when a sync brings new revisions, but does not
-//! re-materialize when the file changes (a sync with nothing new leaves the working files alone).
-//! TOME applies the change itself:
-//!
-//! - a file the new view leaves out is deleted, unless it has local changes (it is kept and
-//!   reported) or `.loreignore` ignores it. Lore does not count a file outside the view as
-//!   deleted, so status stays clean.
-//! - a file the new view brings back shows in status as an unstaged delete; it is restored with
-//!   `lore_file_reset`. Only those paths are reset, because reset also overwrites local changes.
+//! Since Lore 0.10.1 a sync can change an instance's view (`lore sync --view <file>`): Lore
+//! deletes the files the new view leaves out, fetches the ones it brings back and stores the
+//! view. TOME syncs to the current revision with the new view and reports what changed on disk.
+//! Files with local changes stay; they are reported as kept. (Lore 0.10.0 could not do this, so
+//! TOME used to delete and restore the files itself.)
 //!
 //! The view rules are Lore's own (`lore_revision::filter`), so TOME and Lore agree on every path.
 
@@ -33,50 +29,49 @@ pub struct ViewChange {
 }
 
 impl Repository {
-    /// Writes `.lore/view` and makes the working files match it.
+    /// Makes `lines` the view of this working copy and the working files match it.
     pub fn apply_view(&self, lines: &[String]) -> Result<ViewChange, String> {
         let before = self.changed_files("status before the view change")?;
         let changed: HashSet<&str> = before.iter().map(|f| f.path.as_str()).collect();
+        let root = Path::new(&self.path);
+        let ignore = filter::load_filter(root.join(".loreignore")).map_err(|e| format!("{e:?}"))?;
+        let on_disk = |root: &Path| {
+            let mut files = Vec::new();
+            walk(root, "", &ignore, &mut files);
+            files.into_iter().collect::<HashSet<String>>()
+        };
+        let disk_before = on_disk(root);
 
+        // The new view goes to a file of its own; Lore stores it as the view once the sync is done.
+        let next = std::env::temp_dir().join(format!("tome-view-{}-{}.txt", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())));
+        let text: String = lines.iter().map(|l| format!("{l}\n")).collect();
+        std::fs::write(&next, text).map_err(|e| format!("Writing the view failed: {e}"))?;
+        let status = model::status(&self.status()).ok_or("status returned nothing")?;
+        let result = self.sync_view(&status.revision, &next.to_string_lossy());
+        let view = filter::load_filter(&next).map_err(|e| format!("{e:?}"));
+        std::fs::remove_file(&next).ok();
+        if !result.ok() {
+            return Err(format!("Changing the view failed: {}", result.error));
+        }
+        let view = view?;
+        // Lore stores the view lower-cased (its paths compare without case); keep the lines as
+        // they were written, which Lore reads the same way.
         self.set_view(lines).map_err(|e| format!("Writing .lore/view failed: {e}"))?;
 
-        let root = Path::new(&self.path);
-        let view = filter::load_filter(root.join(".lore").join("view")).map_err(|e| format!("{e:?}"))?;
-        let ignore = filter::load_filter(root.join(".loreignore")).map_err(|e| format!("{e:?}"))?;
-
+        let disk_after = on_disk(root);
         let mut change = ViewChange::default();
-        let mut files = Vec::new();
-        walk(root, "", &ignore, &mut files);
-        for path in files {
-            let Ok(relative) = RelativePath::new_from_initial_path(&path) else { continue };
-            if !view.excludes(&relative, false) {
-                continue;
-            }
-            if changed.contains(path.as_str()) {
-                change.kept.push(path);
-            } else if std::fs::remove_file(root.join(&path)).is_ok() {
-                remove_empty_parents(root, &path);
-                change.removed.push(path);
+        for path in &disk_before {
+            if !disk_after.contains(path) {
+                change.removed.push(path.clone());
+            } else if changed.contains(path.as_str())
+                && RelativePath::new_from_initial_path(path).is_ok_and(|relative| view.excludes(&relative, false))
+            {
+                change.kept.push(path.clone());
             }
         }
-
-        // Tracked files the new view includes but the disk lacks; deletes made before the
-        // change are the user's own and stay.
-        let deleted_before: HashSet<&str> =
-            before.iter().filter(|f| f.action == "delete").map(|f| f.path.as_str()).collect();
-        let restore: Vec<String> = self
-            .changed_files("status after the view change")?
-            .into_iter()
-            .filter(|f| f.action == "delete" && !f.staged && !f.directory)
-            .filter(|f| !deleted_before.contains(f.path.as_str()))
-            .map(|f| f.path)
-            .collect();
-        if !restore.is_empty() {
-            let reset = self.reset_files(&restore);
-            if !reset.ok() {
-                return Err(format!("Restoring files failed: {}", reset.error));
-            }
-            change.restored = restore;
+        change.restored = disk_after.difference(&disk_before).cloned().collect();
+        for list in [&mut change.removed, &mut change.kept, &mut change.restored] {
+            list.sort();
         }
         Ok(change)
     }
@@ -110,16 +105,5 @@ fn walk(root: &Path, dir: &str, ignore: &FilterInstance, out: &mut Vec<String>) 
         } else if kind.is_file() {
             out.push(path);
         }
-    }
-}
-
-/// Removes the directories a deletion left empty, up to (not including) the root.
-fn remove_empty_parents(root: &Path, path: &str) {
-    let mut dir = Path::new(path).parent();
-    while let Some(d) = dir.filter(|d| !d.as_os_str().is_empty()) {
-        if std::fs::remove_dir(root.join(d)).is_err() {
-            break;
-        }
-        dir = d.parent();
     }
 }

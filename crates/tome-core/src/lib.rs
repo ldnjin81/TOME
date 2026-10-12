@@ -419,6 +419,22 @@ impl Repository {
         call(interface::lore_branch_reset_async, &self.globals(), &args)
     }
 
+    /// Syncs to `revision` with the view filter in the file `view`: the working files are made to
+    /// match that view and Lore keeps it as this instance's view (Lore 0.10.1, `lore sync --view`).
+    pub fn sync_view(&self, revision: &str, view: &str) -> CallResult {
+        let args = lore::revision::LoreRevisionSyncArgs {
+            revision: LoreString::from_bytes(revision.as_bytes()),
+            forward_changes: 1,
+            reset: 0,
+            root_files: interface::LoreArray::default(),
+            dependency_tags: interface::LoreArray::default(),
+            dependency_recursive: 0,
+            dependency_depth_limit: 0,
+            view: LoreString::from_bytes(view.as_bytes()),
+        };
+        call(interface::lore_revision_sync_async, &self.globals(), &args)
+    }
+
     /// Brings the working copy to `revision` (with `reset`, local edits are overwritten).
     pub fn sync_to(&self, revision: &str, reset: bool) -> CallResult {
         let args = lore::revision::LoreRevisionSyncArgs {
