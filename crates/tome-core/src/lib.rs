@@ -329,6 +329,8 @@ impl Repository {
             link: LoreString::default(),
             ignore_links: 0,
             inherit_metadata: interface::LoreArray::default(),
+            link_paths: interface::LoreArray::default(),
+            link_messages: interface::LoreArray::default(),
         };
         call(interface::lore_branch_merge_start_async, &self.globals(), &args)
     }
