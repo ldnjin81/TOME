@@ -1,9 +1,10 @@
 //! Restack: move my unpushed revisions (the stack) onto another base, or reorder them, by
 //! resetting the branch to the base and cherry-picking each revision again in order.
 //!
-//! Lore v0.10.0 has cherry-pick in its library (`lore::revision::cherry_pick`) but not in the C
-//! interface, so [`cherry_pick_async`] and friends start the library calls the way the C
-//! interface functions do, and [`crate::call`] takes them like any other.
+//! Lore's C interface has the pick itself (`lore_revision_cherry_pick_async`, since 0.10.1) but,
+//! as of 0.11, not its abort and resolve calls, which only the library has
+//! (`lore::revision::cherry_pick_*`). So [`cherry_pick_async`] and friends start the library
+//! calls the way the C interface functions do, and [`crate::call`] takes them like any other.
 
 use lore::interface::{LoreEventCallbackConfig, LoreGlobalArgs};
 use lore::revision::{

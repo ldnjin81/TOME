@@ -47,7 +47,7 @@
 - **C API가 계약이다.** 모든 함수가 `lore_*_async(globals, args, callback)` 형태이고, 결과는 `lore_event_t` 스트림으로 온다(진행, 파일 하나씩, `COMPLETE`, `END`). TOME은 Lore 내부 함수가 아니라 이 함수들만 부른다.
 - **연결 방식(구현됨):** Lore를 git 서브모듈 `third_party/lore`로 태그 `v0.10.0`에 고정한다. 이 태그에서는 C API 함수가 `lore` 크레이트의 `lore::interface` 모듈에 `#[no_mangle] pub extern "C"`로 들어 있고 크레이트가 rlib로도 빌드되므로, `tome-core`가 Rust 의존성으로 **정적 링크**해 그 함수를 직접 부른다. bindgen·DLL이 필요 없고, `#[repr(C)]` 인자 구조체를 그대로 쓴다.
 - Lore를 우리 워크스페이스에서 빌드하려면 Lore와 같은 설정이 필요하다: `[patch.crates-io]`의 `quinn-proto`·`glob-match`(Lore `vendor/`), rustflags `--cfg tokio_unstable --cfg uuid_unstable`, 그리고 Lore의 `Cargo.lock`을 출발점으로 쓴다.
-- **주의:** Lore `main`에서는 C API가 별도 크레이트 `lore-capi`(cdylib·staticlib 전용)로 옮겨졌다. 다음 태그로 올릴 때는 그 크레이트를 정적 라이브러리로 빌드해 `lore.h` 바인딩으로 링크하는 방식으로 바꿔야 한다(계약은 같은 C API라 `tome-core`의 호출부는 그대로다).
+- **참고:** `lore-capi` 크레이트(cdylib·staticlib, `lore.h` 생성)는 C 바깥 소비자용 포장이고, 함수 본체는 v0.11.0에서도 `lore::interface`에 있다. 그래서 TOME은 계속 `lore` 크레이트를 Rust 의존성으로 직접 링크한다. 태그를 올릴 때는 서브모듈을 옮기고 인자 구조체에 새로 생긴 필드(0이면 이전 동작)를 채우면 된다.
 - 콜백은 Lore 워커 스레드에서 오고 이벤트 데이터는 콜백이 끝나면 무효가 되므로, `tome-core::call`이 이벤트를 즉시 JSON으로 복사(Lore가 제공하는 serde 형식)해 채널로 넘긴다.
 
 ## 3. 코어 레이어(`tome-core`)
@@ -72,11 +72,12 @@ UI와는 두 경로로만 이야기한다: **명령**(Tauri command, 즉시 작�
 | draft(로컬 커밋)가 리비전 번호를 받나 | **받는다.** 커밋 결과 이벤트에 `revision_number`가 있다. 미푸시 표시는 "원격 latest보다 앞선 리비전"으로 계산한다(`lore_branch_latest_list` + 로컬 브랜치) | `lore_revision_commit_revision_event_data_t.revision_number` |
 | rebase/cherry-pick/squash 지원 범위 | **cherry-pick·amend·revert·reset·bisect는 있다. rebase·squash·split·fold 함수는 없다.** Restack = 새 베이스에서 스택을 차례로 `cherry_pick` + 브랜치 `reset`으로 구현한다. Fold/Squash는 앞 리비전으로 `reset` 후 합친 트리를 다시 커밋(또는 `amend`)하는 방식으로 직접 구성한다 | `lore_revision_cherry_pick_async`, `lore_revision_amend_async`, `lore_branch_reset_async` |
 | 팀 전체 잠금 목록·알림 | **목록: 된다.** `lore_lock_file_query`가 브랜치 단위로 `owner`·`path`를 비우면 전부 돌려준다(경로, 소유자, 잠근 시각). **실시간: 된다.** `lore_notification_subscribe`가 `RESOURCE_LOCKED/UNLOCKED`, `BRANCH_PUSHED/CREATED/DELETED`를 push로 준다. **"잠금 해제 요청": API가 없다** → TOME 자체 채널이 필요(예: 저장소 메타데이터에 요청 기록, 또는 외부 메신저 연동) | `lore_lock_file_query_args_t`, Notification Events |
-| View/Hydration | `.lore/view` 파일로 정한다(그냥 쓴 줄은 **제외**, `!` 줄은 다시 **포함**). v0.10.0은 View를 바꿔도 이미 받은 파일을 다시 맞추지 않아 TOME이 직접 지우고 되살렸지만, **v0.10.1부터 `lore sync --view <파일>`이 View 변경을 적용한다**. TOME은 현재 리비전으로 이 동기화를 부르고(Lore가 View 밖 파일을 지우고, 다시 들어온 파일을 받고, View를 저장), 적용 전후의 디스크를 비교해 지운·받은·남긴 파일을 보여 준다. 바꾼 파일은 지우지 않는다. Lore는 View를 소문자로 저장하므로 적용 뒤 사용자가 쓴 그대로 다시 쓴다 | `lore_revision_sync_async`(`view`), `lore_revision::filter` |
+| View/Hydration | `.lore/view` 파일로 정한다(그냥 쓴 줄은 **제외**, `!` 줄은 다시 **포함**). v0.10.0은 View를 바꿔도 이미 받은 파일을 다시 맞추지 않아 TOME이 직접 지우고 되살렸지만, **v0.10.1부터 `lore sync --view <파일>`이 View 변경을 적용한다**. TOME은 현재 리비전으로 이 동기화를 부르고(Lore가 View 밖 파일을 지우고, 다시 들어온 파일을 받고, View를 저장), 동기화가 보내는 파일 이벤트(v0.11부터 지운 파일도 온다)로 지운·받은 파일을, 상태의 변경 파일로 남긴 파일을 보여 준다. 바꾼 파일은 지우지 않는다. Lore는 View를 소문자로 저장하므로 적용 뒤 사용자가 쓴 그대로 다시 쓴다 | `lore_revision_sync_async`(`view`), `lore_revision::filter` |
 | uasset 썸네일·구조 비교를 에디터 없이 | `.uasset` 패키지 헤더에 썸네일 테이블(`ThumbnailTableOffset`)이 있어 **에디터 없이 PNG/JPEG를 꺼낼 수 있다.** TOME은 이 썸네일 테이블만 직접 읽고(`tome-core::uasset`), 구조 비교 같은 깊은 분석은 커스텀 도구로 외부 도구를 부르게 한다 | UE 패키지 포맷(`FPackageFileSummary`) |
 
 ## 5. 지금 상태 (0.1)
 
-- Lore v0.10.1을 `third_party/lore` 서브모듈에서 빌드하고, C API(`lore::interface`)를 bindgen 없이 같은 프로세스에서 직접 부른다. C API에 없는 cherry-pick은 Lore 라이브러리 함수를 같은 방식으로 부른다(`tome-core::restack`).
+- Lore v0.11.0을 `third_party/lore` 서브모듈에서 빌드하고, C API(`lore::interface`)를 bindgen 없이 같은 프로세스에서 직접 부른다. C API에 없는 cherry-pick 중단·해결은 Lore 라이브러리 함수를 같은 방식으로 부른다(`tome-core::restack`).
+- v0.11에서 쓰기 시작한 것: 줄별 보기(`lore_file_audit`), 오프라인 작업 준비 클론(클론의 `offline` 전역 플래그), 동기화의 삭제 파일 이벤트, 앱 시작 때 `LORE_STORE_RETAIN=1`(연속 호출에서 저장소를 다시 열지 않음).
 - 구현됨: Smartlog(스택·전체 그래프), 스테이징·커밋·push, 잠금 보드와 실시간 알림, View 적용, 브랜치·병합·충돌 해결, 파일 기록과 diff, 진행률·취소가 있는 긴 작업(별도 작업 프로세스), 커스텀 도구, 아티스트 모드(uasset 썸네일), 끌어서 놓는 restack.
 - 서버 테스트는 `TOME_TEST_SERVER`로 버리는 loreserver를 가리킬 때만 돈다(Lore 기본 포트 41337은 거부).
