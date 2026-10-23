@@ -19,7 +19,15 @@ use lore::interface::LoreString;
 #[serde(tag = "op", rename_all = "lowercase")]
 pub enum Op {
     /// Clone `url` into the empty folder `path` with the `.lore/view` text `view`.
-    Clone { path: String, url: String, view: String },
+    /// `offline_ready` also fetches what staging and committing need (Lore 0.11 `clone --offline`),
+    /// so both work without the server afterwards.
+    Clone {
+        path: String,
+        url: String,
+        view: String,
+        #[serde(default)]
+        offline_ready: bool,
+    },
     /// Bring the working copy at `path` to its branch's latest revision.
     Sync { path: String },
     /// Push `branch` of the working copy at `path`.
@@ -84,7 +92,7 @@ pub fn run(job: &Job, on_progress: &mut dyn FnMut(&Progress)) -> CallResult {
         }
     };
     let result = match &job.op {
-        Op::Clone { path, url, view } => {
+        Op::Clone { path, url, view, offline_ready } => {
             let mut repository = Repository::open(path.clone());
             repository.identity = job.identity.clone();
             let args = lore::repository::LoreRepositoryCloneArgs {
@@ -96,6 +104,8 @@ pub fn run(job: &Job, on_progress: &mut dyn FnMut(&Progress)) -> CallResult {
             let globals = lore::interface::LoreGlobalArgs {
                 repository_path: LoreString::from_bytes(path.as_bytes()),
                 identity: LoreString::from_bytes(job.identity.as_bytes()),
+                // A clone takes the offline flag as "prepare for working offline" (it still connects).
+                offline: u8::from(*offline_ready),
                 ..Default::default()
             };
             call_watching(interface::lore_repository_clone_async, &globals, &args, &mut watch)

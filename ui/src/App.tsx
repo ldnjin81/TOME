@@ -927,11 +927,11 @@ export default function App() {
             void saveSettings(next);
             if (target) void open(target, next.offline, next);
           }}
-          onClone={(next, target, url, view) => {
+          onClone={(next, target, url, view, offlineReady) => {
             setSetup(false);
             setOffline(next.offline);
             void saveSettings(next);
-            void startJob({ op: 'clone', path: target, url, view }, t("받기: {p0}", { p0: url.split('/').pop() }), () => void open(target, next.offline, next));
+            void startJob({ op: 'clone', path: target, url, view, offline_ready: offlineReady }, t("받기: {p0}", { p0: url.split('/').pop() }), () => void open(target, next.offline, next));
           }}
           onCancel={() => {
             setSetup(false);

@@ -1,4 +1,12 @@
 export const dictionary = {
+  "오프라인 작업 준비": {
+    "ko": "오프라인 작업 준비",
+    "en": "Prepare for working offline"
+  },
+  "받은 뒤 서버 없이도 스테이징·커밋할 수 있게 필요한 데이터를 미리 받아 둡니다.": {
+    "ko": "받은 뒤 서버 없이도 스테이징·커밋할 수 있게 필요한 데이터를 미리 받아 둡니다.",
+    "en": "Also fetches what staging and committing need, so they work without the server after the clone."
+  },
   "변경 내용": {
     "ko": "변경 내용",
     "en": "Change"

@@ -16,7 +16,7 @@ On the first run the setup window opens.
 1. **Language**: **Automatic (system language)**, **한국어** or **English**. Changing it later in the settings takes effect at once.
 2. **My name (identity)**: the name recorded as the author of your commits. On a server without authentication this name is all that is kept, so use one per machine (`kim-pc`, `kim-laptop`) to tell where a commit came from.
 3. **Lore Server**: the team's server (`lore://host:41337`). **Check connection** lists the server's repositories.
-4. **Working copy**: choose **Open an existing working copy**, pick its folder and press **Start**. Or choose **Get from the server**, pick a repository and a folder, and press **Get and open**. Getting a copy shows progress and can be cancelled at any time (the partial folder is removed).
+4. **Working copy**: choose **Open an existing working copy**, pick its folder and press **Start**. Or choose **Get from the server**, pick a repository and a folder, and press **Get and open**. Getting a copy shows progress and can be cancelled at any time (the partial folder is removed). Turn on **Prepare for working offline** to also fetch what staging and committing need, so you can commit without the server afterwards.
 
 The gear button at the top right opens the settings again. They are stored in `%APPDATA%\dev.ldnjin.tome`.
 

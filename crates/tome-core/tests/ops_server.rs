@@ -102,7 +102,7 @@ fn progress_and_cancel() {
 
     // Clone through the worker.
     let b_dir = root.join("b");
-    let (progress, done, _) = follow(start(&Job { op: Op::Clone { path: b_dir.to_string_lossy().into(), url: url.clone(), view: String::new() }, identity: "bob".into() }), false);
+    let (progress, done, _) = follow(start(&Job { op: Op::Clone { path: b_dir.to_string_lossy().into(), url: url.clone(), view: String::new(), offline_ready: false }, identity: "bob".into() }), false);
     assert_eq!(done.as_ref().map(|d| d.0), Some(0), "{done:?}");
     assert!(progress > 0, "clone reported progress");
     assert_eq!(std::fs::read(b_dir.join("Content/f007.bin")).unwrap(), std::fs::read(a_dir.join("Content/f007.bin")).unwrap());
@@ -130,12 +130,24 @@ fn progress_and_cancel() {
 
     // Cancel a clone part way: the partial folder is thrown away and a new clone works.
     let c_dir = root.join("c");
-    let (_, _, cancelled) = follow(start(&Job { op: Op::Clone { path: c_dir.to_string_lossy().into(), url: url.clone(), view: String::new() }, identity: "carol".into() }), true);
+    let (_, _, cancelled) = follow(start(&Job { op: Op::Clone { path: c_dir.to_string_lossy().into(), url: url.clone(), view: String::new(), offline_ready: false }, identity: "carol".into() }), true);
     eprintln!("clone cancelled: {cancelled}");
     std::fs::remove_dir_all(&c_dir).ok();
-    let (_, done, _) = follow(start(&Job { op: Op::Clone { path: c_dir.to_string_lossy().into(), url: url.clone(), view: String::new() }, identity: "carol".into() }), false);
+    let (_, done, _) = follow(start(&Job { op: Op::Clone { path: c_dir.to_string_lossy().into(), url: url.clone(), view: String::new(), offline_ready: false }, identity: "carol".into() }), false);
     assert_eq!(done.as_ref().map(|d| d.0), Some(0), "clone again: {done:?}");
     assert_eq!(std::fs::read(c_dir.join("More/f149.bin")).unwrap(), std::fs::read(a_dir.join("More/f149.bin")).unwrap());
+
+    // A clone prepared for working offline stages and commits without the server.
+    let d_dir = root.join("d");
+    let (_, done, _) = follow(start(&Job { op: Op::Clone { path: d_dir.to_string_lossy().into(), url: url.clone(), view: String::new(), offline_ready: true }, identity: "dave".into() }), false);
+    assert_eq!(done.as_ref().map(|d| d.0), Some(0), "offline-ready clone: {done:?}");
+    let mut d = Repository::open(d_dir.to_string_lossy().to_string());
+    d.identity = "dave".into();
+    d.offline = true;
+    std::fs::write(d_dir.join("More/f010.bin"), b"edited offline").unwrap();
+    ok(d.scan_status(), "offline scan");
+    ok(d.stage(&["More/f010.bin".to_string()]), "offline stage");
+    ok(d.commit("offline edit"), "offline commit");
 
     std::fs::remove_dir_all(&root).ok();
 }

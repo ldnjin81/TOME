@@ -26,7 +26,7 @@ interface Props {
   /** Called with the new settings and the working copy to open (null: keep the current one). */
   onDone: (settings: Settings, open: string | null) => void;
   /** Clone `url` into `target` (a job with progress), then open it. */
-  onClone: (settings: Settings, target: string, url: string, view: string) => void;
+  onClone: (settings: Settings, target: string, url: string, view: string, offlineReady: boolean) => void;
   onCancel: () => void;
 }
 
@@ -38,6 +38,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
   const [identity, setIdentity] = useState(settings.identity ?? '');
   const [language, setDialogLanguage] = useState<LanguageSetting>(settings.language ?? '');
   const [source, setSource] = useState<'open' | 'clone'>('open');
+  const [offlineReady, setOfflineReady] = useState(false);
   const [openPath, setOpenPath] = useState(settings.recent[0] ?? '');
   const [repositories, setRepositories] = useState<RemoteRepository[] | null>(null);
   const [repository, setRepository] = useState('');
@@ -84,7 +85,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
       return;
     }
     const view = PRESETS.find((p) => p.name === preset)?.lines.join('\n') ?? '';
-    onClone(next, target, `${server.trim().replace(/\/$/, '')}/${repository}`, view);
+    onClone(next, target, `${server.trim().replace(/\/$/, '')}/${repository}`, view, offlineReady);
   }
 
   return (
@@ -192,6 +193,10 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
                 </button>
               ))}
             </div>
+            <label className="check" title={t("받은 뒤 서버 없이도 스테이징·커밋할 수 있게 필요한 데이터를 미리 받아 둡니다.")}>
+              <input type="checkbox" checked={offlineReady} onChange={(e) => setOfflineReady(e.target.checked)} />
+              {t("오프라인 작업 준비")}
+            </label>
             {target && <p className="muted mono target">→ {target}</p>}
           </div>
         )}
