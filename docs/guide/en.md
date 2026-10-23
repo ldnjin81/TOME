@@ -50,6 +50,10 @@ The gear button at the top right opens the settings again. They are stored in `%
 
 Push and Sync can take a while: a progress window opens and **Cancel** stops part way. Running it again picks up where it stopped.
 
+In the **File history** window, the **Line by line** tab shows the revision, author and message that last changed each line of the file (`lore file audit`). Click a range's label to see that revision's change. Lines edited on disk but not committed yet show as **Not committed**.
+
+![Line by line](images/en/audit.png)
+
 ## 5. When the server has new revisions (restack or merge)
 
 If you have drafts and someone else pushed first, the branch has diverged and your push is refused. The server row offers two ways:

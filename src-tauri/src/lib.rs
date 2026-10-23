@@ -588,6 +588,16 @@ async fn file_history(path: String, file: String, offline: bool) -> Result<Done<
     .await
 }
 
+/// Which revision last changed each line of `file` as it is on disk (`lore file audit`).
+#[tauri::command]
+async fn file_audit(path: String, file: String, offline: bool) -> Result<Done<model::FileAudit>, String> {
+    blocking(move || {
+        let audit = repository(&path, offline).file_audit(&file)?;
+        Ok(Done { value: audit, commands: vec![format!("lore file audit {}", arg(&file))] })
+    })
+    .await
+}
+
 /// One file's change in `revision` against `parent` (empty for a first revision: no diff).
 #[tauri::command]
 async fn file_patch(path: String, file: String, revision: String, parent: String, offline: bool) -> Result<Option<model::FilePatch>, String> {
@@ -857,6 +867,7 @@ pub fn run() {
             revision_changes,
             working_patches,
             file_history,
+            file_audit,
             file_patch,
             load_settings,
             save_settings,

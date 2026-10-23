@@ -1,4 +1,28 @@
 export const dictionary = {
+  "변경 내용": {
+    "ko": "변경 내용",
+    "en": "Change"
+  },
+  "줄별 보기": {
+    "ko": "줄별 보기",
+    "en": "Line by line"
+  },
+  "커밋 안 됨": {
+    "ko": "커밋 안 됨",
+    "en": "Not committed"
+  },
+  "확인 못 함": {
+    "ko": "확인 못 함",
+    "en": "Unresolved"
+  },
+  "이 줄들을 마지막으로 바꾼 리비전의 변경 내용 보기": {
+    "ko": "이 줄들을 마지막으로 바꾼 리비전의 변경 내용 보기",
+    "en": "Show the change from the revision that last changed these lines"
+  },
+  "줄마다 마지막으로 바꾼 리비전을 보여 줍니다. 디스크에서 고친 줄은 '커밋 안 됨'으로 표시합니다.": {
+    "ko": "줄마다 마지막으로 바꾼 리비전을 보여 줍니다. 디스크에서 고친 줄은 '커밋 안 됨'으로 표시합니다.",
+    "en": "Shows the revision that last changed each line. Lines edited on disk show as Not committed."
+  },
   "설정 저장 실패: {p0}": {
     "ko": "설정 저장 실패: {p0}",
     "en": "Couldn't save settings: {p0}"

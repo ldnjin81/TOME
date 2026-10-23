@@ -6,7 +6,7 @@
 <!--
   Screenshots for docs/guide: the app with made-up example data (no real projects, people or
   paths) and a fake Tauri backend. scripts/guide-shots.sh opens it once per screen and
-  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup
+  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit
 -->
 <script>
 const q = new URLSearchParams(location.search);
@@ -29,7 +29,7 @@ const R2 = rev(22, 43, msg('숲 레벨 조명 다시 굽기', 'Rebake the forest
 const file = (path, action, extra = {}) => ({ path, directory: false, action, staged: false, conflict: false, unresolved: false, resolution: '', ...extra });
 const files = screen === 'conflict'
   ? [file('Content/UI/BP_Inventory.uasset', 'modify', { staged: true, conflict: true, unresolved: true })]
-  : screen === 'changes'
+  : screen === 'changes' || screen === 'audit'
     ? [file('Source/UI/InventorySlot.cpp', 'modify', { staged: true }), file('Source/UI/InventorySlot.h', 'modify', { staged: true }), file('Content/UI/WBP_Slot.uasset', 'modify'), file('Content/UI/Icons/T_Potion.uasset', 'add')]
     : screen === 'artist' ? [file('Content/Characters/M_Stone_Wall.uasset', 'modify'), file('Content/Characters/A_Sword_Slash.uasset', 'add')] : [];
 const diverged = ['stack', 'restack', 'conflict'].includes(screen);
@@ -98,6 +98,10 @@ window.__TAURI_INTERNALS__ = {
         files: p.id === D1.id ? ['Content/UI/BP_Inventory.uasset', 'Content/UI/Icons/T_Sword.uasset'] : p.id === D2.id ? ['Source/UI/InventoryWidget.cpp', 'Source/UI/InventoryWidget.h', 'Content/UI/WBP_Slot.uasset'] : ['Source/UI/InventorySlot.cpp'],
         risks: p.id === D1.id ? [{ path: 'Content/UI/BP_Inventory.uasset', binary: true }] : p.id === D2.id ? [{ path: 'Source/UI/InventoryWidget.cpp', binary: false }] : [],
         locked: p.id === D2.id ? [['Content/UI/WBP_Slot.uasset', 'park']] : [] })) };
+      case 'file_history': return { value: [D3, D2, B].map((r) => ({ revision: r, path: 'Source/UI/InventorySlot.cpp', size: 2140 })), commands: ['lore file history Source/UI/InventorySlot.cpp'] };
+      case 'file_patch': return { path: args.file, action: 'modify', binary: false, patch: '@@ -12,3 +12,4 @@\n bool UInventorySlot::HitTest(FVector2D Point) const\n {\n-  return Bounds.IsInside(Point);\n+  // The drag preview is offset; test against the slot itself.\n+  return SlotBounds.IsInside(Point - DragOffset);\n' };
+      case 'file_audit': return { value: { lines: ['#include "InventorySlot.h"', '', 'UInventorySlot::UInventorySlot()', '{', '  SetVisibility(ESlateVisibility::Visible);', '}', '', 'bool UInventorySlot::HitTest(FVector2D Point) const', '{', '  // The drag preview is offset; test against the slot itself.', '  return SlotBounds.IsInside(Point - DragOffset);', '}', '', 'void UInventorySlot::Refresh()', '{', '  Icon->SetBrushFromTexture(Item ? Item->Icon : nullptr);', '  Count->SetText(FText::AsNumber(Item ? Item->Count : 0));', '}'],
+        ranges: [{ revision: B.id, first: 1, last: 7, outcome: 'attributed' }, { revision: D3.id, first: 8, last: 12, outcome: 'attributed' }, { revision: B.id, first: 13, last: 15, outcome: 'attributed' }, { revision: D2.id, first: 16, last: 16, outcome: 'attributed' }, { revision: '', first: 17, last: 17, outcome: 'uncommitted' }, { revision: B.id, first: 18, last: 18, outcome: 'attributed' }] }, commands: ['lore file audit Source/UI/InventorySlot.cpp'] };
       case 'list_assets': return listings[args.folder] ?? { folder: args.folder, folders: [], assets: [] };
       case 'asset_previews': return args.files.map((f) => { const n = f.split('/').pop().replace(/\.\w+$/, ''); const p = previews[n] || ['']; return { path: f, class: p[0], image: p[1] ? thumb(p[1]) : null, width: p[1] ? 256 : 0, height: p[1] ? 256 : 0 }; });
     }
@@ -111,6 +115,10 @@ const tabs = () => document.querySelectorAll('[role="tab"]');
 const ready = () => setTimeout(() => (document.title = 'ready'), 600);
 window.addEventListener('load', () => {
   if (screen === 'changes') when(() => tabs()[1], (t) => { t.click(); ready(); });
+  else if (screen === 'audit') when(() => tabs()[1], (t) => { t.click(); when(() => document.querySelector('.file-row'), (row) => {
+    row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 400, clientY: 200 }));
+    when(() => [...document.querySelectorAll('button')].find((b) => /파일 기록|File history/.test(b.textContent) && !b.closest('dialog')), (item) => { item.click();
+      when(() => [...document.querySelectorAll('dialog[open] [role="tab"]')][1], (tab) => { tab.click(); ready(); }); }); }); });
   else if (screen === 'locks') when(() => tabs()[2], (t) => { t.click(); ready(); });
   else if (screen === 'restack') when(() => document.querySelector('.rev-meta.diverged button.link'), (b) => { b.click(); ready(); });
   else if (screen === 'fold') when(() => document.querySelector('.draft-actions button'), (b) => { b.click(); ready(); });

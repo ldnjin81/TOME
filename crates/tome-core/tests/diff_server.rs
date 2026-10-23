@@ -88,6 +88,19 @@ fn revision_and_working_diffs() {
     assert_eq!(notes[0].path, "notes.txt");
     assert_eq!(repo.file_history("new.txt", 10).unwrap().len(), 1);
 
+    // Line attribution: lines 1 and 3 from v1, 2 and 4 from v2, and an edit on disk is uncommitted.
+    let audit = repo.file_audit("notes.txt").expect("file audit");
+    assert_eq!(audit.lines, ["one", "TWO", "three", "four"]);
+    let by_line = |line: u32| audit.ranges.iter().find(|r| r.first <= line && line <= r.last).map(|r| (r.outcome.clone(), r.revision.clone())).unwrap();
+    assert_eq!(by_line(1), ("attributed".to_string(), v1.id.clone()), "{:?}", audit.ranges);
+    assert_eq!(by_line(2), ("attributed".to_string(), v2.id.clone()), "{:?}", audit.ranges);
+    assert_eq!(by_line(3).1, v1.id);
+    assert_eq!(by_line(4).1, v2.id);
+    std::fs::write(dir.join("notes.txt"), b"one\nTWO\nthree\nfour\nfive\n").unwrap();
+    let edited = repo.file_audit("notes.txt").expect("file audit with an edit");
+    assert_eq!(edited.ranges.iter().find(|r| r.first <= 5 && 5 <= r.last).unwrap().outcome, "uncommitted", "{:?}", edited.ranges);
+    std::fs::write(dir.join("notes.txt"), b"one\nTWO\nthree\nfour\n").unwrap();
+
     // Working files against the current revision (uncommitted edit).
     std::fs::write(dir.join("notes.txt"), "one\nTWO\nthree\nfour\nfive\n").unwrap();
     let current = model::status(&ok(repo.status(), "status")).unwrap().revision;

@@ -147,6 +147,25 @@ pub struct FileRevision {
     pub size: u64,
 }
 
+/// Lines of a file attributed to the revision that last changed them (`lore file audit`).
+#[derive(Debug, Clone, Serialize)]
+pub struct AuditRange {
+    /// Revision hash; empty unless `outcome` is `attributed`.
+    pub revision: String,
+    /// First and last line, 1-based and inclusive.
+    pub first: u32,
+    pub last: u32,
+    /// `attributed`, `uncommitted`, `budget-exhausted`, `binary-in-history`, ... (Lore's names).
+    pub outcome: String,
+}
+
+/// A file's text with the attribution of its lines.
+#[derive(Debug, Clone, Serialize)]
+pub struct FileAudit {
+    pub lines: Vec<String>,
+    pub ranges: Vec<AuditRange>,
+}
+
 /// A file that differs between two revisions.
 #[derive(Debug, Clone, Serialize)]
 pub struct DiffFile {

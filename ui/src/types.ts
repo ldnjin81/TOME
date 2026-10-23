@@ -201,6 +201,19 @@ export interface LoreNotification {
 }
 
 /** One revision of a file's history. */
+/** Lines attributed to the revision that last changed them (`lore file audit`). */
+export interface AuditRange {
+  revision: string;
+  first: number;
+  last: number;
+  outcome: string;
+}
+
+export interface FileAudit {
+  lines: string[];
+  ranges: AuditRange[];
+}
+
 export interface FileRevision {
   revision: Revision;
   path: string;

@@ -364,6 +364,18 @@ button.lrow:hover { background: var(--accent-soft); }
 .fh-msg { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fh-meta { font-size: 11.5px; font-variant-numeric: tabular-nums; }
 .fh-list { width: 100%; }
+.fh-tabs { margin: 0 0 8px; }
+.audit { flex: 1; margin: 0; overflow: auto; border-radius: 6px; background: var(--ground); font-family: "JetBrains Mono", "Menlo", "Consolas", monospace; font-size: 12.5px; line-height: 1.45; }
+.audit table { border-collapse: collapse; width: 100%; }
+.audit td { padding: 0 8px; vertical-align: top; white-space: pre; }
+.audit tr.start td { border-top: 1px solid var(--line); }
+.audit tr.odd { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.audit tr.current { background: color-mix(in srgb, var(--accent) 14%, transparent); }
+.audit .who { width: 1%; padding: 0; font-family: system-ui, sans-serif; font-size: 11.5px; }
+.audit .who button { display: block; width: 100%; max-width: 220px; padding: 0 8px; border: 0; background: none; color: var(--muted); text-align: left; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: inherit; }
+.audit .who button:hover { color: var(--accent); }
+.audit .no { width: 1%; color: var(--muted); text-align: right; user-select: none; }
+.audit .pending { color: var(--warn, #c77700); }
 
 /* Long operations */
 .job-panel { padding: 8px 16px 10px; border-top: 1px solid var(--line); background: var(--surface); }

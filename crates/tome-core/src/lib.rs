@@ -623,6 +623,36 @@ impl Repository {
             .collect())
     }
 
+    /// Which revision last changed each line of `file` as it is on disk: ranges of
+    /// consecutive lines sharing an attribution, in line order, with the file's text.
+    /// Lines edited since the current revision come back as `uncommitted`.
+    pub fn file_audit(&self, file: &str) -> Result<model::FileAudit, String> {
+        let args = lore::file::LoreFileAuditArgs {
+            path: LoreString::from_bytes(file.as_bytes()),
+            revision: LoreString::default(),
+            max_revisions: 0,
+            no_ignore_space_at_eol: 0,
+            ignore_space_change: 0,
+        };
+        let result = call(interface::lore_file_audit_async, &self.globals(), &args);
+        if !result.ok() {
+            return Err(result.error);
+        }
+        let mut ranges: Vec<model::AuditRange> = result
+            .data("fileAudit")
+            .map(|range| model::AuditRange {
+                revision: range["revision"].as_str().unwrap_or("").to_string(),
+                first: range["lineFirst"].as_u64().unwrap_or(0) as u32,
+                last: range["lineLast"].as_u64().unwrap_or(0) as u32,
+                outcome: range["outcome"].as_str().unwrap_or("").to_string(),
+            })
+            .collect();
+        ranges.sort_by_key(|r| r.first);
+        let bytes = std::fs::read(std::path::Path::new(&self.path).join(file)).map_err(|e| e.to_string())?;
+        let lines = String::from_utf8_lossy(&bytes).lines().map(str::to_string).collect();
+        Ok(model::FileAudit { lines, ranges })
+    }
+
     /// Up to `length` revisions from `revision` back along its first parents, stopping where
     /// the chain reaches another branch (the side of a merge whose branch may be deleted).
     pub fn history_from(&self, revision: &str, length: u32) -> CallResult {
