@@ -553,6 +553,12 @@ async fn graph(path: String, offline: bool) -> Result<Done<tome_core::Graph>, St
     .await
 }
 
+/// 모든 브랜치의 트리와 가로 시간축을 계산한다.
+#[tauri::command]
+async fn branch_explorer(path: String, offline: bool, archived: bool, timezone_offset_minutes: i32) -> Result<tome_core::branch_explorer::Layout, String> {
+    blocking(move || repository(&path, offline).branch_explorer_in_timezone(archived, timezone_offset_minutes)).await
+}
+
 /// A revision's changed files (folders left out) with their diffs: against its first parent,
 /// or none for a first revision (Lore has no empty side to diff from there).
 #[derive(Serialize)]
@@ -939,6 +945,7 @@ pub fn run() {
             apply_view,
             list_repositories,
             graph,
+            branch_explorer,
             start_job,
             cancel_job,
             watch_repository,

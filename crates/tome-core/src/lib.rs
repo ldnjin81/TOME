@@ -11,6 +11,7 @@ use std::sync::mpsc;
 pub mod assets;
 pub mod auth;
 pub mod graph;
+pub mod branch_explorer;
 pub mod model;
 pub mod notify;
 pub mod ops;

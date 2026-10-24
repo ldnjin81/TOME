@@ -76,6 +76,19 @@ impl Work {
             let value = serde_json::json!({ "graph": self.repo.graph(100).unwrap(), "status": status, "branches": model::branches(&self.repo.branches()) });
             std::fs::write(std::path::Path::new(&dump).join(format!("{name}.json")), value.to_string()).unwrap();
         }
+        // 같은 실제 분기·병합 시나리오를 가로 탐색기에서도 검증한다.
+        let explorer = self.repo.branch_explorer(false).unwrap();
+        assert!(explorer.incomplete.is_empty(), "{:?}", explorer.incomplete);
+        let graph = self.repo.graph(100).unwrap();
+        let graph_ids: std::collections::HashSet<_> = graph.rows.iter().map(|r| &r.revision.id).collect();
+        let explorer_ids: std::collections::HashSet<_> = explorer.nodes.iter().map(|n| &n.revision.id).collect();
+        assert_eq!(graph_ids, explorer_ids);
+        assert_eq!(explorer.lanes[0].branch.name, "main");
+        for edge in &explorer.edges {
+            let from = &explorer.nodes[edge.from];
+            let to = &explorer.nodes[edge.to];
+            assert!(to.revision.parents.contains(&from.revision.id));
+        }
         let got = self.drawing();
         let expected = expected.trim_matches('\n').lines().map(str::trim_end).collect::<Vec<_>>().join("\n");
         assert_eq!(got, expected, "\n--- got ---\n{got}\n--- expected ---\n{expected}\n");
