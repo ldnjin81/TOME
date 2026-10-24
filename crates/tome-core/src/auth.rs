@@ -81,7 +81,12 @@ fn endpoint(url: &str, fresh: bool) -> Result<String, String> {
                 lore_transport::auth::AuthMode::Auto,
                 &environment,
             )
-            .map(|selected| selected.map(|s| s.endpoint.url).unwrap_or_default())
+            // 토큰 저장소는 끝 '/'를 뗀 주소로 기록한다(Rauthy issuer는 '/'로 끝남). 비교·로그아웃도 같은 형태로 맞춘다.
+            .map(|selected| {
+                selected
+                    .map(|s| normalize_endpoint(&s.endpoint.url))
+                    .unwrap_or_default()
+            })
             .map_err(|e| e.to_string())
         },
     ));
@@ -93,6 +98,10 @@ fn endpoint(url: &str, fresh: bool) -> Result<String, String> {
             .insert(url.to_string(), value.clone());
     }
     result
+}
+
+fn normalize_endpoint(url: &str) -> String {
+    url.trim_end_matches('/').to_string()
 }
 
 fn identities() -> CallResult {
@@ -107,7 +116,10 @@ fn identities() -> CallResult {
 fn select(list: &CallResult, endpoint: &str, selected: &str, time: u64) -> Option<(String, u64)> {
     let mut entries: Vec<_> = list
         .data("authIdentity")
-        .filter(|e| e["authUrl"] == endpoint && e["resource"] == "")
+        .filter(|e| {
+            e["authUrl"].as_str().map(normalize_endpoint) == Some(normalize_endpoint(endpoint))
+                && e["resource"] == ""
+        })
         .filter_map(|e| {
             Some((
                 e["userId"].as_str()?.to_string(),
@@ -324,6 +336,9 @@ mod tests {
             Some(("expired".into(), 1))
         );
         assert_eq!(select(&list, "missing", "", 10), None);
+        // 서버 환경은 issuer 끝 '/'를 그대로 주고, 토큰 저장소는 떼어 기록한다.
+        assert_eq!(select(&list, "issuer/", "", 10), Some(("current".into(), 0)));
+        assert_eq!(normalize_endpoint("oidc+http://h/auth/v1/"), "oidc+http://h/auth/v1");
         assert_eq!(
             select(&list, "issuer", "current", 0),
             Some(("current".into(), 0))
