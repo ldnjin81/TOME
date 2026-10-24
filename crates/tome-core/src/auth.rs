@@ -337,8 +337,14 @@ mod tests {
         );
         assert_eq!(select(&list, "missing", "", 10), None);
         // 서버 환경은 issuer 끝 '/'를 그대로 주고, 토큰 저장소는 떼어 기록한다.
-        assert_eq!(select(&list, "issuer/", "", 10), Some(("current".into(), 0)));
-        assert_eq!(normalize_endpoint("oidc+http://h/auth/v1/"), "oidc+http://h/auth/v1");
+        assert_eq!(
+            select(&list, "issuer/", "", 10),
+            Some(("current".into(), 0))
+        );
+        assert_eq!(
+            normalize_endpoint("oidc+http://h/auth/v1/"),
+            "oidc+http://h/auth/v1"
+        );
         assert_eq!(
             select(&list, "issuer", "current", 0),
             Some(("current".into(), 0))
