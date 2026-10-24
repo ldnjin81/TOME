@@ -8,7 +8,7 @@
 
 TOME은 Epic Games의 버전 관리 시스템 [Lore](https://github.com/EpicGames/lore)를 위한 커뮤니티 데스크톱 클라이언트입니다. Lore의 C API로 같은 프로세스 안에서 Lore를 직접 부르므로, 명령줄 출력을 해석하지 않습니다.
 
-> **상태:** 초기(0.3). Lore 0.11 서버와 일상적으로 쓸 수 있으며, 주 플랫폼은 Windows입니다.
+> **상태:** 초기(0.4). Lore 0.11 서버와 일상적으로 쓸 수 있으며, 주 플랫폼은 Windows입니다.
 
 ## 하는 일
 

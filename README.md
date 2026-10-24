@@ -8,7 +8,7 @@
 
 TOME is a community desktop client for [Lore](https://github.com/EpicGames/lore), the version control system by Epic Games. It talks to Lore in-process through Lore's C API, so it never parses command-line output.
 
-> **Status:** early (0.3). Works day to day against a Lore 0.11 server; Windows is the main platform.
+> **Status:** early (0.4). Works day to day against a Lore 0.11 server; Windows is the main platform.
 
 ## What it does
 
