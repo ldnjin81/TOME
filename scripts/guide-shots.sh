@@ -6,7 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CHROME="${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}"
 PORT=5199
-SCREENS=("$@"); [ ${#SCREENS[@]} -gt 0 ] || SCREENS=(stack changes locks restack conflict fold artist setup)
+SCREENS=("$@"); [ ${#SCREENS[@]} -gt 0 ] || SCREENS=(stack changes locks restack conflict fold artist setup update)
 cd "$ROOT/ui"
 npx vite --port $PORT --strictPort >/dev/null 2>&1 &
 VITE=$!

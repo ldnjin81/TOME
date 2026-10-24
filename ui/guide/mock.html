@@ -6,7 +6,7 @@
 <!--
   Screenshots for docs/guide: the app with made-up example data (no real projects, people or
   paths) and a fake Tauri backend. scripts/guide-shots.sh opens it once per screen and
-  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit|login|branches
+  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit|login|branches|update
 -->
 <script>
 const q = new URLSearchParams(location.search);
@@ -83,6 +83,8 @@ window.__TAURI_INTERNALS__ = {
   invoke: async (cmd, args) => {
     switch (cmd) {
       case 'plugin:event|listen': return 1;
+      case 'plugin:app|version': return '0.3.0';
+      case 'update_check': return { available: screen === 'update', current: '0.3.0', version: '0.4.0', notes: msg('브랜치 탐색과 안정성 개선', 'Branch navigation and stability improvements'), date: '2026-10-24T00:00:00Z', installable: true, check_failed: false };
       case 'load_settings': return { setup_done: !['setup', 'login'].includes(screen), server: ['setup', 'login'].includes(screen) ? 'lore://lore.example.com:41337' : '', recent: ['C:\\Project\\MyGame'], offline: true, identity: 'kim', tools: [], trusted_tools: {}, mode: screen === 'artist' ? 'artist' : 'programmer', collapsed_branch_groups: [], language: lang };
       case 'save_settings': case 'watch_repository': return null;
       case 'default_identity': return 'kim';
@@ -139,7 +141,8 @@ function when(test, then, tries = 80) { const v = test(); if (v) then(v); else i
 const tabs = () => document.querySelectorAll('[role="tab"]');
 const ready = () => setTimeout(() => (document.title = 'ready'), 600);
 window.addEventListener('load', () => {
-  if (screen === 'branches') when(() => tabs()[1], (t) => { t.click(); when(() => document.querySelector('.explorer-node'), ready); });
+  if (screen === 'update') when(() => document.querySelector('.update-banner'), ready);
+  else if (screen === 'branches') when(() => tabs()[1], (t) => { t.click(); when(() => document.querySelector('.explorer-node'), ready); });
   else if (screen === 'changes') when(() => tabs()[2], (t) => { t.click(); ready(); });
   else if (screen === 'audit') when(() => tabs()[2], (t) => { t.click(); when(() => document.querySelector('.file-row'), (row) => {
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 400, clientY: 200 }));

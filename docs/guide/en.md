@@ -160,3 +160,11 @@ TOME explains common Lore errors and what to do about them, keeping the original
 In programmer mode, open **Branches** to see a tree grouped by each branch's creation parent alongside a horizontal timeline. Search names, collapse subtrees, or show archived branches to narrow the view. Dates use your local time zone; dates without revisions are folded into a single column.
 
 Click a node to open the existing revision details on the right. Dashed circles mark unpushed revisions; circles with an inner dot mark merges. Click a branch name to move to its lane. Use the zoom and fit buttons or ⌘/Ctrl+wheel to zoom, and drag empty space or scroll to pan. Focus the timeline and press Enter to enter the nodes, then use ←→ within a lane and ↑↓ between lanes. If some history could not be read, expand the warning, check your connection, and refresh.
+
+## TOME updates
+
+TOME checks once shortly after startup. The glass notification offers **Update**, **Release notes**, **Later**, and **Skip this version**. The installed Windows app verifies the signature, installs, and restarts. If a job is running, it asks before installation. Portable, Mac, and development builds open the releases page.
+
+Open the gear → **TOME updates** to see the current version, toggle **Check for updates at startup**, or **Check now**. A manual check also shows skipped versions. Startup checks remain quiet when offline or before the first signed release exists.
+
+![Update notification](images/en/update.png)
