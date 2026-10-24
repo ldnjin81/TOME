@@ -5166,6 +5166,7 @@ dependencies = [
  "encoding_rs",
  "lore",
  "lore-revision",
+ "lore-transport",
  "serde",
  "serde_json",
 ]
