@@ -24,6 +24,7 @@ function joinPath(parent: string, name: string) {
 interface Props {
   settings: Settings;
   firstRun: boolean;
+  onUpdates: () => void;
   /** Called with the new settings and the working copy to open (null: keep the current one). */
   onDone: (settings: Settings, open: string | null) => void;
   /** Clone `url` into `target` (a job with progress), then open it. */
@@ -32,7 +33,7 @@ interface Props {
 }
 
 /** First-run setup (and ⚙ later): the Lore server, then a working copy to open or to clone. */
-export default function SetupDialog({ settings, firstRun, onDone, onClone, onCancel }: Props) {
+export default function SetupDialog({ settings, firstRun, onUpdates, onDone, onClone, onCancel }: Props) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [server, setServer] = useState(settings.server);
   const [offline, setOffline] = useState(settings.offline);
@@ -113,6 +114,8 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
           <option value="en">English</option>
         </select>
       </label>
+
+      <button className="ghost" onClick={() => { setLanguage(settings.language ?? ''); onUpdates(); }}>{t("TOME 업데이트")}</button>
 
       <section className="setup-step">
         <h3>

@@ -544,3 +544,14 @@ button.lrow[draggable="true"] { cursor: grab; }
 .explorer-error { color: var(--conflict); }
 .explorer-warning { color: var(--ahead); font-size: 12px; }
 .explorer-empty { position: absolute; top: 60px; left: 16px; color: var(--muted); }
+
+/* 유리 표면 위의 업데이트 알림: 작업 영역을 가리지 않게 우측 하단에 배치한다. */
+.update-toast { position: fixed; right: 20px; bottom: 52px; width: min(470px, calc(100vw - 40px)); z-index: 35; }
+.update-banner { padding: 18px; border: 1px solid rgb(255 255 255 / .25); border-radius: 18px; background: color-mix(in srgb, var(--surface) 82%, transparent); backdrop-filter: blur(24px) saturate(150%); box-shadow: 0 14px 48px rgb(0 0 0 / .3), inset 0 1px 0 rgb(255 255 255 / .15); color: var(--ink); }
+.update-banner strong { display: block; font-size: 15px; }
+.update-banner p { line-height: 1.5; }
+.update-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.update-notes { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 180px; overflow: auto; font: inherit; line-height: 1.5; }
+.update-dialog { max-height: 85vh; overflow: auto; }
+.update-dialog .update-banner { margin-top: 16px; }
+.update-banner progress { display: block; width: 100%; margin: 8px 0; }

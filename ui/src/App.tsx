@@ -5,6 +5,7 @@ import { listen } from '@tauri-apps/api/event';
 import type { Asset, AssetPreview, Keep, PendingRestack, RestackOutcome, RestackPlan, StackInfo, JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
+import Updater from './Updater';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
 import BranchExplorer from './BranchExplorer';
@@ -43,6 +44,7 @@ export default function App() {
   useLanguage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [setup, setSetup] = useState(false);
+  const [updateSettings, setUpdateSettings] = useState(false);
   const [login, setLogin] = useState(false);
   const [path, setPath] = useState('');
   const [offline, setOffline] = useState(true);
@@ -926,6 +928,7 @@ export default function App() {
         <SetupDialog
           settings={settings}
           firstRun={!settings.setup_done}
+          onUpdates={() => { setSetup(false); setUpdateSettings(true); }}
           onDone={(next, target) => {
             setSetup(false);
             setOffline(next.offline);
@@ -1024,6 +1027,7 @@ export default function App() {
         />
       )}
 
+      {settings && <Updater settings={settings} saveSettings={saveSettings} runningJob={!!job} settingsOpen={updateSettings} onCloseSettings={() => setUpdateSettings(false)} />}
       <Toasts toasts={toasts} onDone={(id) => setToasts((list) => list.filter((t) => t.id !== id))} />
 
       {job && <JobPanel label={job.label} progress={job.progress} cancelling={job.cancelling} onCancel={cancelJob} />}

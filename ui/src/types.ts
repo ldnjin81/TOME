@@ -80,6 +80,8 @@ export interface RemoteRepository {
 
 /** Kept between runs in the app config folder (settings.json). */
 export interface Settings {
+  update_check_disabled?: boolean;
+  update_skipped_version?: string;
   language: '' | 'ko' | 'en';
   setup_done: boolean;
   server: string;
