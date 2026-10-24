@@ -7,6 +7,8 @@ import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, t
 import Changes from './Changes';
 import LockBoard from './LockBoard';
 import SetupDialog, { browseFolder } from './SetupDialog';
+import BranchExplorer from './BranchExplorer';
+import type { ExplorerLayout } from './branchExplorerLogic';
 import Smartlog, { branchColor, isDraft, type RestackRequest } from './Smartlog';
 import { FoldDialog, RestackDialog, RestackPanel } from './Restack';
 import type { FoldRequest } from './stackLogic';
@@ -21,7 +23,7 @@ import { ACTION_MARK, DiffDialog, countLines } from './DiffView';
 import Assets, { AssetDetails, assetMarks } from './Assets';
 import { orderBranches } from './branchLogic';
 
-type Tab = 'history' | 'assets' | 'changes' | 'locks';
+type Tab = 'branches' | 'history' | 'assets' | 'changes' | 'locks';
 
 /** Before settings.json, the last working copy was kept here. */
 const LEGACY_KEY = 'tome.lastRepository';
@@ -54,6 +56,7 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('history');
   const [logMode, setLogMode] = useState<'stack' | 'all'>('stack');
   const [locks, setLocks] = useState<Lock[]>([]);
+  const [explorer, setExplorer] = useState<ExplorerLayout | null>(null);
   const [graph, setGraph] = useState<Graph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [toolSet, setToolSet] = useState<ToolSet | null>(null);
@@ -117,6 +120,7 @@ export default function App() {
       const result = await invoke<Overview>('open_repository', { path: where, offline: readOffline });
       setOverview(result);
       setGraph(null);
+      setExplorer(null);
       void loadTools(where);
       void refreshLocksQuietly(result.status.branch_name, where);
       setWatch(null);
@@ -437,8 +441,8 @@ export default function App() {
   }
 
   const revision = useMemo(
-    () => history.find((r) => r.id === selected) ?? graph?.rows.find((row) => row.revision.id === selected)?.revision ?? null,
-    [history, graph, selected],
+    () => history.find((r) => r.id === selected) ?? graph?.rows.find((row) => row.revision.id === selected)?.revision ?? explorer?.nodes.find((n) => n.revision.id === selected)?.revision ?? null,
+    [history, graph, explorer, selected],
   );
   const status = overview?.status;
   // Lore lists a branch once per location (local and remote): show each id once.
@@ -709,6 +713,7 @@ export default function App() {
             {(
               [
                 artist ? ['assets', t("에셋")] : ['history', 'Smartlog'],
+                ...(!artist ? [['branches', t("브랜치")]] : []),
                 ['changes', t("변경")],
                 ['locks', t("잠금")],
               ] as [Tab, string][]
@@ -764,6 +769,7 @@ export default function App() {
               onFold={setFoldReq}
             />
           )}
+          {tab === 'branches' && status && !artist && <BranchExplorer path={path.trim()} offline={offline} status={status} stack={stackInfo} selected={selected} busy={busy} onSelect={setSelected} onData={setExplorer} onNewBranch={() => setNewBranch(true)} />}
           {tab === 'assets' && status && (
             <Assets
               path={path.trim()}

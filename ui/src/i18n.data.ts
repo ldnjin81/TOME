@@ -1,4 +1,22 @@
 export const dictionary = {
+  "오프라인에 저장된 브랜치가 없습니다. 연결 후 새로고침하세요.": {"ko":"오프라인에 저장된 브랜치가 없습니다. 연결 후 새로고침하세요.","en":"No branches are stored offline. Connect and refresh."},
+  "새로고침": { "ko": "새로고침", "en": "Refresh" },
+  "미푸시": {"ko": "미푸시", "en": "Unpushed"},
+  "화면 맞춤": {"ko": "화면 맞춤", "en": "Fit to screen"},
+  "확대": {"ko": "확대", "en": "Zoom in"},
+  "축소": {"ko": "축소", "en": "Zoom out"},
+  "일치하는 브랜치가 없습니다": {"ko": "일치하는 브랜치가 없습니다", "en": "No matching branches"},
+  "브랜치 타임라인": {"ko": "브랜치 타임라인", "en": "Branch timeline"},
+  "보관": {"ko": "보관", "en": "Archived"},
+  "기본": {"ko": "기본", "en": "Default"},
+  "접기/펼치기": {"ko": "접기/펼치기", "en": "Collapse/expand"},
+  "브랜치 트리": {"ko": "브랜치 트리", "en": "Branch tree"},
+  "일부 브랜치의 기록을 다 읽지 못했습니다 ({count})": {"ko": "일부 브랜치의 기록을 다 읽지 못했습니다 ({count})", "en": "Could not read the full history of some branches ({count})"},
+  "브랜치 불러오는 중…": {"ko": "브랜치 불러오는 중…", "en": "Loading branches…"},
+  "날짜: 로컬 시간 · ⌘/Ctrl+휠 확대 · 빈 곳을 끌어 이동": {"ko": "날짜: 로컬 시간 · ⌘/Ctrl+휠 확대 · 빈 곳을 끌어 이동", "en": "Dates: local time · ⌘/Ctrl+wheel to zoom · Drag empty space to pan"},
+  "보관 브랜치 표시": {"ko": "보관 브랜치 표시", "en": "Show archived branches"},
+  "브랜치 검색": {"ko": "브랜치 검색", "en": "Search branches"},
+  "브랜치 탐색기": {"ko": "브랜치 탐색기", "en": "Branch Explorer"},
   "서버 로그인": {
     "ko": "서버 로그인",
     "en": "Server login"

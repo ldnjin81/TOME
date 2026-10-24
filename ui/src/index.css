@@ -502,3 +502,45 @@ button.lrow[draggable="true"] { cursor: grab; }
 .auth-panel p { margin-block: 6px; }
 .auth-pending { border-left: 2px solid var(--accent, #ad8e65); padding-left: 10px; margin-top: 10px; }
 .auth-url { overflow-wrap: anywhere; user-select: text; }
+
+/* 브랜치 탐색기: 기존 표면·강조 색 토큰을 공유하는 반투명 패널. */
+.smartlog { min-width: 0; }
+.branch-explorer { display: flex; flex-direction: column; height: calc(100% - 46px); min-height: 260px; gap: 10px; }
+.explorer-toolbar, .explorer-filters { display: flex; align-items: center; flex-wrap: wrap; gap: 7px; }
+.explorer-toolbar { padding: 10px; border: 1px solid var(--line); border-radius: 14px; background: color-mix(in srgb, var(--surface) 78%, transparent); backdrop-filter: blur(20px); box-shadow: inset 0 1px 0 color-mix(in srgb, var(--ink) 6%, transparent); }
+.explorer-toolbar button { cursor: pointer; padding: 5px 9px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
+.explorer-toolbar button:disabled { opacity: .5; }
+.explorer-toolbar output { min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; }
+.explorer-spacer { flex: 1; }
+.explorer-filters input:not([type=checkbox]) { min-width: 120px; width: 180px; border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; background: var(--surface); color: var(--ink); }
+.explorer-body { flex: 1; display: grid; grid-template-columns: minmax(130px, 200px) minmax(0, 1fr); min-height: 0; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: color-mix(in srgb, var(--surface) 80%, var(--ground)); }
+.explorer-tree { overflow: hidden; border-right: 1px solid var(--line); position: relative; }
+.explorer-tree-head { position: relative; z-index: 1; background: var(--surface); height: 40px; padding: 10px; }
+.explorer-tree-row { display: flex; align-items: center; height: 58px; gap: 2px; border-bottom: 1px solid color-mix(in srgb, var(--line) 35%, transparent); }
+.explorer-tree-row.active { background: var(--accent-soft); }
+.explorer-fold { width: 18px; flex: none; padding: 0; border: 0; background: none; cursor: pointer; }
+.explorer-branch { min-width: 0; flex: 1; display: flex; gap: 5px; align-items: center; padding: 4px 3px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 12px; }
+.explorer-branch .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.explorer-branch .badge { font-size: 10px; margin: 0; padding: 1px 4px; }
+.explorer-viewport { overflow: auto; position: relative; min-width: 0; overscroll-behavior: contain; touch-action: none; }
+.explorer-viewport svg { display: block; }
+.explorer-column { fill: transparent; }
+.explorer-gap { fill: color-mix(in srgb, var(--line) 16%, transparent); }
+.explorer-grid { stroke: var(--line); stroke-width: 1; }
+.explorer-lane { fill: transparent; }
+.explorer-lane.selected { fill: var(--accent-soft); }
+.explorer-lane-labels { position: sticky; left: 0; width: 0; height: 0; z-index: 1; pointer-events: none; }
+.explorer-lane-name { position: absolute; left: 12px; width: max-content; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; line-height: 14px; opacity: .85; }
+.explorer-node { cursor: pointer; outline: none; }
+.explorer-node:focus-visible > circle:first-of-type, .explorer-node.active > circle:first-of-type { stroke: var(--ink); stroke-width: 1.5; }
+.explorer-canvas { position: relative; }
+.explorer-canvas > svg { position: absolute; top: 0; left: 0; }
+.explorer-date-head { position: sticky; top: 0; z-index: 2; background: var(--surface); border-bottom: 1px solid var(--line); color: var(--muted); font-size: 11px; pointer-events: none; }
+.explorer-date-cell { position: absolute; top: 0; height: 100%; display: flex; align-items: center; overflow: clip; white-space: nowrap; border-left: 1px solid var(--line); }
+/* clip은 새 스크롤 컨테이너를 만들지 않아 라벨이 실제 뷰포트에 붙는다. */
+.explorer-date-cell span { position: sticky; left: 0; flex-shrink: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 0 10px; }
+.explorer-tooltip { position: fixed; z-index: 50; max-width: 290px; padding: 12px 14px; border: 1px solid var(--line); border-radius: 12px; background: color-mix(in srgb, var(--surface) 90%, transparent); color: var(--ink); backdrop-filter: blur(20px); box-shadow: 0 8px 30px #0002; pointer-events: none; overflow-wrap: anywhere; }
+.explorer-tooltip div { margin-top: 5px; color: var(--muted); font-size: 12px; }
+.explorer-error { color: var(--conflict); }
+.explorer-warning { color: var(--ahead); font-size: 12px; }
+.explorer-empty { position: absolute; top: 60px; left: 16px; color: var(--muted); }
