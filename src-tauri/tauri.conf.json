@@ -64,5 +64,16 @@
         "displayLanguageSelector": true
       }
     }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDBFQUJDMzI5M0VGMzhFRjIKUldUeWp2TStLY09yRGp4ZkRVeEhvOXdCaXFhWnJMdXRTS1RqMkNtaXh1bmZuQjFtRlRqckdIUisK",
+      "endpoints": [
+        "https://github.com/ldnjin81/TOME/releases/latest/download/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
+    }
   }
 }

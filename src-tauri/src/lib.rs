@@ -1,5 +1,7 @@
 //! The TOME window. Commands run Lore calls on a blocking thread and return the UI models.
 
+mod updater;
+
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, Manager};
 use tome_core::model::{self, Branch, Lock, RemoteRepository, Revision, Status};
@@ -709,6 +711,9 @@ async fn asset_previews(app: tauri::AppHandle, path: String, files: Vec<String>)
 #[serde(default)]
 struct Settings {
     language: String,
+    /// 기본값 false로 이전 설정에서도 자동 확인을 켠다.
+    update_check_disabled: bool,
+    update_skipped_version: String,
     /// Set once the first-run setup is finished.
     setup_done: bool,
     /// `lore://host:port` of the team's Lore server.
@@ -932,8 +937,13 @@ pub fn run() {
         .manage(AuthFlow::default())
         .manage(Jobs::default())
         .manage(Previews::default())
+        .manage(updater::UpdateState::default())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_dialog::init())
         .invoke_handler(tauri::generate_handler![
+            updater::update_check,
+            updater::update_install,
+            updater::update_open_release,
             open_repository,
             branch_history,
             working_status,

@@ -22,6 +22,8 @@ $stage = Join-Path $env:TEMP 'tome-portable'
 Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $stage | Out-Null
 Copy-Item (Join-Path $release 'tome.exe'), LICENSE, THIRD-PARTY-NOTICES.md, README.md, README.ko.md $stage
+# 포터블 실행에서는 설치형 자동 업데이트를 사용하지 않는다.
+Set-Content -Path (Join-Path $stage 'portable.txt') -Value 'TOME portable' -Encoding ascii
 $out = Join-Path $release 'bundle\portable'
 New-Item -ItemType Directory -Force $out | Out-Null
 $zip = Join-Path $out "TOME_${version}_x64_portable.zip"
