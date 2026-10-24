@@ -438,7 +438,7 @@ async fn restack_preview(path: String, plan: restack::Plan, old_base: String, ol
         let repository = repository(&path, false);
         let branch = model::status(&repository.status()).map(|s| s.branch_name).unwrap_or_default();
         let locks: Vec<(String, String)> = model::locks(&repository.locks(&branch)).into_iter().map(|l| (l.path, l.owner)).collect();
-        restack::preview(&repository, &plan, &old_base, &old_order, &locks, &identity())
+        restack::preview(&repository, &plan, &old_base, &old_order, &locks, &tome_core::auth::identity_for_path(&path, &identity(), true))
     })
     .await
 }
@@ -741,10 +741,92 @@ fn default_identity() -> String {
     std::env::var("USERNAME").or_else(|_| std::env::var("USER")).unwrap_or_default()
 }
 
-/// Whether the server needs a login and who is logged in on this machine.
+// 로그인은 앱 프로세스에서 실행하여 Lore 토큰 캐시도 같이 갱신한다.
+#[derive(Default)]
+struct AuthFlow(std::sync::Mutex<Option<(String, bool)>>);
+
+impl AuthFlow {
+    fn begin(&self, id: &str) -> Result<(), String> {
+        let mut active = self.0.lock().unwrap();
+        if active.is_some() { return Err("Login already in progress".into()); }
+        *active = Some((id.into(), false));
+        Ok(())
+    }
+    fn running(&self) -> bool { self.0.lock().unwrap().is_some() }
+    fn allows(&self, id: &str) -> bool { self.0.lock().unwrap().as_ref().is_some_and(|(current, cancelled)| current == id && !cancelled) }
+    fn cancel(&self, id: &str) {
+        if let Some((current, cancelled)) = self.0.lock().unwrap().as_mut() {
+            if current == id { *cancelled = true; }
+        }
+    }
+    fn finish(&self, id: &str) -> bool {
+        let mut active = self.0.lock().unwrap();
+        if active.as_ref().is_some_and(|(current, _)| current == id) {
+            return active.take().unwrap().1;
+        }
+        true
+    }
+}
+
+
+#[derive(Serialize)]
+struct AuthStatus {
+    #[serde(flatten)]
+    state: tome_core::AuthState,
+    login_in_progress: bool,
+}
+
 #[tauri::command]
-async fn auth_state(path: String) -> Result<tome_core::AuthState, String> {
-    blocking(move || Ok(tome_core::auth_state(&path))).await
+async fn auth_state(app: tauri::AppHandle, path: String, remote_url: Option<String>) -> Result<AuthStatus, String> {
+    blocking(move || Ok(AuthStatus {
+        state: tome_core::auth::state(&path, remote_url.as_deref().unwrap_or("")),
+        login_in_progress: app.state::<AuthFlow>().running(),
+    })).await
+}
+
+#[tauri::command]
+async fn auth_login(app: tauri::AppHandle, path: String, remote_url: String, id: String, on_event: tauri::ipc::Channel<serde_json::Value>) -> Result<(), String> {
+    app.state::<AuthFlow>().begin(&id)?;
+    let request_id = id.clone();
+    let sender = app.clone();
+    let result = blocking(move || {
+        let result = tome_core::auth::login(&path, &remote_url, &mut |event| {
+            let flow = sender.state::<AuthFlow>();
+            if flow.allows(&id) {
+                let _ = on_event.send(event.clone());
+            }
+        });
+        checked(result).map(|_| ())
+    }).await;
+    if app.state::<AuthFlow>().finish(&request_id) { Err("Cancelled".into()) } else { result }
+}
+
+#[tauri::command]
+fn auth_cancel(app: tauri::AppHandle, id: String) {
+    app.state::<AuthFlow>().cancel(&id);
+}
+
+#[tauri::command]
+async fn auth_logout(app: tauri::AppHandle, path: String, remote_url: String) -> Result<(), String> {
+    app.state::<AuthFlow>().begin("logout")?;
+    let result = blocking(move || tome_core::auth::logout(&path, &remote_url)).await;
+    app.state::<AuthFlow>().finish("logout");
+    result
+}
+
+/// 로그인 이벤트로 받은 HTTP(S) URL만 시스템 브라우저로 연다. 셸은 사용하지 않는다.
+#[tauri::command]
+fn auth_open_url(url: String) -> Result<(), String> {
+    if !(url.starts_with("https://") || url.starts_with("http://")) || url.chars().any(char::is_control) {
+        return Err("Invalid login URL".into());
+    }
+    #[cfg(target_os = "macos")]
+    let mut command = { let mut c = std::process::Command::new("open"); c.arg(&url); c };
+    #[cfg(target_os = "windows")]
+    let mut command = { let mut c = std::process::Command::new("rundll32.exe"); c.arg("url.dll,FileProtocolHandler").arg(&url); c };
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    let mut command = { let mut c = std::process::Command::new("xdg-open"); c.arg(&url); c };
+    command.spawn().map(|_| ()).map_err(|e| e.to_string())
 }
 
 /// The tools for a working copy: mine, and the project's from `.tome/tools.json` with whether
@@ -841,6 +923,7 @@ fn save_settings(app: tauri::AppHandle, settings: Settings) -> Result<(), String
 pub fn run() {
     tauri::Builder::default()
         .manage(Watch::default())
+        .manage(AuthFlow::default())
         .manage(Jobs::default())
         .manage(Previews::default())
         .plugin(tauri_plugin_dialog::init())
@@ -873,6 +956,10 @@ pub fn run() {
             save_settings,
             default_identity,
             auth_state,
+            auth_login,
+            auth_cancel,
+            auth_logout,
+            auth_open_url,
             list_tools,
             trust_project_tools,
             save_project_tools,
@@ -905,6 +992,25 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn cancelled_login_blocks_overlap_and_rejects_late_events() {
+        let flow = super::AuthFlow::default();
+        flow.begin("first").unwrap();
+        assert!(flow.allows("first"));
+        flow.cancel("other");
+        assert!(flow.allows("first"));
+        flow.cancel("first");
+        assert!(!flow.allows("first"));
+        assert!(flow.begin("second").is_err());
+        assert!(flow.finish("first"));
+        flow.begin("second").unwrap();
+        assert!(!flow.allows("first"));
+        assert!(flow.finish("first"));
+        assert!(flow.running());
+        assert!(flow.allows("second"));
+        assert!(!flow.finish("second"));
+        assert!(!flow.running());
+    }
     #[test]
     fn data_urls_are_base64() {
         assert_eq!(super::data_url("image/png", b""), "data:image/png;base64,");

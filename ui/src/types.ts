@@ -98,9 +98,12 @@ export interface Settings {
 }
 
 export interface AuthState {
-  server_requires_login: boolean;
-  logged_in: string[];
+  server_requires_login: boolean | null;
+  status: 'disabled' | 'required' | 'authenticated' | 'expired' | 'error';
+  user: { id: string; name: string } | null;
+  expires: number;
   detail: string;
+  login_in_progress: boolean;
 }
 
 /** Custom tools (crates/tome-core/src/tools.rs). */

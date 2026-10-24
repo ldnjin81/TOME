@@ -20,6 +20,19 @@ On the first run the setup window opens.
 
 The gear button at the top right opens the settings again. They are stored in `%APPDATA%\dev.ldnjin.tome`.
 
+### Server login
+
+For a server that requires authentication, enter its address under **Settings → Lore Server** and press **Log in**. You can log in before getting a working copy. Use **Open login URL** to open your browser, then confirm the displayed code or use **Copy code** and approve the request. TOME shows the time remaining and the signed-in user's name and ID. Use **Check connection** after login to choose a repository.
+
+With a working copy open, the **Identity** area on the left also provides login and logout. On an authenticated server, TOME uses the **signed-in user ID** for commits and server operations, taking precedence over the author name in the settings. Servers without authentication keep using that author name.
+
+- **Cancel** stops waiting in TOME. The device request remains valid until it expires, so a request already approved in the browser may still complete. You can try again once the previous request ends.
+- **Login is required or has expired** provides a **Log in** button that opens login for the current server. An expiry of zero is shown as unknown; automatic token refresh is not supported. After login, refresh the read state and manually retry failed writes such as push.
+- **Permission denied** means the server has not granted access. Contact its administrator. Connection errors are displayed separately.
+- **Log out** removes locally stored credentials for the current user on this server. It does not end the provider's browser session or revoke tokens already issued by the server.
+
+TOME does not display token values or save them in its settings. Lore manages credentials in its encrypted store. If you change credentials from the command line while TOME is running, fully quit and reopen TOME.
+
 ## 2. The window
 
 - **Left**: **Branches** (`main` first, then the current branch; names with a prefix such as `auto/` are grouped and can be folded away), the **Working copy**, and your **Identity** with whether live notifications are on.

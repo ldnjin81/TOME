@@ -6,7 +6,7 @@
 <!--
   Screenshots for docs/guide: the app with made-up example data (no real projects, people or
   paths) and a fake Tauri backend. scripts/guide-shots.sh opens it once per screen and
-  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit
+  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit|login
 -->
 <script>
 const q = new URLSearchParams(location.search);
@@ -75,17 +75,27 @@ const listings = {
 };
 const plan = { onto: R2.id, picks: [D1, D2, D3].map((r) => ({ id: r.id, message: r.message })), original_head: D3.id };
 
+let authRunning = false;
+let authResolve;
 const callbacks = {}; let next = 1;
 window.__TAURI_INTERNALS__ = {
   transformCallback: (f) => { callbacks[next] = f; return next++; },
   invoke: async (cmd, args) => {
     switch (cmd) {
       case 'plugin:event|listen': return 1;
-      case 'load_settings': return { setup_done: screen !== 'setup', server: screen === 'setup' ? 'lore://lore.example.com:41337' : '', recent: ['C:\\Project\\MyGame'], offline: true, identity: 'kim', tools: [], trusted_tools: {}, mode: screen === 'artist' ? 'artist' : 'programmer', collapsed_branch_groups: [], language: lang };
+      case 'load_settings': return { setup_done: !['setup', 'login'].includes(screen), server: ['setup', 'login'].includes(screen) ? 'lore://lore.example.com:41337' : '', recent: ['C:\\Project\\MyGame'], offline: true, identity: 'kim', tools: [], trusted_tools: {}, mode: screen === 'artist' ? 'artist' : 'programmer', collapsed_branch_groups: [], language: lang };
       case 'save_settings': case 'watch_repository': return null;
       case 'default_identity': return 'kim';
       case 'list_tools': return { personal: [], project: [], project_error: '', project_trusted: false };
-      case 'auth_state': return { server_requires_login: false, logged_in: [], detail: '' };
+      case 'auth_state': return { server_requires_login: screen === 'login', status: screen === 'login' ? 'required' : 'disabled', user: null, expires: 0, detail: '', login_in_progress: authRunning };
+      case 'auth_login': {
+        authRunning = true;
+        args.onEvent.onmessage({ tagName: 'authUrl', data: { url: 'https://login.example.com/activate', userCode: 'TOME-2026' } });
+        args.onEvent.onmessage({ tagName: 'authPending', data: { elapsedSecs: 12, intervalSecs: 5, remainingSecs: 288 } });
+        return new Promise(resolve => { authResolve = resolve; });
+      }
+      case 'auth_cancel': authRunning = false; authResolve?.(); return null;
+      case 'auth_logout': case 'auth_open_url': return null;
       case 'list_repositories': return { value: [{ name: 'MyGame', id: 'r1' }, { name: 'MyGame-Art', id: 'r2' }, { name: 'Tools', id: 'r3' }], commands: [] };
       case 'open_repository': return { status, branches: [{ id: 'b1', name: 'main', latest: D3.id, current: true, archived: false, creator: '', created: 0 }, { id: 'b2', name: 'feature/inventory', latest: H(7), current: false, archived: false, creator: '', created: 0 }, { id: 'b3', name: 'auto/task-12', latest: H(8), current: false, archived: false, creator: '', created: 0 }], history: [D3, D2, D1, B], commands: ['lore status', 'lore branch list', 'lore history 200 --branch main'] };
       case 'working_status': return { value: status, commands: ['lore status --scan'] };
@@ -119,6 +129,7 @@ window.addEventListener('load', () => {
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 400, clientY: 200 }));
     when(() => [...document.querySelectorAll('button')].find((b) => /파일 기록|File history/.test(b.textContent) && !b.closest('dialog')), (item) => { item.click();
       when(() => [...document.querySelectorAll('dialog[open] [role="tab"]')][1], (tab) => { tab.click(); ready(); }); }); }); });
+  else if (screen === 'login') when(() => document.querySelector('.setup-dialog .auth-panel button:not(:disabled)'), b => { b.click(); when(() => document.querySelector('.auth-pending .mono'), ready); });
   else if (screen === 'locks') when(() => tabs()[2], (t) => { t.click(); ready(); });
   else if (screen === 'restack') when(() => document.querySelector('.rev-meta.diverged button.link'), (b) => { b.click(); ready(); });
   else if (screen === 'fold') when(() => document.querySelector('.draft-actions button'), (b) => { b.click(); ready(); });

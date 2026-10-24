@@ -4,6 +4,7 @@ import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
 import { open as pickFolder } from '@tauri-apps/plugin-dialog';
 import type { Done, RemoteRepository, Settings } from './types';
+import AuthPanel from './AuthPanel';
 import { PRESETS } from './ViewDialog';
 
 /** Lore's default port; the host is the team's server. */
@@ -124,6 +125,7 @@ export default function SetupDialog({ settings, firstRun, onDone, onClone, onCan
             {t("연결 확인")}
           </button>
         </div>
+        <AuthPanel remoteUrl={server.trim()} onChanged={() => { setRepositories(null); void connect(); }} />
         {repositories && <p className="ok-line">{t("연결됨 · 저장소 {p0}개", { p0: repositories.length })}</p>}
         <label className="field">
           <span>{t("내 이름(신원)")}</span>

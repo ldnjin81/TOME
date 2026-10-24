@@ -1,4 +1,74 @@
 export const dictionary = {
+  "서버 로그인": {
+    "ko": "서버 로그인",
+    "en": "Server login"
+  },
+  "로그인": {
+    "ko": "로그인",
+    "en": "Log in"
+  },
+  "로그아웃": {
+    "ko": "로그아웃",
+    "en": "Log out"
+  },
+  "로그인 성공: {name}": {
+    "ko": "로그인 성공: {name}",
+    "en": "Logged in as {name}"
+  },
+  "대기를 취소했습니다. 이미 승인한 로그인은 완료될 수 있습니다. 이전 요청이 끝나면 다시 시도할 수 있습니다.": {
+    "ko": "대기를 취소했습니다. 이미 승인한 로그인은 완료될 수 있습니다. 이전 요청이 끝나면 다시 시도할 수 있습니다.",
+    "en": "Stopped waiting. A login already approved may still complete. Try again when the previous request ends."
+  },
+  "만료: {time}": {
+    "ko": "만료: {time}",
+    "en": "Expires: {time}"
+  },
+  "만료 시간 알 수 없음": {
+    "ko": "만료 시간 알 수 없음",
+    "en": "Expiry time unknown"
+  },
+  "브라우저에서 로그인을 승인하세요.": {
+    "ko": "브라우저에서 로그인을 승인하세요.",
+    "en": "Approve the login in your browser."
+  },
+  "로그인 URL 열기": {
+    "ko": "로그인 URL 열기",
+    "en": "Open login URL"
+  },
+  "복사됨": {
+    "ko": "복사됨",
+    "en": "Copied"
+  },
+  "코드 복사": {
+    "ko": "코드 복사",
+    "en": "Copy code"
+  },
+  "승인 대기 · {seconds}초 남음": {
+    "ko": "승인 대기 · {seconds}초 남음",
+    "en": "Waiting for approval · {seconds}s left"
+  },
+  "이전 로그인 요청이 끝나기를 기다리는 중…": {
+    "ko": "이전 로그인 요청이 끝나기를 기다리는 중…",
+    "en": "Waiting for the previous login request to end…"
+  },
+  "승인 시간이 지났습니다. 다시 로그인하세요.": {
+    "ko": "승인 시간이 지났습니다. 다시 로그인하세요.",
+    "en": "Approval timed out. Log in again."
+  },
+  "로그인 요청이 거부되었습니다. 다시 시도하세요.": {
+    "ko": "로그인 요청이 거부되었습니다. 다시 시도하세요.",
+    "en": "The login request was denied. Try again."
+  },
+
+  "로그인이 필요하거나 만료되었습니다": {
+    "ko": "로그인이 필요하거나 만료되었습니다",
+    "en": "Login is required or has expired"
+  },
+  "권한 없음. 이 저장소에 접근할 권한이 없습니다. 서버 관리자에게 문의하세요.": {
+    "ko": "권한 없음. 이 저장소에 접근할 권한이 없습니다. 서버 관리자에게 문의하세요.",
+    "en": "Permission denied. You do not have access to this repository. Contact the server administrator."
+  },
+
   "오프라인 작업 준비": {
     "ko": "오프라인 작업 준비",
     "en": "Prepare for working offline"

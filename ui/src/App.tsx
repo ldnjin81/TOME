@@ -10,7 +10,8 @@ import SetupDialog, { browseFolder } from './SetupDialog';
 import Smartlog, { branchColor, isDraft, type RestackRequest } from './Smartlog';
 import { FoldDialog, RestackDialog, RestackPanel } from './Restack';
 import type { FoldRequest } from './stackLogic';
-import { explainError } from './errors';
+import { explainError, needsLogin } from './errors';
+import AuthPanel, { AuthDialog } from './AuthPanel';
 import ViewDialog from './ViewDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
@@ -40,6 +41,7 @@ export default function App() {
   useLanguage();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [setup, setSetup] = useState(false);
+  const [login, setLogin] = useState(false);
   const [path, setPath] = useState('');
   const [offline, setOffline] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
@@ -626,7 +628,9 @@ export default function App() {
         </button>
       </header>
 
-      {error && <div className="error" role="alert">{explainError(error)}</div>}
+      {error && <div className="error" role="alert">{explainError(error)}{' '}
+        {needsLogin(error) && <button className="link" onClick={() => setLogin(true)}>{t('로그인')}</button>}
+      </div>}
       {status?.merging && (
         <div className="merge-bar" role="status">
           {t("병합 중")} <span className="mono">{mergeLabel || `r${status.merging.slice(0, 8)}`}</span> {t("· 미해결 충돌 {p0}개 ·", { p0: status.files.filter((f) => f.unresolved).length })}{' '}
@@ -635,7 +639,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {settings?.setup_done && !settings.identity && (
+      {settings?.setup_done && !settings.identity && auth?.server_requires_login !== true && (
         <div className="warn-bar" role="status">
           {t("신원(내 이름)이 비어 있어 TOME으로 한 커밋의 작성자가 비게 됩니다.")}{' '}
           <button className="link" onClick={() => setSetup(true)}>
@@ -684,17 +688,10 @@ export default function App() {
             <section className="working identity">
               <h2>{t("신원")}</h2>
               <p>
-                {t("나:")} <strong>{settings.identity || t("(없음)")}</strong>
+                {t("나:")} <strong>{auth?.user?.id || settings.identity || t("(없음)")}</strong>
               </p>
-              {auth && (
-                <p className="muted small" title={auth.detail}>
-                  {auth.server_requires_login
-                    ? auth.logged_in.length
-                      ? t("로그인: {p0}", { p0: auth.logged_in.join(', ') })
-                      : t("이 서버는 로그인이 필요합니다")
-                    : t("인증 없는 서버 · 이름으로만 기록")}
-                </p>
-              )}
+              <AuthPanel path={path.trim()} remoteUrl={path.trim() ? '' : settings.server}
+                onState={setAuth} onChanged={() => { setError(''); if (path.trim()) void open(); }} />
               <button className="link" onClick={() => setSetup(true)}>
                 {t("바꾸기")}
               </button>
@@ -760,7 +757,7 @@ export default function App() {
               onSelect={setSelected}
               onCommit={() => showTab('changes')}
               onSync={syncJob}
-              me={settings?.identity ?? ''}
+              me={auth?.user?.id ?? settings?.identity ?? ''}
               onContext={(e, r) => openMenu(e, 'revision', `r${r.number} ${r.message.split('\n')[0]}`, selectionFor({ revision: r.id, revision_number: r.number }))}
               onRestack={setRestackReq}
               restacking={!!pendingRestack}
@@ -771,7 +768,7 @@ export default function App() {
             <Assets
               path={path.trim()}
               marks={marks}
-              me={settings?.identity ?? ''}
+              me={auth?.user?.id ?? settings?.identity ?? ''}
               selected={asset}
               previews={previews}
               onPreviews={(list) => setPreviews((p) => ({ ...p, ...Object.fromEntries(list.map((x) => [x.path, x])) }))}
@@ -801,7 +798,7 @@ export default function App() {
           {tab === 'locks' && status && (
             <LockBoard
               branch={status.branch_name}
-              me={settings?.identity ?? ''}
+              me={auth?.user?.id ?? settings?.identity ?? ''}
               locks={locks}
               busy={busy}
               onRefresh={() => void run<Lock[]>('lock_board', { branch: status.branch_name }, setLocks)}
@@ -818,7 +815,7 @@ export default function App() {
                 asset={asset}
                 preview={previews[asset.path]}
                 marks={marks}
-                me={settings?.identity ?? ''}
+                me={auth?.user?.id ?? settings?.identity ?? ''}
                 busy={busy}
                 online={watch?.on !== false}
                 onLock={(lock) => void run<Lock[]>('lock_files', { branch: status.branch_name, paths: [asset.path], lock }, setLocks)}
@@ -917,6 +914,8 @@ export default function App() {
         />
       )}
 
+      {login && <AuthDialog path={path.trim()} remoteUrl={path.trim() ? '' : settings?.server ?? ''}
+        onClose={() => setLogin(false)} onChanged={() => { setError(''); if (path.trim()) void open(); }} />}
       {setup && settings && (
         <SetupDialog
           settings={settings}
@@ -987,7 +986,7 @@ export default function App() {
       )}
 
       {historyOf && (
-        <FileHistory path={path.trim()} file={historyOf} offline={offline} me={settings?.identity ?? ''} onClose={() => setHistoryOf(null)} onCommands={setCommands} />
+        <FileHistory path={path.trim()} file={historyOf} offline={offline} me={auth?.user?.id ?? settings?.identity ?? ''} onClose={() => setHistoryOf(null)} onCommands={setCommands} />
       )}
 
       {diff && <DiffDialog {...diff} onClose={() => setDiff(null)} />}

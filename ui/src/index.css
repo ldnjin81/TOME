@@ -496,3 +496,9 @@ button.lrow[draggable="true"] { cursor: grab; }
 .draft-li:hover .draft-actions, .draft-li:focus-within .draft-actions { display: flex; }
 .fold-list { margin: 8px 0 12px; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
 .fold-msg { width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--ground); color: var(--ink); font: inherit; resize: vertical; }
+
+/* 인증은 기존 설정/신원 영역 안에서 표시한다. */
+.auth-panel { margin-block: 10px; }
+.auth-panel p { margin-block: 6px; }
+.auth-pending { border-left: 2px solid var(--accent, #ad8e65); padding-left: 10px; margin-top: 10px; }
+.auth-url { overflow-wrap: anywhere; user-select: text; }

@@ -1,12 +1,23 @@
 import { t } from './i18n';
+
+const LOGIN_ERROR = /\bNotAuthenticated\b|\bTokenNotFound\b|authorization header required|Not authenticated|No token stored/i;
+/** 로그인 버튼 표시에도 같은 판정을 사용한다. 권한 부족은 재로그인으로 처리하지 않는다. */
+export function needsLogin(raw: string): boolean {
+  return LOGIN_ERROR.test(raw);
+}
+
 /** Lore and TOME error text → what it means and what to do, in Korean. */
 const RULES: [RegExp, () => string][] = [
+  [/Login already in progress/i, () => t('이전 로그인 요청이 끝나기를 기다리는 중…')],
+  [/expired_token|Login session expired|device.*expired|authorization.*expired/i, () => t('승인 시간이 지났습니다. 다시 로그인하세요.')],
+  [/access_denied|authorization_declined/i, () => t('로그인 요청이 거부되었습니다. 다시 시도하세요.')],
+  [LOGIN_ERROR, () => t("로그인이 필요하거나 만료되었습니다")],
   [/Branch has diverged|Branch history is divergent/i, () => t("서버에 새 리비전이 있어 push할 수 없습니다. Smartlog의 내 스택에서 restack(위로 옮기기)하거나 병합해서 받은 뒤 다시 push하세요.")],
   [/advanced by another instance/i, () => t("다른 곳(다른 TOME 창이나 명령줄)에서 이 브랜치를 먼저 바꿨습니다. 동기화한 뒤 다시 스테이징하고 커밋하세요.")],
   [/Local modifications prevent synchronization/i, () => t("커밋하지 않은 변경이 있어 동기화하거나 브랜치를 바꿀 수 없습니다. 커밋하거나 변경을 되돌린 뒤 다시 하세요.")],
   [/resource locked by somebody else/i, () => t("다른 사람이 잠근 파일입니다. 잠금 탭에서 누가 잠갔는지 확인하고, 풀릴 때까지 기다리거나 그 사람에게 연락하세요.")],
   [/lock does not exist/i, () => t("이미 풀린 잠금입니다. 잠금 목록을 새로 고치세요.")],
-  [/Not authorized/i, () => t("이 저장소에 접근할 권한이 없습니다. 서버 로그인 상태와 설정의 신원을 확인하세요.")],
+  [/\bNotAuthorized\b|Not authorized/i, () => t("권한 없음. 이 저장소에 접근할 권한이 없습니다. 서버 관리자에게 문의하세요.")],
   [/Disconnected from server|Connection terminated|Reconnect to server failed|Not connected to remote|service unavailable|connection refused|ECONNREFUSED|timed out|No route to host|transport error|failed to connect/i, () => t("Lore 서버에 연결할 수 없습니다. 서버 주소와 네트워크를 확인하세요. 서버 없이 할 수 있는 작업은 \"오프라인\"을 켜고 계속할 수 있습니다.")],
   [/Repository not found/i, () => t("서버에 그 저장소가 없습니다. 주소 끝의 저장소 이름을 확인하세요.")],
   [/Repository already exist/i, () => t("그 폴더에는 이미 Lore 작업본이 있습니다. 다른 빈 폴더를 고르거나, 그 작업본을 여세요.")],

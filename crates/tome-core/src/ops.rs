@@ -103,7 +103,7 @@ pub fn run(job: &Job, on_progress: &mut dyn FnMut(&Progress)) -> CallResult {
             std::fs::create_dir_all(path).ok();
             let globals = lore::interface::LoreGlobalArgs {
                 repository_path: LoreString::from_bytes(path.as_bytes()),
-                identity: LoreString::from_bytes(job.identity.as_bytes()),
+                identity: LoreString::from_bytes(crate::auth::identity_for_remote(url, &job.identity, true).as_bytes()),
                 // A clone takes the offline flag as "prepare for working offline" (it still connects).
                 offline: u8::from(*offline_ready),
                 ..Default::default()

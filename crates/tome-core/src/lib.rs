@@ -9,6 +9,7 @@
 use std::sync::mpsc;
 
 pub mod assets;
+pub mod auth;
 pub mod graph;
 pub mod model;
 pub mod notify;
@@ -131,46 +132,13 @@ pub struct Graph {
 
 /// The repositories on the server at `url` (`lore://host:port`), asked as `identity`.
 pub fn list_repositories(url: &str, identity: &str) -> CallResult {
+    let identity = auth::identity_for_remote(url, identity, true);
     let args = lore::repository::LoreRepositoryListArgs { url: LoreString::from_bytes(url.as_bytes()) };
     let globals = LoreGlobalArgs { identity: LoreString::from_bytes(identity.as_bytes()), ..Default::default() };
     call(interface::lore_repository_list_async, &globals, &args)
 }
 
-/// Whether the server at `url` needs a login, and who is logged in on this machine.
-#[derive(Debug, Clone, serde::Serialize)]
-pub struct AuthState {
-    /// The server has an auth endpoint (a login is needed); false for a LAN server without one.
-    pub server_requires_login: bool,
-    /// Identities logged in on this machine (Lore's stored logins).
-    pub logged_in: Vec<String>,
-    /// What Lore said when asked, for the settings screen.
-    pub detail: String,
-}
-
-/// Asks Lore about logins. Lore answers "requires a configured auth endpoint" when the server
-/// (or this working copy's remote) has no authentication: then the identity name is all it uses.
-pub fn auth_state(working_copy: &str) -> AuthState {
-    let globals = LoreGlobalArgs {
-        repository_path: LoreString::from_bytes(working_copy.as_bytes()),
-        working_directory: LoreString::from_bytes(working_copy.as_bytes()),
-        ..Default::default()
-    };
-    let list = call(interface::lore_auth_list_async, &globals, &lore::auth::LoreAuthListArgs { with_token: 0 });
-    let logged_in = list
-        .events
-        .iter()
-        .filter(|e| e["tagName"].as_str().is_some_and(|t| t.starts_with("authIdentity") || t.starts_with("authUser")))
-        .filter_map(|e| e["data"]["userId"].as_str().or(e["data"]["name"].as_str()).map(str::to_string))
-        .filter(|s| !s.is_empty())
-        .collect();
-    let info = call(
-        interface::lore_auth_local_user_info_async,
-        &globals,
-        &lore::auth::LoreAuthLocalUserInfoArgs { auth_endpoint: LoreString::default(), user_ids: Default::default(), with_identity_token: 0, with_access_token: 0 },
-    );
-    let no_endpoint = !info.ok() && info.error.contains("auth endpoint");
-    AuthState { server_requires_login: !info.ok() && !no_endpoint, logged_in, detail: if info.ok() { String::new() } else { info.error } }
-}
+pub use auth::AuthState;
 
 /// Global arguments for calls on the repository at `path`.
 pub struct Repository {
@@ -193,7 +161,7 @@ impl Repository {
             // Relative paths in a call (stage, lock, ...) are relative to the working copy root.
             working_directory: LoreString::from_bytes(self.path.as_bytes()),
             offline: self.offline as u8,
-            identity: LoreString::from_bytes(self.identity.as_bytes()),
+            identity: LoreString::from_bytes(auth::identity_for_path(&self.path, &self.identity, !self.offline).as_bytes()),
             ..Default::default()
         }
     }
@@ -209,7 +177,9 @@ impl Repository {
             shared_store_path: LoreString::default(),
         };
         std::fs::create_dir_all(&self.path).ok();
-        call(interface::lore_repository_create_async, &self.globals(), &args)
+        let mut globals = self.globals();
+        globals.identity = LoreString::from_bytes(auth::identity_for_remote(url, &self.identity, true).as_bytes());
+        call(interface::lore_repository_create_async, &globals, &args)
     }
 
     /// Clones the repository at `url` (`lore://host:port/name`) into this path. `view` is the
@@ -224,7 +194,7 @@ impl Repository {
         // The working directory must exist before the call; the clone fills it.
         let globals = LoreGlobalArgs {
             repository_path: LoreString::from_bytes(self.path.as_bytes()),
-            identity: LoreString::from_bytes(self.identity.as_bytes()),
+            identity: LoreString::from_bytes(auth::identity_for_remote(url, &self.identity, true).as_bytes()),
             ..Default::default()
         };
         call(interface::lore_repository_clone_async, &globals, &args)
