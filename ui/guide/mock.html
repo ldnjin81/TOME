@@ -6,7 +6,7 @@
 <!--
   Screenshots for docs/guide: the app with made-up example data (no real projects, people or
   paths) and a fake Tauri backend. scripts/guide-shots.sh opens it once per screen and
-  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit|login
+  language: ?lang=ko|en&screen=stack|changes|locks|restack|conflict|fold|artist|setup|audit|login|branches
 -->
 <script>
 const q = new URLSearchParams(location.search);
@@ -97,6 +97,21 @@ window.__TAURI_INTERNALS__ = {
       case 'auth_cancel': authRunning = false; authResolve?.(); return null;
       case 'auth_logout': case 'auth_open_url': return null;
       case 'list_repositories': return { value: [{ name: 'MyGame', id: 'r1' }, { name: 'MyGame-Art', id: 'r2' }, { name: 'Tools', id: 'r3' }], commands: [] };
+      case 'branch_explorer': {
+        const branch = (id, name, latest, extra={}) => ({ id, name, latest, current:id==='b1', archived:false, creator:'kim', created:now-86400000, ...extra });
+        const f1 = {...rev(31,45,msg('인벤토리 분기 시작','Start inventory branch'),80,[11]),branch_id:'b2'};
+        const f2 = {...rev(32,46,msg('검색 필터 추가','Add search filter'),35,[31]),branch_id:'b2'};
+        const nested = {...rev(33,47,msg('아이콘 정렬','Align icons'),15,[32]),branch_id:'b3'};
+        const merged = rev(34,48,msg('인벤토리 병합','Merge inventory'),5,[13,32]);
+        const old = {...rev(35,40,msg('이전 시제품','Earlier prototype'),1500,[]),branch_id:'b4'};
+        const lanes = [{branch:branch('b1','main',merged.id),parent:null,depth:0,parent_source:'root'}, {branch:branch('b2','feature/inventory',f2.id),parent:'b1',depth:1,parent_source:'stack'}, {branch:branch('b3','feature/icons',nested.id),parent:'b2',depth:2,parent_source:'stack'}];
+        if(args.archived) lanes.push({branch:branch('b4','archive/prototype',old.id,{archived:true}),parent:'b1',depth:1,parent_source:'root'});
+        const rs=[B,D1,f1,D2,f2,D3,nested,merged]; if(args.archived) rs.unshift(old);
+        const nodes=rs.map((revision,i)=>({revision,lane:lanes.findIndex(l=>l.branch.id===revision.branch_id),x:40+i*70}));
+        const edges=nodes.flatMap((n,to)=>n.revision.parents.flatMap((id,i)=>{const from=nodes.findIndex(n=>n.revision.id===id);return from<0?[]:[{from,to,kind:i>0?'merge':nodes[from].lane!==n.lane?'fork':'line'}]}));
+        const day=new Date(now).setHours(0,0,0,0);
+        return {lanes,nodes,edges,columns:[{start:day,end:day,x:0,width:700,gap:false}],width:700,root:'b1',incomplete:[]};
+      }
       case 'open_repository': return { status, branches: [{ id: 'b1', name: 'main', latest: D3.id, current: true, archived: false, creator: '', created: 0 }, { id: 'b2', name: 'feature/inventory', latest: H(7), current: false, archived: false, creator: '', created: 0 }, { id: 'b3', name: 'auto/task-12', latest: H(8), current: false, archived: false, creator: '', created: 0 }], history: [D3, D2, D1, B], commands: ['lore status', 'lore branch list', 'lore history 200 --branch main'] };
       case 'working_status': return { value: status, commands: ['lore status --scan'] };
       case 'lock_board': return { value: locks, commands: ['lore lock query --branch main'] };
@@ -124,13 +139,14 @@ function when(test, then, tries = 80) { const v = test(); if (v) then(v); else i
 const tabs = () => document.querySelectorAll('[role="tab"]');
 const ready = () => setTimeout(() => (document.title = 'ready'), 600);
 window.addEventListener('load', () => {
-  if (screen === 'changes') when(() => tabs()[1], (t) => { t.click(); ready(); });
-  else if (screen === 'audit') when(() => tabs()[1], (t) => { t.click(); when(() => document.querySelector('.file-row'), (row) => {
+  if (screen === 'branches') when(() => tabs()[1], (t) => { t.click(); when(() => document.querySelector('.explorer-node'), ready); });
+  else if (screen === 'changes') when(() => tabs()[2], (t) => { t.click(); ready(); });
+  else if (screen === 'audit') when(() => tabs()[2], (t) => { t.click(); when(() => document.querySelector('.file-row'), (row) => {
     row.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 400, clientY: 200 }));
     when(() => [...document.querySelectorAll('button')].find((b) => /파일 기록|File history/.test(b.textContent) && !b.closest('dialog')), (item) => { item.click();
       when(() => [...document.querySelectorAll('dialog[open] [role="tab"]')][1], (tab) => { tab.click(); ready(); }); }); }); });
   else if (screen === 'login') when(() => document.querySelector('.setup-dialog .auth-panel button:not(:disabled)'), b => { b.click(); when(() => document.querySelector('.auth-pending .mono'), ready); });
-  else if (screen === 'locks') when(() => tabs()[2], (t) => { t.click(); ready(); });
+  else if (screen === 'locks') when(() => tabs()[3], (t) => { t.click(); ready(); });
   else if (screen === 'restack') when(() => document.querySelector('.rev-meta.diverged button.link'), (b) => { b.click(); ready(); });
   else if (screen === 'fold') when(() => document.querySelector('.draft-actions button'), (b) => { b.click(); ready(); });
   else if (screen === 'artist') when(() => [...document.querySelectorAll('.subfolder')].find((x) => x.textContent.includes('Characters')), (d) => {

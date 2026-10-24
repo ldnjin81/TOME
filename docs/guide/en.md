@@ -154,3 +154,9 @@ TOME explains common Lore errors and what to do about them, keeping the original
 - The command lines in the status bar can be pasted into a terminal as they are.
 - The screenshots in this guide use example data (`scripts/guide-shots.sh`).
 - TOME is not made or endorsed by Epic Games.
+
+### Branch Explorer
+
+In programmer mode, open **Branches** to see a tree grouped by each branch's creation parent alongside a horizontal timeline. Search names, collapse subtrees, or show archived branches to narrow the view. Dates use your local time zone; dates without revisions are folded into a single column.
+
+Click a node to open the existing revision details on the right. Dashed circles mark unpushed revisions; circles with an inner dot mark merges. Click a branch name to move to its lane. Use the zoom and fit buttons or ⌘/Ctrl+wheel to zoom, and drag empty space or scroll to pan. Focus the timeline and press Enter to enter the nodes, then use ←→ within a lane and ↑↓ between lanes. If some history could not be read, expand the warning, check your connection, and refresh.
