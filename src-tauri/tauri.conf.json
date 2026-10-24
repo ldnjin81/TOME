@@ -61,7 +61,7 @@
           "Korean",
           "English"
         ],
-        "displayLanguageSelector": true
+        "displayLanguageSelector": false
       }
     }
   },
