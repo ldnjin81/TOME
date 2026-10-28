@@ -1,4 +1,6 @@
 export const dictionary = {
+  "출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.": {"ko": "출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.", "en": "Your access token has expired. It renews automatically on the next server operation; if it can't, sign in again."},
+  "로그아웃했습니다. 서버에서 토큰을 폐기하지 못했습니다: {detail}": {"ko": "로그아웃했습니다. 서버에서 토큰을 폐기하지 못했습니다: {detail}", "en": "Signed out. The server couldn't revoke the token: {detail}"},
   "TOME 업데이트": {"ko": "TOME 업데이트", "en": "TOME updates"},
   "TOME {version} 사용 가능": {"ko": "TOME {version} 사용 가능", "en": "TOME {version} is available"},
   "포터블판·맥·개발판은 릴리스 페이지에서 업데이트하세요.": {"ko": "포터블판·맥·개발판은 릴리스 페이지에서 업데이트하세요.", "en": "For portable, Mac, and development builds, update from the releases page."},

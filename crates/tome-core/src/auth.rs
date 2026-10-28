@@ -297,15 +297,20 @@ pub fn logout(path: &str, url: &str) -> Result<(), String> {
             user_id: LoreString::from_bytes(user.id.as_bytes()),
         },
     );
+    // Lore 0.12부터 로그아웃은 로컬 토큰을 지운 뒤 제공자에서 refresh token을 폐기한다.
+    // 폐기에 실패해도 토큰은 이미 지워졌으므로 선택·연결은 항상 정리하고, 실패는 접두어로 따로 알린다.
+    cache().lock().unwrap().selected.remove(&endpoint);
+    // 재사용 연결에 남은 인증 정보도 제거해야 로그아웃이 즉시 적용된다.
+    lore_revision::interface::drop_connections();
     if result.ok() {
-        cache().lock().unwrap().selected.remove(&endpoint);
-        // 재사용 연결에 남은 인증 정보도 제거해야 로그아웃이 즉시 적용된다.
-        lore_revision::interface::drop_connections();
         Ok(())
     } else {
-        Err(result.error)
+        Err(format!("{REVOKE_FAILED}{}", result.error))
     }
 }
+
+/// 로그아웃 오류 중 "로컬 로그인은 지웠지만 제공자 폐기는 실패" 를 UI가 구분하는 접두어.
+pub const REVOKE_FAILED: &str = "revoke-failed: ";
 
 #[cfg(test)]
 mod tests {

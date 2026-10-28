@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Channel, invoke } from '@tauri-apps/api/core';
 import { t, getLocale } from './i18n';
 import { explainError } from './errors';
+// tome-core auth::REVOKE_FAILED와 같은 값이어야 한다.
+const REVOKE_FAILED = 'revoke-failed: ';
 import type { AuthState } from './types';
 
 type AuthEvent = { tagName: 'authUrl' | 'authPending' | 'authUserInfo'; data: { url?: string; userCode?: string; remainingSecs?: number; id?: string; name?: string } };
@@ -101,7 +103,16 @@ export default function AuthPanel({ path = '', remoteUrl = '', onState, onChange
       if (generation.current !== version) return;
       await refresh(version);
       callbacks.current.onChanged?.();
-    } catch (e) { if (generation.current === version) setError(String(e)); }
+    } catch (e) {
+      if (generation.current !== version) return;
+      const message = String(e);
+      // Lore 0.12: 폐기 실패여도 로컬 로그인은 이미 지워졌다. 오류가 아니라 안내로 보여 준다.
+      if (message.startsWith(REVOKE_FAILED)) {
+        setNotice(t('로그아웃했습니다. 서버에서 토큰을 폐기하지 못했습니다: {detail}', { detail: message.slice(REVOKE_FAILED.length) }));
+        await refresh(version);
+        callbacks.current.onChanged?.();
+      } else setError(message);
+    }
     finally { if (generation.current === version) setActive(false); }
   }
 
@@ -110,7 +121,10 @@ export default function AuthPanel({ path = '', remoteUrl = '', onState, onChange
     {state?.status === 'disabled' ? <p className="muted small">{t('인증 없는 서버 · 이름으로만 기록')}</p> : <>
       {state?.status === 'error' && <p className="error-line" role="alert">{explainError(state.detail)}</p>}
       {state?.user && <p className="small">{t('로그인: {p0}', { p0: `${state.user.name} (${state.user.id})` })}</p>}
-      {expired && <p className="warn-line">{t('로그인이 필요하거나 만료되었습니다')}</p>}
+      {expired && <p className="warn-line">{state?.user
+        // Lore 0.12는 만료된 출입증을 다음 서버 작업 때 refresh token으로 갱신한다.
+        ? t('출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.')
+        : t('로그인이 필요하거나 만료되었습니다')}</p>}
       {state?.user && !expired && <p className="muted small">{state.expires
         ? t('만료: {time}', { time: new Date(state.expires).toLocaleString(getLocale()) })
         : t('만료 시간 알 수 없음')}</p>}
