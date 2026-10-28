@@ -1,4 +1,5 @@
 import { t, getLocale } from './i18n';
+import { Author } from './author';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import type { Asset, AssetListing, AssetPreview, ChangedFile, Lock } from './types';
@@ -35,7 +36,7 @@ function Badges({ path, marks, me }: { path: string; marks: AssetMarks; me: stri
       {change && !change.unresolved && <span className={`ab change ${change.action}`}>{t(ACTION_LABEL[change.action] ?? change.action)}</span>}
       {lock && (
         <span className={lock.owner === me ? 'ab lock mine' : 'ab lock'} title={t("잠금: {p0}", { p0: lock.owner })}>
-          🔒 {lock.owner === me ? t("내 잠금") : lock.owner}
+          🔒 {lock.owner === me ? t("내 잠금") : <Author name={lock.owner} />}
         </span>
       )}
     </>

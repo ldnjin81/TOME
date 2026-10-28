@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { t, getLocale } from './i18n';
 import { branchColor, isDraft } from './Smartlog';
+import { Author } from './author';
 import { adjacentNode, clampZoom, recentPosition, visibleLanes, type ExplorerLayout, type ExplorerNode } from './branchExplorerLogic';
 import type { StackInfo, Status } from './types';
 
@@ -174,6 +175,6 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
         {data && visible.length>0 && !data.nodes.length && <p className="explorer-empty">{t('리비전이 없습니다')}</p>}
       </div>
     </div>
-    {tip && <div role="tooltip" className="explorer-tooltip" style={{ left: Math.max(8,Math.min(tip.x+12,window.innerWidth-300)), top: Math.max(8,Math.min(tip.y+16,window.innerHeight-140)) }}><strong>r{tip.node.revision.number} · {tip.node.revision.message.split('\n')[0] || t('(메시지 없음)')}</strong><div>{tip.node.revision.author}</div><div>{new Date(tip.node.revision.timestamp).toLocaleString(getLocale())}</div>{isDraft(tip.node.revision,status,stack) && <div>{t('미푸시')}</div>}</div>}
+    {tip && <div role="tooltip" className="explorer-tooltip" style={{ left: Math.max(8,Math.min(tip.x+12,window.innerWidth-300)), top: Math.max(8,Math.min(tip.y+16,window.innerHeight-140)) }}><strong>r{tip.node.revision.number} · {tip.node.revision.message.split('\n')[0] || t('(메시지 없음)')}</strong><div><Author name={tip.node.revision.author} /></div><div>{new Date(tip.node.revision.timestamp).toLocaleString(getLocale())}</div>{isDraft(tip.node.revision,status,stack) && <div>{t('미푸시')}</div>}</div>}
   </div>;
 }

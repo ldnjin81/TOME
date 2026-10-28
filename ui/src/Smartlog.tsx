@@ -2,6 +2,7 @@ import { t, getLocale } from './i18n';
 import { useState } from 'react';
 import type { Branch, Graph, GraphRow, Pick, Revision, Segment, StackInfo, Status } from './types';
 import { foldWithBelow, reorderPicks, type FoldRequest } from './stackLogic';
+import { Author } from './author';
 
 /** How a lane segment is drawn: public history, folded history, my stack, uncommitted work. */
 type Line = 'public' | 'dotted' | 'stack' | 'wip' | null;
@@ -90,8 +91,6 @@ interface Props {
   onFold: (request: FoldRequest) => void;
 }
 
-/** The author as shown: 나 for my own revisions. */
-const who = (author: string, me: string) => (author && author === me ? t("나") : author);
 
 export default function Smartlog({ status, history, stack, graph, branches, selected, mode, busy, onMode, onSelect, onCommit, onSync, onContext, me, onRestack, restacking, onFold }: Props) {
   // The stack is always the working copy's branch; the graph shows every branch.
@@ -128,7 +127,7 @@ function RevisionText({ revision, draft, tags, me }: { revision: Revision; draft
         {tags}
       </span>
       <span className="rev-meta">
-        {who(revision.author, me)} · {relativeTime(revision.timestamp)} · {draft ? t("r{p0} · 미푸시", { p0: revision.number }) : 'public'}
+        <Author name={revision.author} me={me} /> · {relativeTime(revision.timestamp)} · {draft ? t("r{p0} · 미푸시", { p0: revision.number }) : 'public'}
       </span>
     </span>
   );
@@ -446,7 +445,7 @@ function GraphView({ me, status, stack, graph, branches, selected, onSelect, onC
                   ))}
                   <span className="rev-message">{r.message || t("(메시지 없음)")}</span>
                   <span className="rev-meta inline">
-                    {who(r.author, me)} · {relativeTime(r.timestamp)}
+                    <Author name={r.author} me={me} /> · {relativeTime(r.timestamp)}
                   </span>
                 </span>
               </button>

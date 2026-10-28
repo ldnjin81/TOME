@@ -4,6 +4,7 @@ import { explainError } from './errors';
 import { invoke } from '@tauri-apps/api/core';
 import type { Done, FileAudit, FilePatch, FileRevision } from './types';
 import { PatchView, countLines } from './DiffView';
+import { Author } from './author';
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -96,7 +97,7 @@ export default function FileHistory({ path, file, offline, me, onClose, onComman
                       <span className="fh-msg">{r.message || t("(메시지 없음)")}</span>
                     </span>
                     <span className="fh-meta muted">
-                      {r.author === me && me ? t("나") : r.author} · {formatTime(r.timestamp)} · {formatSize(h.size)}
+                      <Author name={r.author} me={me} /> · {formatTime(r.timestamp)} · {formatSize(h.size)}
                       {h.path !== file && t(" · 당시 경로 {p0}", { p0: h.path })}
                       {n && (
                         <>

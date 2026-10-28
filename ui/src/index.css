@@ -555,3 +555,11 @@ button.lrow[draggable="true"] { cursor: grab; }
 .update-dialog { max-height: 85vh; overflow: auto; }
 .update-dialog .update-banner { margin-top: 16px; }
 .update-banner progress { display: block; width: 100%; margin: 8px 0; }
+
+/* 작성자 색상: 이름 해시 색상(--author-hue)으로 사람을 구분한다(Lore Desktop 0.12 참고). */
+.author { color: hsl(var(--author-hue) 58% 36%); font-weight: 500; white-space: nowrap; }
+.author::before { content: ''; display: inline-block; width: 7px; height: 7px; margin-right: 5px; border-radius: 50%; background: hsl(var(--author-hue) 62% 50%); vertical-align: 1px; }
+@media (prefers-color-scheme: dark) {
+  .author { color: hsl(var(--author-hue) 70% 74%); }
+  .author::before { background: hsl(var(--author-hue) 65% 62%); }
+}

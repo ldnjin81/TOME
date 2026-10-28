@@ -1,6 +1,7 @@
 import { t, getLocale } from './i18n';
 import { useState } from 'react';
 import type { Lock } from './types';
+import { Author } from './author';
 
 interface Props {
   branch: string;
@@ -55,10 +56,8 @@ export default function LockBoard({ branch, me, locks, busy, onRefresh, onLock, 
                   <td>
                     {l.owner === '<unknown>' ? (
                       <span className="muted" title={t("인증 없는 서버는 잠근 사람을 기록하지 않습니다(Lore 서버가 소유자를 로그인 토큰에서만 가져옴)")}>{t("알 수 없음")}</span>
-                    ) : l.owner === me ? (
-                      <strong>{t("나")}</strong>
                     ) : (
-                      l.owner
+                      <Author name={l.owner} me={me} />
                     )}
                   </td>
                   <td className="time">{formatTime(l.locked_at)}</td>
