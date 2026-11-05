@@ -285,6 +285,62 @@ async fn watch_repository(app: tauri::AppHandle, path: String) -> Result<(), Str
     .await
 }
 
+/// What a working-copy delete or move did, or would do with `dry_run` (Lore 0.13).
+#[derive(Serialize)]
+struct InstanceReport {
+    /// The instance lives on a SWFS mount, which is unmounted first.
+    is_swfs: bool,
+    /// Delete phases in order: `deregistering`, `unmounting`, `deleting_files`.
+    phases: Vec<String>,
+    /// The working copy's path after the call (the target of a move).
+    path: String,
+}
+
+fn delete_phase(value: &serde_json::Value) -> String {
+    match value.as_u64() {
+        Some(0) => "unmounting".into(),
+        Some(1) => "deregistering".into(),
+        Some(2) => "deleting_files".into(),
+        _ => value.as_str().unwrap_or_default().to_lowercase().replace("files", "_files").replace("__", "_"),
+    }
+}
+
+fn instance_report(result: &CallResult, begin: &str, path: String) -> InstanceReport {
+    InstanceReport {
+        is_swfs: result.data(begin).any(|d| d["isSwfs"].as_u64().is_some_and(|n| n != 0) || d["isSwfs"].as_bool() == Some(true)),
+        phases: result.data("repositoryInstanceDeleteProgress").map(|d| delete_phase(&d["phase"])).collect(),
+        path,
+    }
+}
+
+/// Stops what the app holds on the working copy before it is moved or deleted.
+fn release_repository(app: &tauri::AppHandle) {
+    drop(app.state::<Watch>().0.lock().unwrap().take());
+    tome_core::drop_connections();
+}
+
+/// Deletes the working copy at `path` (its local files and registration). `dry_run` only reports.
+#[tauri::command]
+async fn instance_delete(app: tauri::AppHandle, path: String, dry_run: bool) -> Result<InstanceReport, String> {
+    if !dry_run { release_repository(&app); }
+    blocking(move || {
+        let result = checked(repository(&path, true).instance_delete(dry_run))?;
+        Ok(instance_report(&result, "repositoryInstanceDeleteBegin", path))
+    }).await
+}
+
+/// Moves the working copy at `path` to `target`, which must not exist. `dry_run` only checks.
+#[tauri::command]
+async fn instance_move(app: tauri::AppHandle, path: String, target: String, dry_run: bool) -> Result<InstanceReport, String> {
+    let target = target.trim().to_string();
+    if target.is_empty() { return Err("Target path is empty".into()); }
+    if !dry_run { release_repository(&app); }
+    blocking(move || {
+        let result = checked(repository(&path, true).instance_move(&target, dry_run))?;
+        Ok(instance_report(&result, "repositoryInstanceMoveBegin", target))
+    }).await
+}
+
 /// The working copy and its branches after a branch command.
 #[derive(Serialize)]
 struct BranchState {
@@ -965,6 +1021,8 @@ pub fn run() {
             start_job,
             cancel_job,
             watch_repository,
+            instance_delete,
+            instance_move,
             create_branch,
             switch_branch,
             merge_branch,

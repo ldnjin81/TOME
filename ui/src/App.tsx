@@ -16,6 +16,7 @@ import type { FoldRequest } from './stackLogic';
 import { explainError, needsLogin } from './errors';
 import AuthPanel, { AuthDialog } from './AuthPanel';
 import ViewDialog from './ViewDialog';
+import InstanceDialog from './InstanceDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
 import JobPanel from './JobPanel';
@@ -49,6 +50,7 @@ export default function App() {
   const [path, setPath] = useState('');
   const [offline, setOffline] = useState(true);
   const [overview, setOverview] = useState<Overview | null>(null);
+  const [instance, setInstance] = useState(false);
   const [history, setHistory] = useState<Revision[]>([]);
   const [branchName, setBranchName] = useState('');
   const [selected, setSelected] = useState<string | null>(null);
@@ -626,6 +628,7 @@ export default function App() {
         </div>
         <ToolMenu set={toolSet} disabled={!settings} onRun={(entry) => startTool(entry, selectionFor({}))} onManage={() => setManaging(true)} />
         <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
+        <button className="ghost" onClick={() => setInstance(true)} disabled={!overview || busy || !!job} title={t('작업본 이동·삭제')}>{t('작업본')}</button>
         <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label={t("설정")} title={t("설정")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="3" />
@@ -906,6 +909,29 @@ export default function App() {
         </aside>
       </main>
 
+      {instance && overview && <InstanceDialog
+        path={path.trim()}
+        changes={overview.status.files.length}
+        drafts={overview.status.local_ahead}
+        onMoved={(target) => {
+          const from = path.trim();
+          setInstance(false);
+          const next = settings && { ...settings, recent: [target, ...settings.recent.filter((p) => p !== from && p !== target)].slice(0, RECENT_MAX) };
+          if (next) void saveSettings(next);
+          addToast(t('작업본을 옮겼습니다: {target}', { target }), 'info');
+          setOverview(null);
+          void open(target, offline, next);
+        }}
+        onDeleted={() => {
+          const from = path.trim();
+          setInstance(false);
+          if (settings) void saveSettings({ ...settings, recent: settings.recent.filter((p) => p !== from) });
+          addToast(t('작업본을 삭제했습니다: {path}', { path: from }), 'info');
+          setOverview(null);
+          setPath('');
+        }}
+        onClose={() => setInstance(false)}
+      />}
       {view && (
         <ViewDialog
           initial={view.lines}

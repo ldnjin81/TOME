@@ -141,6 +141,11 @@ pub fn list_repositories(url: &str, identity: &str) -> CallResult {
 
 pub use auth::AuthState;
 
+/// Closes Lore's reused server connections (after a logout, or before a working copy moves).
+pub fn drop_connections() {
+    lore_revision::interface::drop_connections();
+}
+
 /// Global arguments for calls on the repository at `path`.
 pub struct Repository {
     path: String,
@@ -199,6 +204,33 @@ impl Repository {
             ..Default::default()
         };
         call(interface::lore_repository_clone_async, &globals, &args)
+    }
+
+    /// Global arguments for removing or moving this working copy. Lore refuses while the call's
+    /// working directory is inside the instance, so it runs from the folder that holds it.
+    fn instance_globals(&self, dry_run: bool) -> LoreGlobalArgs {
+        let parent = std::path::Path::new(&self.path).parent().map(|p| p.display().to_string()).unwrap_or_default();
+        LoreGlobalArgs {
+            repository_path: LoreString::from_bytes(self.path.as_bytes()),
+            working_directory: LoreString::from_bytes(parent.as_bytes()),
+            offline: 1,
+            dry_run: dry_run as u8,
+            ..Default::default()
+        }
+    }
+
+    /// Deletes this working copy: deregisters the instance and removes its files (Lore 0.13).
+    /// `dry_run` only reports the phases it would run.
+    pub fn instance_delete(&self, dry_run: bool) -> CallResult {
+        let args = lore::repository::LoreRepositoryInstanceDeleteArgs {};
+        call(interface::lore_repository_instance_delete_async, &self.instance_globals(dry_run), &args)
+    }
+
+    /// Moves this working copy to `target`, which must not exist yet (Lore 0.13).
+    /// `dry_run` checks the move without changing anything.
+    pub fn instance_move(&self, target: &str, dry_run: bool) -> CallResult {
+        let args = lore::repository::LoreRepositoryInstanceMoveArgs { target_path: LoreString::from_bytes(target.as_bytes()) };
+        call(interface::lore_repository_instance_move_async, &self.instance_globals(dry_run), &args)
     }
 
     /// Status after reconciling the working files with the current revision, so new and

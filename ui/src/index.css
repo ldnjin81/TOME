@@ -453,6 +453,8 @@ button.lrow:hover { background: var(--accent-soft); }
 .asset-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 4px 10px; }
 .asset-actions .primary:disabled { opacity: 0.5; cursor: default; }
 .warn-line { margin: 4px; color: var(--ahead); line-height: 1.5; }
+button.danger { background: #b0413e; border-color: #b0413e; color: #fff; }
+button.danger:disabled { opacity: .5; }
 
 /* Restack: dragging drafts, the preview dialog, the conflict panel */
 .log.stack.dragging .lrow:not(.lifted) { transition: background 0.1s; }

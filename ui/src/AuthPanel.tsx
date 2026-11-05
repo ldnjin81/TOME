@@ -116,18 +116,29 @@ export default function AuthPanel({ path = '', remoteUrl = '', onState, onChange
     finally { if (generation.current === version) setActive(false); }
   }
 
-  const expired = state?.status === 'expired' || (!!state?.expires && state.expires <= clock);
+  // Lore 0.13은 세션 유효 여부를 알려 준다. 출입증이 지났어도 refresh token으로 갱신할 수 있으면 만료로 보지 않는다.
+  const tokenPast = !!state?.expires && state.expires <= clock;
+  const expired = state?.status === 'expired' || (tokenPast && state?.session_valid !== true);
+  const renewing = !!state?.user && tokenPast && state.session_valid === true;
   return <div className="auth-panel" aria-label={t('서버 로그인')}>
     {state?.status === 'disabled' ? <p className="muted small">{t('인증 없는 서버 · 이름으로만 기록')}</p> : <>
       {state?.status === 'error' && <p className="error-line" role="alert">{explainError(state.detail)}</p>}
       {state?.user && <p className="small">{t('로그인: {p0}', { p0: `${state.user.name} (${state.user.id})` })}</p>}
-      {expired && <p className="warn-line">{state?.user
-        // Lore 0.12는 만료된 출입증을 다음 서버 작업 때 refresh token으로 갱신한다.
-        ? t('출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.')
-        : t('로그인이 필요하거나 만료되었습니다')}</p>}
-      {state?.user && !expired && <p className="muted small">{state.expires
+      {expired && <p className="warn-line">{!state?.user
+        ? t('로그인이 필요하거나 만료되었습니다')
+        : state.session_valid === false
+          ? t('로그인 세션이 끝났습니다. 다시 로그인하세요.')
+          // Lore 0.12는 만료된 출입증을 다음 서버 작업 때 refresh token으로 갱신한다.
+          : t('출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.')}</p>}
+      {renewing && <p className="muted small">{t('출입증이 만료되었지만 다음 서버 작업 때 자동으로 갱신됩니다.')}</p>}
+      {state?.user && !expired && !renewing && <p className="muted small">{state.expires
         ? t('만료: {time}', { time: new Date(state.expires).toLocaleString(getLocale()) })
         : t('만료 시간 알 수 없음')}</p>}
+      {state?.user && state.session_valid !== null && <p className="muted small">{state.refreshable
+        ? state.refresh_expires
+          ? t('자동 갱신 가능 · {time}까지', { time: new Date(state.refresh_expires).toLocaleString(getLocale()) })
+          : t('자동 갱신 가능')
+        : t('자동 갱신 불가 · 출입증이 만료되면 다시 로그인해야 합니다')}</p>}
       {state?.status === 'required' && <p className="muted small">{t('이 서버는 로그인이 필요합니다')}</p>}
       <div className="field-row">
         <button className="ghost small-btn" disabled={active || !!state?.login_in_progress || (!path && !remoteUrl.trim())} onClick={() => void login()}>{t('로그인')}</button>

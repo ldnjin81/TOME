@@ -110,8 +110,21 @@ export interface AuthState {
   status: 'disabled' | 'required' | 'authenticated' | 'expired' | 'error';
   user: { id: string; name: string } | null;
   expires: number;
+  /** Lore 0.13: a stored refresh token can renew the access token. */
+  refreshable: boolean;
+  /** Lore 0.13: when the refresh token stops working (ms), 0 if unknown. */
+  refresh_expires: number;
+  /** Lore 0.13: the login still works or can be renewed; null when Lore does not say. */
+  session_valid: boolean | null;
   detail: string;
   login_in_progress: boolean;
+}
+
+/** A working-copy delete or move (src-tauri InstanceReport). */
+export interface InstanceReport {
+  is_swfs: boolean;
+  phases: Array<'deregistering' | 'unmounting' | 'deleting_files'>;
+  path: string;
 }
 
 /** Custom tools (crates/tome-core/src/tools.rs). */
