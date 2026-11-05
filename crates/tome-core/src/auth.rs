@@ -22,6 +22,12 @@ pub struct AuthState {
     pub status: String,
     pub user: Option<User>,
     pub expires: u64,
+    /// Lore 0.13: 저장된 refresh token으로 출입증을 갱신할 수 있는지.
+    pub refreshable: bool,
+    /// Lore 0.13: refresh token이 더 이상 쓸 수 없게 되는 시각(ms). 0은 알 수 없음.
+    pub refresh_expires: u64,
+    /// Lore 0.13: 출입증이 유효하거나 refresh token으로 갱신할 수 있는 동안 true. None은 Lore가 알려 주지 않음.
+    pub session_valid: Option<bool>,
     pub detail: String,
 }
 
@@ -40,6 +46,27 @@ fn token_status(expires: u64, time: u64) -> &'static str {
     } else {
         "authenticated"
     }
+}
+
+/// 출입증이 만료됐어도 Lore가 세션이 유효하다고 하면(refresh token으로 갱신 가능) 로그인 상태로 본다.
+fn session_status(expires: u64, session_valid: Option<bool>, time: u64) -> &'static str {
+    match session_valid {
+        Some(true) => "authenticated",
+        Some(false) => "expired",
+        None => token_status(expires, time),
+    }
+}
+
+/// `authUserToken` 이벤트(Lore 0.13)에서 갱신 정보를 읽는다. 토큰 값은 요청하지 않으므로 비어 있다.
+fn session_info(list: &CallResult, id: &str) -> Option<(bool, u64, bool)> {
+    let flag = |v: &Value| v.as_u64().map(|n| n != 0).or_else(|| v.as_bool()).unwrap_or(false);
+    list.data("authUserToken").find(|t| t["id"] == id).map(|t| {
+        (
+            flag(&t["refreshable"]),
+            t["refreshExpires"].as_u64().unwrap_or(0),
+            flag(&t["sessionValid"]),
+        )
+    })
 }
 fn now() -> u64 {
     SystemTime::now()
@@ -148,6 +175,9 @@ pub fn state(path: &str, url: &str) -> AuthState {
         status: "error".into(),
         user: None,
         expires: 0,
+        refreshable: false,
+        refresh_expires: 0,
+        session_valid: None,
         detail: String::new(),
     };
     let result = (|| {
@@ -193,9 +223,14 @@ pub fn state(path: &str, url: &str) -> AuthState {
                 .and_then(|u| u["name"].as_str())
                 .unwrap_or(&id)
                 .to_string();
+            if let Some((refreshable, refresh_expires, valid)) = session_info(&info, &id) {
+                state.refreshable = refreshable;
+                state.refresh_expires = refresh_expires;
+                state.session_valid = Some(valid);
+            }
             state.user = Some(User { id, name });
             state.expires = expires;
-            state.status = token_status(expires, now()).into();
+            state.status = session_status(expires, state.session_valid, now()).into();
         } else {
             state.status = "required".into();
         }
@@ -248,6 +283,8 @@ pub fn login(path: &str, url: &str, watch: &mut dyn FnMut(&Value)) -> CallResult
         &lore::auth::LoreAuthLoginInteractiveArgs {
             remote_url: LoreString::from_bytes(url.as_bytes()),
             no_browser: 1,
+            // Lore 0.13: 세션이 아직 유효하면 브라우저 승인 없이 저장된 로그인을 돌려준다.
+            reuse_session: 1,
         },
         &mut |event| {
             if matches!(
@@ -322,6 +359,26 @@ mod tests {
         assert_eq!(token_status(101, 100), "authenticated");
         assert_eq!(token_status(100, 100), "expired");
         assert_eq!(token_status(99, 100), "expired");
+    }
+    #[test]
+    fn session_validity_overrides_token_expiry() {
+        assert_eq!(session_status(99, Some(true), 100), "authenticated");
+        assert_eq!(session_status(0, Some(false), 100), "expired");
+        assert_eq!(session_status(99, None, 100), "expired");
+        assert_eq!(session_status(0, None, 100), "authenticated");
+    }
+    #[test]
+    fn session_info_reads_the_matching_token_event() {
+        let list = CallResult {
+            status: 0,
+            error: String::new(),
+            events: vec![
+                json!({"tagName":"authUserToken","data":{"id":"other","refreshable":1,"refreshExpires":5,"sessionValid":1}}),
+                json!({"tagName":"authUserToken","data":{"id":"me","refreshable":1,"refreshExpires":7,"sessionValid":0}}),
+            ],
+        };
+        assert_eq!(session_info(&list, "me"), Some((true, 7, false)));
+        assert_eq!(session_info(&list, "missing"), None);
     }
     #[test]
     fn selection_filters_endpoint_resource_and_expiry() {
