@@ -40,7 +40,8 @@ impl Repository {
         std::fs::write(&next, text).map_err(|e| format!("Writing the view failed: {e}"))?;
         let status = model::status(&self.status()).ok_or("status returned nothing")?;
         let result = self.sync_view(&status.revision, &next.to_string_lossy());
-        let view = filter::load_filter(&next).map_err(|e| format!("{e:?}"));
+        // Lore 0.13: rules are asked through a Filter, naming which slots (here the view) decide.
+        let view = filter::load_view(&next).map_err(|e| format!("{e:?}"));
         std::fs::remove_file(&next).ok();
         if !result.ok() {
             return Err(format!("Changing the view failed: {}", result.error));
@@ -63,7 +64,7 @@ impl Repository {
         change.kept = before
             .iter()
             .filter(|f| root.join(&f.path).is_file())
-            .filter(|f| RelativePath::new_from_initial_path(&f.path).is_ok_and(|relative| view.excludes(&relative, false)))
+            .filter(|f| RelativePath::new_from_initial_path(&f.path).is_ok_and(|relative| view.excludes(&relative, false, filter::FilterMode::View)))
             .map(|f| f.path.clone())
             .collect();
         for list in [&mut change.removed, &mut change.kept, &mut change.restored] {
