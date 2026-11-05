@@ -99,6 +99,12 @@ export interface Settings {
   collapsed_branch_groups: string[];
 }
 
+/** A dry-run merge (tome-core model::MergePreview). */
+export interface MergePreview {
+  files: Array<{ path: string; action: 'add' | 'delete' | 'change'; conflict: boolean }>;
+  conflicts: number;
+}
+
 export interface AuthState {
   server_requires_login: boolean | null;
   status: 'disabled' | 'required' | 'authenticated' | 'expired' | 'error';

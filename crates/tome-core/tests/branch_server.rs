@@ -161,3 +161,20 @@ fn branches_switching_and_merges() {
     assert_eq!(w.read("a.txt"), b"one\nTWO-main\nthree\n");
     assert!(!w.dir.join("d.txt").exists(), "files the merge brought are gone");
 }
+
+
+/// A dry-run merge lists what would come in and what would conflict, and changes nothing.
+#[test]
+fn merge_preview_reports_without_changing_anything() {
+    let Some(server) = server() else { return };
+    let w = Work::diverged(&server, "preview");
+    let preview = model::merge_preview(&ok(w.repo.merge_preview("f"), "preview"));
+    assert_eq!(preview.conflicts, 2, "{preview:?}");
+    let rows: Vec<_> = preview.files.iter().map(|f| (f.path.as_str(), f.action.as_str(), f.conflict)).collect();
+    assert_eq!(rows, [("a.txt", "change", true), ("b.bin", "change", true), ("d.txt", "add", false)]);
+    let status = w.status();
+    assert!(status.merging.is_empty(), "no merge started: {status:?}");
+    assert!(status.files.iter().all(|f| f.directory), "nothing written: {:?}", status.files);
+    assert!(!w.dir.join("d.txt").exists());
+    assert_eq!(w.read("a.txt"), b"one\nTWO-main\nthree\n");
+}

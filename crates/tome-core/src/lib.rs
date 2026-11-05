@@ -306,6 +306,24 @@ impl Repository {
         call(interface::lore_branch_merge_start_async, &self.globals(), &args)
     }
 
+    /// The same merge as a dry run (Lore 0.12: no side effects): what it would bring in and
+    /// which files would conflict, with nothing written to the working copy or the server.
+    pub fn merge_preview(&self, branch: &str) -> CallResult {
+        let args = lore::branch::LoreBranchMergeStartArgs {
+            branch: LoreString::from_bytes(branch.as_bytes()),
+            message: LoreString::default(),
+            no_commit: 1,
+            link: LoreString::default(),
+            ignore_links: 0,
+            inherit_metadata: interface::LoreArray::default(),
+            link_paths: interface::LoreArray::default(),
+            link_messages: interface::LoreArray::default(),
+        };
+        let mut globals = self.globals();
+        globals.dry_run = 1;
+        call(interface::lore_branch_merge_start_async, &globals, &args)
+    }
+
     /// How to settle conflicted files of a merge in progress.
     pub fn merge_resolve(&self, paths: &[String], how: Resolution) -> CallResult {
         let paths = strings(paths);

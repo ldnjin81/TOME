@@ -333,6 +333,12 @@ async fn switch_branch(path: String, name: String) -> Result<Done<BranchState>, 
 
 /// Merges `from` into the current branch: commits on its own when nothing conflicts, otherwise
 /// leaves a merge in progress (status.merging) with the conflicted files to settle.
+/// What merging `from` into the current branch would bring in and conflict on, as a dry run.
+#[tauri::command]
+async fn merge_preview(path: String, from: String) -> Result<model::MergePreview, String> {
+    blocking(move || Ok(model::merge_preview(&checked(repository(&path, false).merge_preview(&from)).map_err(explain)?))).await
+}
+
 #[tauri::command]
 async fn merge_branch(path: String, from: String, message: String) -> Result<Done<Status>, String> {
     blocking(move || {
@@ -962,6 +968,7 @@ pub fn run() {
             create_branch,
             switch_branch,
             merge_branch,
+            merge_preview,
             resolve_conflicts,
             abort_merge,
             revision_changes,

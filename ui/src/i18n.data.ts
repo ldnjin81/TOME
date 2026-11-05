@@ -1,4 +1,11 @@
 export const dictionary = {
+  "변경@@상태": {"ko": "변경", "en": "Changed"},
+  "병합 결과를 미리 보는 중…": {"ko": "병합 결과를 미리 보는 중…", "en": "Previewing the merge\u2026"},
+  "미리보기를 만들지 못했습니다: {detail}": {"ko": "미리보기를 만들지 못했습니다: {detail}", "en": "Could not preview the merge: {detail}"},
+  "들어올 변경이 없습니다.": {"ko": "들어올 변경이 없습니다.", "en": "Nothing to bring in."},
+  "파일 {count}개가 바뀌고, 그중 {conflicts}개는 충돌합니다.": {"ko": "파일 {count}개가 바뀌고, 그중 {conflicts}개는 충돌합니다.", "en": "{count} files change, {conflicts} of them with conflicts."},
+  "파일 {count}개가 바뀝니다. 충돌은 없습니다.": {"ko": "파일 {count}개가 바뀝니다. 충돌은 없습니다.", "en": "{count} files change. No conflicts."},
+  "외 {count}개": {"ko": "외 {count}개", "en": "and {count} more"},
   "출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.": {"ko": "출입증이 만료되었습니다. 다음 서버 작업 때 자동으로 갱신하며, 갱신할 수 없으면 다시 로그인하세요.", "en": "Your access token has expired. It renews automatically on the next server operation; if it can't, sign in again."},
   "로그아웃했습니다. 서버에서 토큰을 폐기하지 못했습니다: {detail}": {"ko": "로그아웃했습니다. 서버에서 토큰을 폐기하지 못했습니다: {detail}", "en": "Signed out. The server couldn't revoke the token: {detail}"},
   "TOME 업데이트": {"ko": "TOME 업데이트", "en": "TOME updates"},

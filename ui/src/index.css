@@ -333,6 +333,12 @@ button.lrow:hover { background: var(--accent-soft); }
 .small-dialog { width: min(460px, calc(100vw - 32px)); padding: 18px 20px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); }
 .small-dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 .small-dialog h2 { margin: 0 0 8px; font-size: 15px; }
+.merge-preview { margin: 8px 0; }
+.merge-files { list-style: none; margin: 4px 0 0; padding: 4px 6px; max-height: 180px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; font-size: 12px; }
+.merge-files li { display: flex; gap: 8px; padding: 1px 0; }
+.merge-files li.conflict { color: #b0413e; }
+.merge-action { flex: 0 0 3.5em; color: var(--muted, inherit); }
+.merge-files li.conflict .merge-action { color: inherit; font-weight: 600; }
 .small-dialog p { margin: 0 0 12px; line-height: 1.5; }
 .merge-bar { padding: 7px 16px; background: color-mix(in srgb, var(--behind) 14%, var(--surface)); border-bottom: 1px solid var(--behind); }
 .conflicts { margin: 0 0 12px; padding: 10px 12px; border: 1px solid var(--behind); border-radius: 8px; }

@@ -251,6 +251,49 @@ pub fn patches(result: &CallResult) -> Vec<FilePatch> {
         .collect()
 }
 
+/// One file a merge would bring in ([`crate::Repository::merge_preview`]).
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct MergeFile {
+    pub path: String,
+    /// `add`, `delete`, or `change` (Lore's `update` and `keep`).
+    pub action: String,
+    /// The file would stop the merge with a conflict.
+    pub conflict: bool,
+}
+
+/// What a dry-run merge reported: the files it would touch, conflicts first.
+#[derive(Debug, Clone, Serialize, PartialEq, Default)]
+pub struct MergePreview {
+    pub files: Vec<MergeFile>,
+    pub conflicts: usize,
+}
+
+pub fn merge_preview(result: &CallResult) -> MergePreview {
+    let conflicted: std::collections::BTreeSet<String> = result.data("branchMergeConflictFile").map(|f| text(&f["path"])).collect();
+    let mut files: Vec<MergeFile> = result
+        .data("revisionSyncFile")
+        .filter(|f| flag(&f["flagFile"]))
+        .map(|f| {
+            let path = text(&f["path"]);
+            let action = match f["action"].as_str() {
+                Some("add") => "add",
+                Some("delete") => "delete",
+                _ => "change",
+            };
+            MergeFile { conflict: conflicted.contains(&path), path, action: action.into() }
+        })
+        .collect();
+    // A conflict Lore reports without a sync line still belongs in the list.
+    for path in &conflicted {
+        if !files.iter().any(|f| &f.path == path) {
+            files.push(MergeFile { path: path.clone(), action: "change".into(), conflict: true });
+        }
+    }
+    files.sort_by(|a, b| b.conflict.cmp(&a.conflict).then_with(|| a.path.cmp(&b.path)));
+    files.dedup_by(|a, b| a.path == b.path);
+    MergePreview { conflicts: conflicted.len(), files }
+}
+
 /// A repository on the server.
 #[derive(Debug, Clone, Serialize)]
 pub struct RemoteRepository {
@@ -322,6 +365,25 @@ pub fn history(result: &CallResult) -> Vec<Revision> {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn merge_preview_lists_conflicts_first() {
+        let result = CallResult {
+            status: 0,
+            error: String::new(),
+            events: vec![
+                serde_json::json!({"tagName":"revisionSyncFile","data":{"action":"add","flagFile":1,"path":"d.txt"}}),
+                serde_json::json!({"tagName":"revisionSyncFile","data":{"action":"keep","flagFile":1,"path":"a.txt"}}),
+                serde_json::json!({"tagName":"revisionSyncFile","data":{"action":"add","flagFile":0,"path":"dir"}}),
+                serde_json::json!({"tagName":"branchMergeConflictFile","data":{"path":"a.txt"}}),
+                serde_json::json!({"tagName":"branchMergeConflictFile","data":{"path":"b.bin"}}),
+            ],
+        };
+        let preview = merge_preview(&result);
+        assert_eq!(preview.conflicts, 2);
+        let rows: Vec<_> = preview.files.iter().map(|f| (f.path.as_str(), f.action.as_str(), f.conflict)).collect();
+        assert_eq!(rows, [("a.txt", "change", true), ("b.bin", "change", true), ("d.txt", "add", false)]);
+    }
+
     #[test]
     fn binary_files_by_extension_or_content() {
         assert!(is_binary_path("Content/Hero.uasset") && is_binary_path("Maps/A.UMAP"));

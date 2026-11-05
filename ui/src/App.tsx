@@ -991,7 +991,7 @@ export default function App() {
       )}
 
       {mergeFrom && status && (
-        <MergeDialog from={mergeFrom} into={status.branch_name} busy={busy} onMerge={(message) => void mergeBranch(mergeFrom, message)} onClose={() => setMergeFrom(null)} />
+        <MergeDialog path={path.trim()} from={mergeFrom} into={status.branch_name} busy={busy} onMerge={(message) => void mergeBranch(mergeFrom, message)} onClose={() => setMergeFrom(null)} />
       )}
 
       {historyOf && (
