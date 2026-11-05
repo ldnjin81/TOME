@@ -10,13 +10,18 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 if (-not (Test-Path THIRD-PARTY-NOTICES.md)) { throw 'THIRD-PARTY-NOTICES.md is missing: run scripts/third_party_notices.py' }
-$version = (Get-Content src-tauri\tauri.conf.json -Raw | ConvertFrom-Json).version
+$config = Get-Content src-tauri\tauri.conf.json -Raw | ConvertFrom-Json
+$version = $config.version
 $target = if ($env:CARGO_TARGET_DIR) { $env:CARGO_TARGET_DIR } else { Join-Path $root 'target' }
 $release = Join-Path $target 'release'
 
 # The first run downloads the NSIS tools into Tauri's own cache.
 & ui\node_modules\.bin\tauri build --bundles nsis
 if ($LASTEXITCODE) { throw 'tauri build failed' }
+# Tauri names the installer after the product name ("TOME VCS", see src-tauri/windows/hooks.nsh);
+# releases and the updater keep the file name TOME_<version>_x64-setup.exe.
+$nsis = Join-Path $release 'bundle\nsis'
+Copy-Item (Join-Path $nsis "$($config.productName)_${version}_x64-setup.exe") (Join-Path $nsis "TOME_${version}_x64-setup.exe") -Force
 
 $stage = Join-Path $env:TEMP 'tome-portable'
 Remove-Item -Recurse -Force $stage -ErrorAction SilentlyContinue
