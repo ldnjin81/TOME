@@ -162,19 +162,19 @@ unmodified; their source is at the address given.
 | litemap | 0.8.2 | Unicode-3.0 [cde87abe221f](#t-cde87abe221f) | https://github.com/unicode-org/icu4x |
 | lock_api | 0.4.14 | MIT OR Apache-2.0 [954f335b8baf](#t-954f335b8baf) [8d1f81ea4e87](#t-8d1f81ea4e87) | https://github.com/Amanieu/parking_lot |
 | log | 0.4.29 | MIT OR Apache-2.0 [954f335b8baf](#t-954f335b8baf) [14435fbcd271](#t-14435fbcd271) | https://github.com/rust-lang/log |
-| lore | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-base | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-credential | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-base | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-credential | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-error-set | 0.1.0 | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lore-error-set-macro | 0.1.0 | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-io | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-macro | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-notification | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-proto | 0.1.65 | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-revision | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-storage | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-telemetry | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
-| lore-transport | 0.11.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-io | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-macro | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-notification | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-proto | 0.1.67 | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-revision | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-storage | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-telemetry | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
+| lore-transport | 0.12.1-nightly | MIT [0fa95d4f03d8](#t-0fa95d4f03d8) | https://github.com/EpicGames/lore |
 | lru-slab | 0.1.2 | MIT OR Apache-2.0 OR Zlib [283ea6cc2997](#t-283ea6cc2997) [c9cf4d18fd9d](#t-c9cf4d18fd9d) [cebce11166dc](#t-cebce11166dc) | https://github.com/Ralith/lru-slab |
 | lz4-sys | 1.11.1+lz4-1.10.0 | MIT [1d576f05b9fe](#t-1d576f05b9fe) | https://github.com/10xGenomics/lz4-rs |
 | markup5ever | 0.39.0 | MIT OR Apache-2.0 [954f335b8baf](#t-954f335b8baf) [35af0fd88338](#t-35af0fd88338) | https://github.com/servo/html5ever |
@@ -9495,7 +9495,7 @@ DEALINGS IN THE SOFTWARE.
 ```
 
 <a id="t-0fa95d4f03d8"></a>
-### LICENSE — lore 0.11.1-nightly, lore-base 0.11.1-nightly, lore-credential 0.11.1-nightly, lore-error-set 0.1.0, lore-error-set-macro 0.1.0, lore-io 0.11.1-nightly, lore-macro 0.11.1-nightly, lore-notification 0.11.1-nightly, lore-proto 0.1.65, lore-revision 0.11.1-nightly, lore-storage 0.11.1-nightly, lore-telemetry 0.11.1-nightly, lore-transport 0.11.1-nightly
+### LICENSE — lore 0.12.1-nightly, lore-base 0.12.1-nightly, lore-credential 0.12.1-nightly, lore-error-set 0.1.0, lore-error-set-macro 0.1.0, lore-io 0.12.1-nightly, lore-macro 0.12.1-nightly, lore-notification 0.12.1-nightly, lore-proto 0.1.67, lore-revision 0.12.1-nightly, lore-storage 0.12.1-nightly, lore-telemetry 0.12.1-nightly, lore-transport 0.12.1-nightly
 
 ```text
 MIT License
