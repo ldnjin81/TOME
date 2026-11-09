@@ -303,13 +303,38 @@ impl Repository {
     }
 
     /// Creates `branch` at the current revision (it does not switch to it).
+    ///
+    /// Lore 0.13의 `branch create`는 작업본의 현재 브랜치를 새 브랜치로 바꾼다(파일·리비전은 그대로).
+    /// 그래서 원래 브랜치로 되돌린다. 같은 리비전 간 전환이라 로컬 수정이 있어도 된다.
     pub fn create_branch(&self, branch: &str) -> CallResult {
+        let original = self.current_branch_name();
         let args = lore::branch::LoreBranchCreateArgs {
             branch: LoreString::from_bytes(branch.as_bytes()),
             category: LoreString::default(),
             id: LoreString::default(),
         };
-        call(interface::lore_branch_create_async, &self.globals(), &args)
+        let mut created = call(interface::lore_branch_create_async, &self.globals(), &args);
+        if created.ok() {
+            if let Err(error) = self.return_to_branch(&original) {
+                created.status = -1;
+                created.error = format!("Created {branch}, but could not return to {original}: {error}");
+            }
+        }
+        created
+    }
+
+    /// 작업본의 현재 브랜치 이름. 알 수 없으면 빈 문자열.
+    fn current_branch_name(&self) -> String {
+        model::status(&self.status()).map(|s| s.branch_name).unwrap_or_default()
+    }
+
+    /// `branch create`가 바꿔 놓은 현재 브랜치를 `original`로 되돌린다(이미 그대로면 아무것도 안 한다).
+    fn return_to_branch(&self, original: &str) -> Result<(), String> {
+        if !needs_return(original, &self.current_branch_name()) {
+            return Ok(());
+        }
+        let back = self.switch_branch(original);
+        if back.ok() { Ok(()) } else { Err(back.error) }
     }
 
     /// Archives `branch` locally and on the server (Lore keeps its metadata, so it can be restored).
@@ -332,16 +357,20 @@ impl Repository {
     /// 2. `branch reset <latest> --branch <name>`: 로컬 latest를 보관 전 마지막 리비전으로 맞춘다.
     /// 3. `branch push <name>`: 서버의 브랜치 항목을 되살린다(다른 사람·기기에도 보인다).
     ///
+    /// `latest_revision`이 비어 있으면 `branch latest list --branch <id>`로 보관 전 마지막 리비전을
+    /// 구한다(보관 브랜치는 이름으로 찾을 수 없어 id로 묻는다).
+    ///
     /// 같은 이름의 활성 브랜치가 있거나, 그 id가 이미 활성이거나, 오프라인이면 거부한다.
-    pub fn restore_branch(&self, id: &str, name: &str, latest_revision: &str) -> Result<(), String> {
+    /// 되살린 브랜치의 마지막 리비전을 돌려준다.
+    pub fn restore_branch(&self, id: &str, name: &str, latest_revision: &str) -> Result<String, String> {
         if self.offline {
             return Err("Restoring a branch needs the server; go online first".into());
         }
         if !is_branch_id(id) {
             return Err(format!("Not a branch id: {id}"));
         }
-        if name.trim().is_empty() || latest_revision.trim().is_empty() {
-            return Err("Restoring a branch needs its name and last revision".into());
+        if name.trim().is_empty() {
+            return Err("Restoring a branch needs its name".into());
         }
         let listed = self.branches();
         if !listed.ok() {
@@ -350,7 +379,12 @@ impl Repository {
         if let Some(refusal) = restore_refusal(&model::branches(&listed), id, name) {
             return Err(refusal);
         }
-        let original = model::status(&self.status()).map(|s| s.branch_name).unwrap_or_default();
+        let latest_revision = match latest_revision.trim() {
+            "" => self.branch_latest(id).map_err(|e| format!("Could not find the last revision of {name}: {e}"))?,
+            given => given.to_string(),
+        };
+        let latest_revision = latest_revision.as_str();
+        let original = self.current_branch_name();
 
         let args = lore::branch::LoreBranchCreateArgs {
             branch: LoreString::from_bytes(name.as_bytes()),
@@ -362,13 +396,7 @@ impl Repository {
             return Err(created.error);
         }
         // 작업본은 원래 브랜치의 리비전 그대로이니 같은 리비전으로 전환하는 것이라 로컬 수정이 있어도 된다.
-        let now = model::status(&self.status()).map(|s| s.branch_name).unwrap_or_default();
-        if !original.is_empty() && now != original {
-            let back = self.switch_branch(&original);
-            if !back.ok() {
-                return Err(format!("Restored {name}, but could not return to {original}: {}", back.error));
-            }
-        }
+        self.return_to_branch(&original).map_err(|e| format!("Restored {name}, but could not return to {original}: {e}"))?;
         let args = lore::branch::LoreBranchResetArgs {
             revision: LoreString::from_bytes(latest_revision.as_bytes()),
             branch: LoreString::from_bytes(name.as_bytes()),
@@ -381,7 +409,18 @@ impl Repository {
         if !pushed.ok() {
             return Err(format!("Restored {name} locally, but could not push it: {}", pushed.error));
         }
-        Ok(())
+        Ok(latest_revision.to_string())
+    }
+
+    /// `branch`(이름 또는 id)의 LATEST가 마지막으로 가리킨 리비전(`branch latest list`의 첫 항목).
+    /// 보관한 브랜치도 id로 물으면 보관 전 마지막 리비전을 돌려준다.
+    pub fn branch_latest(&self, branch: &str) -> Result<String, String> {
+        let args = lore::branch::LoreBranchLatestListArgs { branch: LoreString::from_bytes(branch.as_bytes()), limit: 1 };
+        let result = call(interface::lore_branch_latest_list_async, &self.globals(), &args);
+        if !result.ok() {
+            return Err(result.error);
+        }
+        model::latest_revision(&result).ok_or_else(|| format!("Branch {branch} has no latest revision"))
     }
 
     /// Makes `branch` the working copy's branch, at its latest revision.
@@ -800,6 +839,11 @@ pub fn restore_refusal(branches: &[model::Branch], id: &str, name: &str) -> Opti
     None
 }
 
+/// `branch create` 뒤 원래 브랜치로 되돌려야 하는지. 원래 브랜치를 몰랐으면(빈 이름) 건드리지 않는다.
+fn needs_return(original: &str, now: &str) -> bool {
+    !original.is_empty() && now != original
+}
+
 /// A Lore string array borrowing `items` (which must outlive the call).
 fn strings(items: &[String]) -> interface::LoreArray<LoreString> {
     interface::LoreArray::from_vec(items.iter().map(|s| LoreString::from_bytes(s.as_bytes())).collect())
@@ -814,6 +858,15 @@ mod tests {
     }
 
     const OLD: &str = "01a1c12b0ae1724ca701e9751c978dc7";
+
+    #[test]
+    fn create_returns_to_the_original_branch_only_when_it_moved() {
+        // Lore가 현재 브랜치를 새 브랜치로 바꿨으면 되돌린다.
+        assert!(needs_return("main", "feat"));
+        // 그대로면, 또는 원래 브랜치를 몰랐으면 아무것도 안 한다.
+        assert!(!needs_return("main", "main"));
+        assert!(!needs_return("", "feat"));
+    }
 
     #[test]
     fn branch_ids_are_32_hex_digits() {

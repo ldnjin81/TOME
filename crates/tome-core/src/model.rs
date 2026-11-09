@@ -326,6 +326,11 @@ pub fn branches(result: &CallResult) -> Vec<Branch> {
         .collect()
 }
 
+/// `branch latest list`가 돌려준 LATEST 기록 중 가장 최근 리비전(첫 항목). 기록이 없으면 None.
+pub fn latest_revision(result: &CallResult) -> Option<String> {
+    result.data("branchLatestListEntry").map(|e| text(&e["revision"])).find(|r| !r.is_empty() && r != NO_HASH)
+}
+
 /// Revisions in order; each `revisionHistoryEntry` is followed by its `metadata` events.
 pub fn history(result: &CallResult) -> Vec<Revision> {
     let mut revisions: Vec<Revision> = Vec::new();
@@ -408,6 +413,19 @@ mod tests {
 
     fn result(events: Vec<Value>) -> CallResult {
         CallResult { events, status: 0, error: String::new() }
+    }
+
+    #[test]
+    fn latest_revision_is_the_first_entry() {
+        let listed = result(vec![
+            json!({"tagName": "log", "data": {}}),
+            json!({"tagName": "branchLatestListEntry", "data": {"branch": "b1", "revision": "r3"}}),
+            json!({"tagName": "branchLatestListEntry", "data": {"branch": "b1", "revision": "r2"}}),
+        ]);
+        assert_eq!(latest_revision(&listed).as_deref(), Some("r3"));
+        // 기록이 없거나 0 해시뿐이면 없음.
+        assert_eq!(latest_revision(&result(vec![])), None);
+        assert_eq!(latest_revision(&result(vec![json!({"tagName": "branchLatestListEntry", "data": {"branch": "b1", "revision": NO_HASH}})])), None);
     }
 
     #[test]

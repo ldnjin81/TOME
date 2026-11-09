@@ -15,9 +15,11 @@ describe('explainError', () => {
   it('보관 브랜치 복원 오류는 복원 안내로, 원인 문구보다 먼저 맞춘다', () => {
     expect(explainError('A branch named feat already exists; rename or archive it before restoring')).toMatch(/^같은 이름의 활성 브랜치가 있어 복원할 수 없습니다/);
     expect(explainError('Restored feat locally, but could not push it: Disconnected from server')).toMatch(/^이 작업본에서는 복원했지만 서버에 올리지 못했습니다/);
+    expect(explainError('Created feat, but could not return to main: x')).toMatch(/^브랜치는 만들었지만 원래 브랜치로 돌아가지 못했습니다/);
     expect(explainError('Restored feat, but could not return to main: x')).toMatch(/^복원은 했지만 마무리하지 못했습니다/);
     expect(explainError('Branch feat is not archived')).toMatch(/^이미 보관이 풀린 브랜치입니다/);
     expect(explainError('Restoring a branch needs the server; go online first')).toMatch(/^브랜치 복원에는 서버 연결이 필요합니다/);
+    expect(explainError('Could not find the last revision of feat: Branch 01a1 has no latest revision')).toMatch(/^보관 브랜치의 마지막 리비전을 찾지 못해 복원하지 않았습니다/);
     // Lore가 직접 낸 이름 충돌은 기존 안내 그대로.
     expect(explainError('Branch feat already exists, use switch instead')).toMatch(/^같은 이름의 브랜치가 이미 있습니다/);
   });

@@ -96,6 +96,9 @@ fn branches_switching_and_merges() {
     // A new branch starts at the current revision.
     w.write("a.txt", b"one\nTWO-main\nthree\n");
     ok(w.repo.create_branch("g"), "create g");
+    // 만들기만 하면 현재 브랜치는 그대로다(Lore가 바꾼 것을 되돌림, 로컬 수정도 남는다).
+    assert_eq!(w.status().branch_name, "main", "creating a branch does not switch to it");
+    assert_eq!(w.read("a.txt"), b"one\nTWO-main\nthree\n");
     ok(w.repo.switch_branch("g"), "switch g");
     assert_eq!(w.status().branch_name, "g");
     assert_eq!(w.read("a.txt"), b"one\nTWO-main\nthree\n");
@@ -205,9 +208,15 @@ fn archived_branch_is_restored_with_its_id_and_history() {
     ok(w.repo.switch_branch("f"), "switch to the restored branch");
     assert_eq!(w.read("f.txt"), b"f\n");
 
-    // 같은 이름의 새 브랜치가 생긴 뒤에는 되살리지 않는다.
+    // 마지막 리비전을 넘기지 않으면 `branch latest list --branch <id>`로 구해 복원한다.
     ok(w.repo.switch_branch("main"), "switch main");
     ok(w.repo.archive_branch("f"), "archive f again");
+    assert_eq!(w.repo.restore_branch(&f.id, "f", "").expect("restore f without a revision"), latest);
+    assert_eq!(w.status().branch_name, "main");
+    assert_eq!(model::history(&ok(w.repo.history("f", 1), "history f"))[0].id, latest);
+
+    // 같은 이름의 새 브랜치가 생긴 뒤에는 되살리지 않는다.
+    ok(w.repo.archive_branch("f"), "archive f a third time");
     ok(w.repo.create_branch("f"), "a new f");
     ok(w.repo.switch_branch("main"), "switch main");
     let refused = w.repo.restore_branch(&f.id, "f", &latest).unwrap_err();

@@ -10,11 +10,12 @@ export function needsLogin(raw: string): boolean {
 const RULES: [RegExp, () => string][] = [
   // 보관 브랜치 복원(tome-core restore_branch). 원인 문구가 뒤에 붙으므로 다른 규칙보다 먼저 본다.
   [/^Restored .+ locally, but could not push it/i, () => t('이 작업본에서는 복원했지만 서버에 올리지 못했습니다. 연결을 확인한 뒤 브랜치 목록에서 그 브랜치를 push하세요.')],
+  [/^Created .+, but could not return to /i, () => t('브랜치는 만들었지만 원래 브랜치로 돌아가지 못했습니다. 작업본의 현재 브랜치를 확인하세요.')],
   [/^Restored .+, but could not (return to|set its last revision)/i, () => t('복원은 했지만 마무리하지 못했습니다. 작업본의 현재 브랜치와 복원한 브랜치의 리비전을 확인하세요.')],
   [/^A branch named .+ already exists; rename or archive it before restoring$/i, () => t('같은 이름의 활성 브랜치가 있어 복원할 수 없습니다. 그 브랜치의 이름을 바꾸거나 보관한 뒤 다시 하세요.')],
   [/^Branch .+ is not archived$/i, () => t('이미 보관이 풀린 브랜치입니다. 새로고침하세요.')],
   [/^Restoring a branch needs the server/i, () => t('브랜치 복원에는 서버 연결이 필요합니다. 오프라인을 끄고 다시 하세요.')],
-  [/^Restoring a branch needs its name and last revision$/i, () => t('보관 브랜치의 마지막 리비전을 찾지 못했습니다. 브랜치 탐색기에서 "전체"를 눌러 기록을 더 읽은 뒤 다시 하세요.')],
+  [/^Could not find the last revision of /i, () => t('보관 브랜치의 마지막 리비전을 찾지 못해 복원하지 않았습니다. 이 작업본에 그 브랜치의 기록이 있는지 확인하세요.')],
   [/Login already in progress/i, () => t('이전 로그인 요청이 끝나기를 기다리는 중…')],
   [/expired_token|Login session expired|device.*expired|authorization.*expired/i, () => t('승인 시간이 지났습니다. 다시 로그인하세요.')],
   [/access_denied|authorization_declined/i, () => t('로그인 요청이 거부되었습니다. 다시 시도하세요.')],

@@ -530,11 +530,8 @@ export default function App() {
   /** 보관 브랜치를 원래 id·이름·기록으로 되살린다(서버에도 push). `switchAfter`면 이어서 그 브랜치로 전환한다. */
   async function restoreBranch(branch: Branch, switchAfter: boolean) {
     if (busy) return;
-    const revision = lastRevisionOf(branch.id, explorer?.nodes ?? []);
-    if (!revision) {
-      addToast(t('보관 브랜치의 마지막 리비전을 찾지 못했습니다. 브랜치 탐색기에서 "전체"를 눌러 기록을 더 읽은 뒤 다시 하세요.'), 'info');
-      return;
-    }
+    // 탐색기가 읽은 범위에 마지막 리비전이 없으면 비워 보낸다: 백엔드가 `branch latest list`로 구한다.
+    const revision = lastRevisionOf(branch.id, explorer?.nodes ?? []) || null;
     setRestoring(branch.id);
     addToast(t('{name} 브랜치를 복원하는 중…', { name: branch.name }), 'info');
     const ok = await run<Restored>('restore_branch', { id: branch.id, name: branch.name, revision, switch: switchAfter }, (done) => {

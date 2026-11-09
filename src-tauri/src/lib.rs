@@ -394,17 +394,23 @@ struct Restored {
     switch_error: Option<String>,
 }
 
-/// 보관 브랜치 `id`를 `name`으로 되살리고(`revision`: 보관 전 마지막 리비전), `switch`면 그리로 전환한다.
+/// 보관 브랜치 `id`를 `name`으로 되살리고, `switch`면 그리로 전환한다. `revision`(보관 전 마지막
+/// 리비전)을 모르면 비우거나 생략한다: 백엔드가 `branch latest list`로 구한다.
 #[tauri::command]
-async fn restore_branch(path: String, id: String, name: String, revision: String, switch: bool) -> Result<Done<Restored>, String> {
+async fn restore_branch(path: String, id: String, name: String, revision: Option<String>, switch: bool) -> Result<Done<Restored>, String> {
     blocking(move || {
         let repository = repository(&path, false);
-        repository.restore_branch(&id, &name, &revision)?;
-        let mut commands = vec![
+        let given = revision.unwrap_or_default();
+        let revision = repository.restore_branch(&id, &name, &given)?;
+        let mut commands = Vec::new();
+        if given.trim().is_empty() {
+            commands.push(format!("lore branch latest list --branch {} --limit 1", arg(&id)));
+        }
+        commands.extend([
             format!("lore branch create {} --id {}", arg(&name), arg(&id)),
             format!("lore branch reset {} --branch {}", arg(&revision), arg(&name)),
             format!("lore branch push {}", arg(&name)),
-        ];
+        ]);
         let mut switch_error = None;
         if switch {
             match checked(repository.switch_branch(&name)).map_err(explain) {
