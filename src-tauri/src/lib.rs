@@ -387,6 +387,36 @@ async fn switch_branch(path: String, name: String) -> Result<Done<BranchState>, 
     .await
 }
 
+/// [`restore_branch`]의 결과. 복원은 됐는데 전환만 못 했으면(로컬 수정 등) `switch_error`에 까닭을 담는다.
+#[derive(Serialize)]
+struct Restored {
+    state: BranchState,
+    switch_error: Option<String>,
+}
+
+/// 보관 브랜치 `id`를 `name`으로 되살리고(`revision`: 보관 전 마지막 리비전), `switch`면 그리로 전환한다.
+#[tauri::command]
+async fn restore_branch(path: String, id: String, name: String, revision: String, switch: bool) -> Result<Done<Restored>, String> {
+    blocking(move || {
+        let repository = repository(&path, false);
+        repository.restore_branch(&id, &name, &revision)?;
+        let mut commands = vec![
+            format!("lore branch create {} --id {}", arg(&name), arg(&id)),
+            format!("lore branch reset {} --branch {}", arg(&revision), arg(&name)),
+            format!("lore branch push {}", arg(&name)),
+        ];
+        let mut switch_error = None;
+        if switch {
+            match checked(repository.switch_branch(&name)).map_err(explain) {
+                Ok(_) => commands.push(format!("lore branch switch {}", arg(&name))),
+                Err(e) => switch_error = Some(e),
+            }
+        }
+        Ok(Done { value: Restored { state: branch_state(&repository)?, switch_error }, commands })
+    })
+    .await
+}
+
 /// Merges `from` into the current branch: commits on its own when nothing conflicts, otherwise
 /// leaves a merge in progress (status.merging) with the conflicted files to settle.
 /// What merging `from` into the current branch would bring in and conflict on, as a dry run.
@@ -1034,6 +1064,7 @@ pub fn run() {
             instance_move,
             create_branch,
             switch_branch,
+            restore_branch,
             merge_branch,
             merge_preview,
             resolve_conflicts,

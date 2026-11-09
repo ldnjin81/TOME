@@ -10,11 +10,15 @@ const ROW = 58;
 const HEADER = 40;
 const date = (start: number, end: number) => new Intl.DateTimeFormat(getLocale(), { year: 'numeric', month: 'short', day: 'numeric' }).formatRange(new Date(start), new Date(end));
 
-export default function BranchExplorer({ path, offline, status, stack, selected, busy, onSelect, onData, onNewBranch, onSwitch }: {
+export default function BranchExplorer({ path, offline, status, stack, selected, busy, onSelect, onData, onNewBranch, onSwitch, restoring, onRestore }: {
   path: string; offline: boolean; status: Status; stack: StackInfo | null; selected: string | null; busy: boolean;
   onSelect: (id: string) => void; onData: (layout: ExplorerLayout | null) => void; onNewBranch: () => void;
   /** 트리 행·레인 이름을 더블클릭: 그 브랜치로 전환. */
   onSwitch: (branch: Branch) => void;
+  /** 복원 중인 보관 브랜치 id. */
+  restoring: string | null;
+  /** 보관 브랜치 행의 "복원": 전환하지 않고 되살린다. */
+  onRestore: (branch: Branch) => void;
 }) {
   const [data, setData] = useState<ExplorerLayout | null>(null);
   const [archived, setArchived] = useState(false);
@@ -134,12 +138,13 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
             const l = data!.lanes[lane]; const id = l.branch.id;
             return <div className={`explorer-tree-row${lit===id ? ' active' : ''}`} key={id} style={{ paddingLeft: 6+Math.min(l.depth, 6)*12 }} onMouseEnter={() => setHover(id)} onMouseLeave={() => setHover('')}>
               {childIds.has(id) ? <button className="explorer-fold" aria-label={`${t('접기/펼치기')}: ${l.branch.name}`} aria-expanded={query.trim() ? true : !collapsed.has(id)} onClick={() => setCollapsed((old) => { const next=new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; })}>{collapsed.has(id) && !query.trim() ? '▸' : '▾'}</button> : <span className="explorer-fold" />}
-              <button className="explorer-branch" title={`${l.branch.name} · ${t('더블클릭하면 이 브랜치로 전환')}`} onDoubleClick={() => onSwitch(l.branch)} onClick={() => {
+              <button className="explorer-branch" title={`${l.branch.name} · ${l.branch.archived ? t('더블클릭하면 복원한 뒤 이 브랜치로 전환') : t('더블클릭하면 이 브랜치로 전환')}`} onDoubleClick={() => onSwitch(l.branch)} onClick={() => {
                 setHighlight(id);
                 const el=viewport.current; if (!el) return;
                 const last=data!.nodes.filter((n) => n.lane===lane).at(-1);
                 el.scrollTo({ top: (positions.get(lane) ?? 0)-el.clientHeight/2, left: last ? last.x*zoom-el.clientWidth/2 : el.scrollLeft, behavior: scrollBehavior(prefersReducedMotion()) });
               }}><span className="lane-dot" style={{ background: color(lane) }} /><span className="name">{l.branch.name}</span>{l.branch.current && <span aria-label={t('현재 브랜치')}>✓</span>}{id===data!.root && <span className="badge">{t('기본')}</span>}{l.branch.archived && <span className="muted">{t('보관')}</span>}</button>
+              {l.branch.archived && <button className="ghost small-btn explorer-restore" onClick={() => onRestore(l.branch)} disabled={busy || offline || !!status.merging} title={t('{name} 브랜치를 되살립니다(서버에도 반영, 전환하지 않음)', { name: l.branch.name })}>{restoring===id ? t('복원 중…') : t('복원')}</button>}
             </div>;
           })}
         </div>
@@ -156,7 +161,7 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
         onPointerUp={() => { drag.current=null; }} onPointerCancel={() => { drag.current=null; }}>
         <div className="explorer-canvas" style={{ width: (data?.width ?? 320)*zoom, height: Math.max(visible.length*ROW+HEADER, view.height) }}>
           <div className="explorer-lane-labels" aria-hidden="true">
-            {visible.map((lane) => { const b=data!.lanes[lane].branch; return <span key={lane} className={`explorer-lane-name${lit===b.id ? ' lit' : ''}`} title={t('더블클릭하면 이 브랜치로 전환')} style={{ top: positions.get(lane)!-27, color: color(lane), maxWidth: Math.max(0, view.width-24) }} onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover('')} onDoubleClick={() => onSwitch(b)}>{b.name}</span>; })}
+            {visible.map((lane) => { const b=data!.lanes[lane].branch; return <span key={lane} className={`explorer-lane-name${lit===b.id ? ' lit' : ''}`} title={b.archived ? t('더블클릭하면 복원한 뒤 이 브랜치로 전환') : t('더블클릭하면 이 브랜치로 전환')} style={{ top: positions.get(lane)!-27, color: color(lane), maxWidth: Math.max(0, view.width-24) }} onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover('')} onDoubleClick={() => onSwitch(b)}>{b.name}</span>; })}
           </div>
           <div className="explorer-date-head" aria-hidden="true" style={{ height: HEADER, width: (data?.width ?? 320)*zoom }}>
             {data?.columns.filter((c) => (c.x+c.width)*zoom>=view.left && c.x*zoom<=view.left+view.width).map((c) => <div key={c.start} className="explorer-date-cell" style={{ left: c.x*zoom, width: c.width*zoom }}><span>{date(c.start, c.end)}</span></div>)}

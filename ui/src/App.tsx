@@ -2,7 +2,7 @@ import { t, setLanguage, useLanguage, getLocale } from './i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { invoke } from '@tauri-apps/api/core';
 import { listen } from '@tauri-apps/api/event';
-import type { Asset, AssetPreview, Keep, PendingRestack, RestackOutcome, RestackPlan, StackInfo, JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
+import type { Asset, AssetPreview, Keep, PendingRestack, RestackOutcome, RestackPlan, StackInfo, JobEvent, JobOp, JobProgress, LoreNotification, AuthState, BranchState, Restored, DiffFile, FilePatch, Resolution, RevisionChanges, Branch, Done, Graph, Lock, Overview, Revision, Settings, Status, Tool, ToolContext, ToolOutput, ToolSelection, ToolSet, ViewChange } from './types';
 import { ContextMenu, OutputPanel, RunDialog, ToolManager, ToolMenu, toolsFor, type ToolEntry } from './Tools';
 import Changes from './Changes';
 import Updater from './Updater';
@@ -18,7 +18,7 @@ import AuthPanel, { AuthDialog } from './AuthPanel';
 import ViewDialog, { PRESETS } from './ViewDialog';
 import { viewSummary } from './viewLogic';
 import { joinUnder, nestedRootOf } from './nestedLogic';
-import { switchAction } from './branchExplorerLogic';
+import { ARCHIVED_GROUP, archivedOf, lastRevisionOf, switchAction } from './branchExplorerLogic';
 import InstanceDialog from './InstanceDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
@@ -64,6 +64,8 @@ export default function App() {
   const [logMode, setLogMode] = useState<'stack' | 'all'>('stack');
   const [locks, setLocks] = useState<Lock[]>([]);
   const [explorer, setExplorer] = useState<ExplorerLayout | null>(null);
+  /** 복원 중인 보관 브랜치 id. */
+  const [restoring, setRestoring] = useState<string | null>(null);
   const [graph, setGraph] = useState<Graph | null>(null);
   const [graphLoading, setGraphLoading] = useState(false);
   const [toolSet, setToolSet] = useState<ToolSet | null>(null);
@@ -461,6 +463,8 @@ export default function App() {
   // Lore lists a branch once per location (local and remote): show each id once.
   const branches = (overview?.branches ?? []).filter((b, i, all) => !b.archived && all.findIndex((o) => o.id === b.id) === i);
   const branchList = useMemo(() => orderBranches(branches, status?.branch_name ?? ''), [branches, status?.branch_name]);
+  // 보관 브랜치는 브랜치 탐색기가 "보관 브랜치 표시"로 읽어 온 것만 보인다(마지막 리비전도 거기서 찾는다).
+  const archivedBranches = useMemo(() => archivedOf(explorer?.lanes ?? []), [explorer]);
   const collapsed = new Set(settings?.collapsed_branch_groups ?? []);
   function toggleGroup(group: string) {
     if (!settings) return;
@@ -515,12 +519,31 @@ export default function App() {
     await run<BranchState>('switch_branch', { name }, () => void afterBranchChange());
   }
 
-  /** 브랜치 탐색기에서 더블클릭한 브랜치로 전환한다(브랜치 목록의 "전환"과 같은 경로). */
+  /** 브랜치 탐색기에서 더블클릭한 브랜치로 전환한다(브랜치 목록의 "전환"과 같은 경로). 보관 브랜치는 복원한 뒤 전환한다. */
   function switchFromExplorer(branch: Branch) {
     const action = switchAction(branch, status?.branch_name ?? '', !!status?.merging, busy);
-    if (action === 'archived') addToast(t('보관된 브랜치는 전환할 수 없습니다: {name}', { name: branch.name }), 'info');
+    if (action === 'restore') void restoreBranch(branch, true);
     else if (action === 'merging') addToast(t('병합 중에는 브랜치를 전환할 수 없습니다'), 'info');
     else if (action === 'switch') void switchTo(branch.name);
+  }
+
+  /** 보관 브랜치를 원래 id·이름·기록으로 되살린다(서버에도 push). `switchAfter`면 이어서 그 브랜치로 전환한다. */
+  async function restoreBranch(branch: Branch, switchAfter: boolean) {
+    if (busy) return;
+    const revision = lastRevisionOf(branch.id, explorer?.nodes ?? []);
+    if (!revision) {
+      addToast(t('보관 브랜치의 마지막 리비전을 찾지 못했습니다. 브랜치 탐색기에서 "전체"를 눌러 기록을 더 읽은 뒤 다시 하세요.'), 'info');
+      return;
+    }
+    setRestoring(branch.id);
+    addToast(t('{name} 브랜치를 복원하는 중…', { name: branch.name }), 'info');
+    const ok = await run<Restored>('restore_branch', { id: branch.id, name: branch.name, revision, switch: switchAfter }, (done) => {
+      if (done.switch_error) addToast(t('{name} 브랜치를 복원했지만 전환하지 못했습니다: {reason}', { name: branch.name, reason: explainError(done.switch_error) }), 'info');
+      else addToast(switchAfter ? t('{name} 브랜치를 복원하고 전환했습니다', { name: branch.name }) : t('{name} 브랜치를 복원했습니다', { name: branch.name }), 'push');
+      void afterBranchChange();
+    });
+    setRestoring(null);
+    if (!ok) addToast(t('{name} 브랜치를 복원하지 못했습니다', { name: branch.name }), 'info');
   }
 
   /** 작업본 안의 중첩 저장소를 TOME에서 저장소로 연다(경로 입력 후 "열기"와 같은 경로). */
@@ -728,6 +751,30 @@ export default function App() {
               </div>
             );
           })}
+          {archivedBranches.length > 0 && (
+            <div className="branch-group">
+              <button className="group-head" onClick={() => toggleGroup(ARCHIVED_GROUP)} aria-expanded={!collapsed.has(ARCHIVED_GROUP)} title={t('브랜치 탐색기에서 "보관 브랜치 표시"로 읽은 보관 브랜치')}>
+                <span className="tree-caret" aria-hidden="true">{collapsed.has(ARCHIVED_GROUP) ? '▸' : '▾'}</span>
+                {t('보관 브랜치')} <span className="muted">{archivedBranches.length}</span>
+              </button>
+              {!collapsed.has(ARCHIVED_GROUP) && (
+                <ul>
+                  {archivedBranches.map((b) => (
+                    <li key={b.id} className="branch-li">
+                      <span className="item muted" title={b.name}>
+                        <span className="name">{b.name}</span>
+                      </span>
+                      <span className="branch-actions">
+                        <button className="ghost small-btn" onClick={() => void restoreBranch(b, false)} disabled={busy || offline || !!status?.merging} title={t('{name} 브랜치를 되살립니다(서버에도 반영, 전환하지 않음)', { name: b.name })}>
+                          {restoring === b.id ? t('복원 중…') : t('복원')}
+                        </button>
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
           {status && (
             <section className="working">
               <h2>{t("작업본")}</h2>
@@ -822,7 +869,7 @@ export default function App() {
               onFold={setFoldReq}
             />
           )}
-          {tab === 'branches' && status && !artist && <BranchExplorer path={path.trim()} offline={offline} status={status} stack={stackInfo} selected={selected} busy={busy} onSelect={setSelected} onData={setExplorer} onNewBranch={() => setNewBranch(true)} onSwitch={switchFromExplorer} />}
+          {tab === 'branches' && status && !artist && <BranchExplorer path={path.trim()} offline={offline} status={status} stack={stackInfo} selected={selected} busy={busy} onSelect={setSelected} onData={setExplorer} onNewBranch={() => setNewBranch(true)} onSwitch={switchFromExplorer} restoring={restoring} onRestore={(b) => void restoreBranch(b, false)} />}
           {tab === 'assets' && status && (
             <Assets
               path={path.trim()}

@@ -178,3 +178,38 @@ fn merge_preview_reports_without_changing_anything() {
     assert!(!w.dir.join("d.txt").exists());
     assert_eq!(w.read("a.txt"), b"one\nTWO-main\nthree\n");
 }
+
+/// 보관한 브랜치를 같은 id로 되살리면 원래 이름·마지막 리비전으로 돌아오고 작업본은 원래 브랜치에
+/// 남는다. 같은 이름의 활성 브랜치가 있으면 거부한다.
+#[test]
+fn archived_branch_is_restored_with_its_id_and_history() {
+    let Some(server) = server() else { return };
+    let w = Work::new(&server, "restore");
+    w.commit(&[("a.txt", b"a\n")], "B");
+    ok(w.repo.push("main"), "push main");
+    ok(w.repo.create_branch("f"), "create f");
+    ok(w.repo.switch_branch("f"), "switch f");
+    w.commit(&[("f.txt", b"f\n")], "F1");
+    ok(w.repo.push("f"), "push f");
+    let f = model::branches(&ok(w.repo.branches(), "branches")).into_iter().find(|b| b.name == "f").unwrap();
+    let latest = model::history(&ok(w.repo.history("f", 1), "history f"))[0].id.clone();
+    ok(w.repo.switch_branch("main"), "switch main");
+    ok(w.repo.archive_branch("f"), "archive f");
+    assert!(model::branches(&ok(w.repo.branches(), "branches")).iter().all(|b| b.name != "f" || b.archived));
+
+    w.repo.restore_branch(&f.id, "f", &latest).expect("restore f");
+    assert_eq!(w.status().branch_name, "main", "the working copy stays on its branch");
+    let restored: Vec<_> = model::branches(&ok(w.repo.branches(), "branches")).into_iter().filter(|b| b.name == "f").collect();
+    assert!(!restored.is_empty() && restored.iter().all(|b| b.id == f.id && !b.archived), "{restored:?}");
+    assert_eq!(model::history(&ok(w.repo.history("f", 1), "history f"))[0].id, latest);
+    ok(w.repo.switch_branch("f"), "switch to the restored branch");
+    assert_eq!(w.read("f.txt"), b"f\n");
+
+    // 같은 이름의 새 브랜치가 생긴 뒤에는 되살리지 않는다.
+    ok(w.repo.switch_branch("main"), "switch main");
+    ok(w.repo.archive_branch("f"), "archive f again");
+    ok(w.repo.create_branch("f"), "a new f");
+    ok(w.repo.switch_branch("main"), "switch main");
+    let refused = w.repo.restore_branch(&f.id, "f", &latest).unwrap_err();
+    assert!(refused.contains("already exists"), "{refused}");
+}

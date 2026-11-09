@@ -353,10 +353,12 @@ impl Repository {
             .iter()
             .filter(|b| (archived || !b.archived) && seen.insert(&b.id))
         {
+            // 보관 브랜치는 이름→ID가 지워져 이름으로는 기록을 못 읽는다(Lore 0.13). id로는 읽힌다.
+            let key = if b.archived { &b.id } else { &b.name };
             let history = if since == 0 {
-                self.history(&b.name, u32::MAX)
+                self.history(key, u32::MAX)
             } else {
-                self.history_since(&b.name, since)
+                self.history_since(key, since)
             };
             if !history.ok() {
                 incomplete.push(format!("{}: {}", b.name, history.error));

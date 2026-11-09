@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjacentNode, clampZoom, HISTORY_STEP_DAYS, moreHistory, recentPosition, scrollBehavior, switchAction, visibleLanes, type ExplorerLane, type ExplorerNode } from './branchExplorerLogic';
+import { adjacentNode, clampZoom, HISTORY_STEP_DAYS, lastRevisionOf, moreHistory, recentPosition, scrollBehavior, switchAction, visibleLanes, type ExplorerLane, type ExplorerNode } from './branchExplorerLogic';
 const lanes = ['main','feature','child','other'].map((id,i) => ({ branch: { id, name: id }, parent: [null,'main','feature','main'][i], depth: [0,1,2,1][i], parent_source: 'stack' })) as ExplorerLane[];
 const nodes = [{ revision:{id:'a'},lane:0,x:10 },{revision:{id:'b'},lane:0,x:50},{revision:{id:'c'},lane:2,x:30},{revision:{id:'d'},lane:3,x:70}] as ExplorerNode[];
 describe('브랜치 탐색기', () => {
@@ -40,12 +40,21 @@ describe('브랜치 탐색기 0.13 동작', () => {
     expect(scrollBehavior(true)).toBe('auto');
     expect(scrollBehavior(false)).toBe('smooth');
   });
-  it('더블클릭 전환: 현재·작업 중은 무시, 보관·병합 중은 막는다', () => {
+  it('더블클릭 전환: 현재·작업 중은 무시, 보관은 복원 후 전환, 병합 중은 막는다', () => {
     const b = (name: string, archived = false) => ({ name, archived });
     expect(switchAction(b('feature'), 'main', false, false)).toBe('switch');
     expect(switchAction(b('main'), 'main', false, false)).toBe('none');
     expect(switchAction(b('feature'), 'main', false, true)).toBe('none');
-    expect(switchAction(b('old', true), 'main', false, false)).toBe('archived');
+    expect(switchAction(b('old', true), 'main', false, false)).toBe('restore');
+    expect(switchAction(b('old', true), 'main', false, true)).toBe('none');
+    expect(switchAction(b('old', true), 'main', true, false)).toBe('merging');
     expect(switchAction(b('feature'), 'main', true, false)).toBe('merging');
+  });
+  it('보관 브랜치의 마지막 리비전은 그 브랜치 리비전 중 가장 최신이다', () => {
+    const n = (id: string, branch_id: string, timestamp: number, number: number) => ({ revision: { id, branch_id, timestamp, number }, lane: 0, x: 0 }) as ExplorerNode;
+    const all = [n('m1','main',1,1), n('f1','old',2,2), n('f3','old',5,4), n('f2','old',5,3), n('m2','main',9,5)];
+    expect(lastRevisionOf('old', all)).toBe('f3');
+    expect(lastRevisionOf('main', all)).toBe('m2');
+    expect(lastRevisionOf('gone', all)).toBe('');
   });
 });

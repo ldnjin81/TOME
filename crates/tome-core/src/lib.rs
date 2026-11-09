@@ -312,6 +312,78 @@ impl Repository {
         call(interface::lore_branch_create_async, &self.globals(), &args)
     }
 
+    /// Archives `branch` locally and on the server (Lore keeps its metadata, so it can be restored).
+    pub fn archive_branch(&self, branch: &str) -> CallResult {
+        let args = lore::branch::LoreBranchArchiveArgs {
+            branch: LoreString::from_bytes(branch.as_bytes()),
+            layer: LoreString::default(),
+            include_layers: 0,
+            link: LoreString::default(),
+            include_links: 0,
+        };
+        call(interface::lore_branch_archive_async, &self.globals(), &args)
+    }
+
+    /// 보관한 브랜치를 원래 id·이름으로 되살린다(Lore에는 unarchive가 없다).
+    ///
+    /// 1. 같은 id로 `branch create`: Lore는 남아 있는 브랜치 메타데이터를 보고 이름→ID만 되살린다
+    ///    ("Restoring deleted branch"). 이때 Lore가 작업본의 현재 브랜치를 그 브랜치로 바꾸므로
+    ///    (파일은 그대로) 원래 브랜치로 되돌린다.
+    /// 2. `branch reset <latest> --branch <name>`: 로컬 latest를 보관 전 마지막 리비전으로 맞춘다.
+    /// 3. `branch push <name>`: 서버의 브랜치 항목을 되살린다(다른 사람·기기에도 보인다).
+    ///
+    /// 같은 이름의 활성 브랜치가 있거나, 그 id가 이미 활성이거나, 오프라인이면 거부한다.
+    pub fn restore_branch(&self, id: &str, name: &str, latest_revision: &str) -> Result<(), String> {
+        if self.offline {
+            return Err("Restoring a branch needs the server; go online first".into());
+        }
+        if !is_branch_id(id) {
+            return Err(format!("Not a branch id: {id}"));
+        }
+        if name.trim().is_empty() || latest_revision.trim().is_empty() {
+            return Err("Restoring a branch needs its name and last revision".into());
+        }
+        let listed = self.branches();
+        if !listed.ok() {
+            return Err(listed.error);
+        }
+        if let Some(refusal) = restore_refusal(&model::branches(&listed), id, name) {
+            return Err(refusal);
+        }
+        let original = model::status(&self.status()).map(|s| s.branch_name).unwrap_or_default();
+
+        let args = lore::branch::LoreBranchCreateArgs {
+            branch: LoreString::from_bytes(name.as_bytes()),
+            category: LoreString::default(),
+            id: LoreString::from_bytes(id.as_bytes()),
+        };
+        let created = call(interface::lore_branch_create_async, &self.globals(), &args);
+        if !created.ok() {
+            return Err(created.error);
+        }
+        // 작업본은 원래 브랜치의 리비전 그대로이니 같은 리비전으로 전환하는 것이라 로컬 수정이 있어도 된다.
+        let now = model::status(&self.status()).map(|s| s.branch_name).unwrap_or_default();
+        if !original.is_empty() && now != original {
+            let back = self.switch_branch(&original);
+            if !back.ok() {
+                return Err(format!("Restored {name}, but could not return to {original}: {}", back.error));
+            }
+        }
+        let args = lore::branch::LoreBranchResetArgs {
+            revision: LoreString::from_bytes(latest_revision.as_bytes()),
+            branch: LoreString::from_bytes(name.as_bytes()),
+        };
+        let reset = call(interface::lore_branch_reset_async, &self.globals(), &args);
+        if !reset.ok() {
+            return Err(format!("Restored {name}, but could not set its last revision: {}", reset.error));
+        }
+        let pushed = self.push(name);
+        if !pushed.ok() {
+            return Err(format!("Restored {name} locally, but could not push it: {}", pushed.error));
+        }
+        Ok(())
+    }
+
     /// Makes `branch` the working copy's branch, at its latest revision.
     pub fn switch_branch(&self, branch: &str) -> CallResult {
         let args = lore::branch::LoreBranchSwitchArgs {
@@ -710,7 +782,58 @@ impl Repository {
     }
 }
 
+/// Lore 브랜치 id(16바이트 hex, 32자)인지.
+pub fn is_branch_id(id: &str) -> bool {
+    id.len() == 32 && id.bytes().all(|b| b.is_ascii_hexdigit())
+}
+
+/// 보관 브랜치 `id`를 `name`으로 되살릴 수 없는 이유. 목록에는 같은 브랜치가 로컬·원격으로 두 번
+/// 나올 수 있고, 보관된 항목은 따지지 않는다.
+pub fn restore_refusal(branches: &[model::Branch], id: &str, name: &str) -> Option<String> {
+    let active = || branches.iter().filter(|b| !b.archived);
+    if active().any(|b| b.id.eq_ignore_ascii_case(id)) {
+        return Some(format!("Branch {name} is not archived"));
+    }
+    if active().any(|b| b.name == name) {
+        return Some(format!("A branch named {name} already exists; rename or archive it before restoring"));
+    }
+    None
+}
+
 /// A Lore string array borrowing `items` (which must outlive the call).
 fn strings(items: &[String]) -> interface::LoreArray<LoreString> {
     interface::LoreArray::from_vec(items.iter().map(|s| LoreString::from_bytes(s.as_bytes())).collect())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn branch(id: &str, name: &str, archived: bool) -> model::Branch {
+        model::Branch { id: id.into(), name: name.into(), latest: String::new(), current: false, archived, creator: String::new(), created: 0 }
+    }
+
+    const OLD: &str = "01a1c12b0ae1724ca701e9751c978dc7";
+
+    #[test]
+    fn branch_ids_are_32_hex_digits() {
+        assert!(is_branch_id(OLD));
+        assert!(is_branch_id(&OLD.to_uppercase()));
+        assert!(!is_branch_id(""));
+        assert!(!is_branch_id(&OLD[..31]));
+        assert!(!is_branch_id(&format!("{}g", &OLD[..31])));
+    }
+
+    #[test]
+    fn restore_refuses_a_taken_name_or_a_live_branch() {
+        // 보관 항목만 있으면(로컬·원격 중복 포함) 되살릴 수 있다.
+        let archived = [branch(OLD, "feat", true), branch(OLD, "feat", true), branch("e726318bbc3fd75ac8733a7e030cc35b", "main", false)];
+        assert_eq!(restore_refusal(&archived, OLD, "feat"), None);
+        // 같은 이름의 다른 활성 브랜치가 있으면 거부한다.
+        let taken = [branch(OLD, "feat", true), branch("01a1c12bf5de753fa910e6eb00f42bcc", "feat", false)];
+        assert!(restore_refusal(&taken, OLD, "feat").unwrap().contains("already exists"));
+        // 이미 활성인 id(대소문자 무관)는 되살릴 것이 없다.
+        let live = [branch(OLD, "feat", false)];
+        assert!(restore_refusal(&live, &OLD.to_uppercase(), "feat").unwrap().contains("not archived"));
+    }
 }

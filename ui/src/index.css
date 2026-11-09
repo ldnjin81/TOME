@@ -528,6 +528,7 @@ button.lrow[draggable="true"] { cursor: grab; }
 .explorer-tree-row.active { background: var(--accent-soft); }
 .explorer-fold { width: 18px; flex: none; padding: 0; border: 0; background: none; cursor: pointer; }
 .explorer-branch { min-width: 0; flex: 1; display: flex; gap: 5px; align-items: center; padding: 4px 3px; border: 0; background: none; cursor: pointer; text-align: left; font-size: 12px; }
+.explorer-restore { flex: none; margin-right: 4px; }
 .explorer-branch .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .explorer-branch .badge { font-size: 10px; margin: 0; padding: 1px 4px; }
 .explorer-viewport { overflow: auto; position: relative; min-width: 0; overscroll-behavior: contain; touch-action: none; }

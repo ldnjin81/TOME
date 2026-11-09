@@ -70,10 +70,26 @@ export function recentPosition(nodes: ExplorerNode[], width: number, height: num
   return { left: Math.max(0, (latest?.x ?? 0)*zoom-width/2), top: Math.max(0, 40+(latest?.lane ?? 0)*58+29-height/2) };
 }
 
-/** 탐색기에서 브랜치를 더블클릭했을 때 할 일. 보관 브랜치는 TOME에 복원 기능이 없어 전환하지 않고 안내한다. */
-export function switchAction(branch: { name: string; archived: boolean }, current: string, merging: boolean, busy: boolean): 'none' | 'archived' | 'merging' | 'switch' {
+/** 탐색기에서 브랜치를 더블클릭했을 때 할 일. 보관 브랜치는 복원한 뒤 전환한다(병합 중에는 둘 다 안 한다). */
+export function switchAction(branch: { name: string; archived: boolean }, current: string, merging: boolean, busy: boolean): 'none' | 'restore' | 'merging' | 'switch' {
   if (busy || branch.name === current) return 'none';
-  if (branch.archived) return 'archived';
   if (merging) return 'merging';
+  if (branch.archived) return 'restore';
   return 'switch';
+}
+
+/** 브랜치 목록에서 보관 브랜치 묶음의 접힘 상태를 저장할 때 쓰는 이름(브랜치 이름과 겹치지 않게 ':'로 시작). */
+export const ARCHIVED_GROUP = ':archived';
+
+/** 탐색기 레인 중 보관 브랜치만, id마다 한 번, 이름순. */
+export function archivedOf(lanes: ExplorerLane[]): Branch[] {
+  const seen = new Set<string>();
+  return lanes.map((l) => l.branch).filter((b) => b.archived && !seen.has(b.id) && !!seen.add(b.id)).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** 보관 브랜치의 마지막 리비전: 탐색기가 읽은 리비전 중 그 브랜치 것 가운데 가장 최신. 읽은 범위에 없으면 ''. */
+export function lastRevisionOf(branchId: string, nodes: ExplorerNode[]): string {
+  const own = nodes.filter((n) => n.revision.branch_id === branchId);
+  const latest = own.reduce<ExplorerNode | undefined>((best, n) => !best || n.revision.timestamp > best.revision.timestamp || (n.revision.timestamp === best.revision.timestamp && n.revision.number > best.revision.number) ? n : best, undefined);
+  return latest?.revision.id ?? '';
 }

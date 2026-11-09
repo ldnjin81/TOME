@@ -216,6 +216,12 @@ export interface BranchState {
   branches: Branch[];
 }
 
+/** restore_branch의 결과: 복원은 됐고, 전환을 못 했으면 switch_error에 까닭이 있다. */
+export interface Restored {
+  state: BranchState;
+  switch_error: string | null;
+}
+
 export type Resolution = 'mine' | 'theirs' | 'edited';
 
 /** A push notification from the server (crates/tome-core/src/notify.rs). */
