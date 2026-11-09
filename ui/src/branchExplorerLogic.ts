@@ -10,6 +10,21 @@ export interface ExplorerLayout {
   width: number;
   root: string;
   incomplete: string[];
+  /** 이 시각(Unix ms) 이후의 기록만 읽었다. 0이면 전체. */
+  since: number;
+}
+
+/** 처음 읽는 기록 범위이자 "이전 기록 더 보기" 한 번에 늘리는 날 수. */
+export const HISTORY_STEP_DAYS = 90;
+
+/** 기록 범위를 한 단계 넓힌다(전체이면 그대로). */
+export const moreHistory = (days: number | null) => days === null ? null : days + HISTORY_STEP_DAYS;
+
+/** "동작 줄이기"를 켠 사용자에게는 즉시, 아니면 부드럽게 스크롤한다. */
+export const scrollBehavior = (reducedMotion: boolean): ScrollBehavior => reducedMotion ? 'auto' : 'smooth';
+
+export function prefersReducedMotion() {
+  return typeof window !== 'undefined' && typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 /** 검색 중에는 일치하는 브랜치의 조상도 보여 주고 접힘을 임시로 무시한다. */
@@ -53,4 +68,12 @@ export const clampZoom = (zoom: number) => Math.max(0.25, Math.min(4, zoom));
 export function recentPosition(nodes: ExplorerNode[], width: number, height: number, zoom = 1) {
   const latest = nodes.reduce<ExplorerNode | undefined>((best, node) => !best || node.revision.timestamp >= best.revision.timestamp ? node : best, undefined);
   return { left: Math.max(0, (latest?.x ?? 0)*zoom-width/2), top: Math.max(0, 40+(latest?.lane ?? 0)*58+29-height/2) };
+}
+
+/** 탐색기에서 브랜치를 더블클릭했을 때 할 일. 보관 브랜치는 TOME에 복원 기능이 없어 전환하지 않고 안내한다. */
+export function switchAction(branch: { name: string; archived: boolean }, current: string, merging: boolean, busy: boolean): 'none' | 'archived' | 'merging' | 'switch' {
+  if (busy || branch.name === current) return 'none';
+  if (branch.archived) return 'archived';
+  if (merging) return 'merging';
+  return 'switch';
 }

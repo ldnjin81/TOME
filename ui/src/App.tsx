@@ -15,7 +15,10 @@ import { FoldDialog, RestackDialog, RestackPanel } from './Restack';
 import type { FoldRequest } from './stackLogic';
 import { explainError, needsLogin } from './errors';
 import AuthPanel, { AuthDialog } from './AuthPanel';
-import ViewDialog from './ViewDialog';
+import ViewDialog, { PRESETS } from './ViewDialog';
+import { viewSummary } from './viewLogic';
+import { joinUnder, nestedRootOf } from './nestedLogic';
+import { switchAction } from './branchExplorerLogic';
 import InstanceDialog from './InstanceDialog';
 import Toasts, { type Toast } from './Toasts';
 import FileHistory from './FileHistory';
@@ -83,6 +86,10 @@ export default function App() {
   const [changes, setChanges] = useState<{ id: string; data: RevisionChanges | null; error: string } | null>(null);
   const [diff, setDiff] = useState<{ title: string; files: DiffFile[]; patches: FilePatch[]; initial: string; note?: string } | null>(null);
   const [view, setView] = useState<{ lines: string[]; result: ViewChange | null } | null>(null);
+  /** 툴바 View 알약에 보이는 현재 작업본의 `.lore/view` 규칙(못 읽었으면 null). */
+  const [viewLines, setViewLines] = useState<string[] | null>(null);
+  /** 변경 목록의 경로가 놓인 중첩 저장소의 루트들(작업본 기준 상대 경로). */
+  const [nested, setNested] = useState<string[]>([]);
   const [asset, setAsset] = useState<Asset | null>(null);
   const [previews, setPreviews] = useState<Record<string, AssetPreview>>({});
   const [stackInfo, setStackInfo] = useState<StackInfo | null>(null);
@@ -133,6 +140,7 @@ export default function App() {
         (e) => setWatch({ on: false, reason: String(e) }),
       );
       invoke<AuthState>('auth_state', { path: where }).then(setAuth, () => setAuth(null));
+      invoke<string[]>('read_view', { path: where }).then(setViewLines, () => setViewLines(null));
       setHistory(result.history);
       setBranchName(result.status.branch_name);
       setSelected(result.history[0]?.id ?? null);
@@ -429,6 +437,7 @@ export default function App() {
   async function openView() {
     try {
       const lines = await invoke<string[]>('read_view', { path: path.trim() });
+      setViewLines(lines);
       setView({ lines, result: null });
     } catch (e) {
       setError(String(e));
@@ -463,6 +472,22 @@ export default function App() {
   const changedCount = status ? status.files.filter((f) => !f.directory).length : 0;
   const artist = settings?.mode === 'artist';
   const marks = useMemo(() => assetMarks(status?.files ?? [], locks), [status, locks]);
+  const viewPill = viewLines && viewSummary(viewLines, PRESETS);
+
+  // 변경 목록의 경로 중 중첩 저장소 안에 있는 것(탐지는 백엔드에서 .lore 폴더로 한다).
+  const statusPaths = useMemo(() => (status?.files ?? []).map((f) => f.path), [status]);
+  useEffect(() => {
+    const where = path.trim();
+    if (!where || !statusPaths.length) {
+      setNested([]);
+      return;
+    }
+    let cancelled = false;
+    invoke<string[]>('nested_repositories', { path: where, paths: statusPaths }).then((roots) => { if (!cancelled) setNested(roots); }, () => { if (!cancelled) setNested([]); });
+    return () => { cancelled = true; };
+    // 경로 입력란을 고칠 때마다가 아니라 작업본 상태가 바뀔 때 다시 확인한다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusPaths]);
 
   // The selected revision's changed files and diffs, loaded when it is selected.
   useEffect(() => {
@@ -488,6 +513,19 @@ export default function App() {
 
   async function switchTo(name: string) {
     await run<BranchState>('switch_branch', { name }, () => void afterBranchChange());
+  }
+
+  /** 브랜치 탐색기에서 더블클릭한 브랜치로 전환한다(브랜치 목록의 "전환"과 같은 경로). */
+  function switchFromExplorer(branch: Branch) {
+    const action = switchAction(branch, status?.branch_name ?? '', !!status?.merging, busy);
+    if (action === 'archived') addToast(t('보관된 브랜치는 전환할 수 없습니다: {name}', { name: branch.name }), 'info');
+    else if (action === 'merging') addToast(t('병합 중에는 브랜치를 전환할 수 없습니다'), 'info');
+    else if (action === 'switch') void switchTo(branch.name);
+  }
+
+  /** 작업본 안의 중첩 저장소를 TOME에서 저장소로 연다(경로 입력 후 "열기"와 같은 경로). */
+  function openNested(root: string) {
+    void open(joinUnder(path.trim(), root));
   }
 
   async function mergeBranch(from: string, message: string) {
@@ -566,6 +604,14 @@ export default function App() {
     }
   }
 
+  /** 파일 하나를 우클릭했을 때 사용자 도구 위에 붙는 동작. */
+  function fileActions(file: string) {
+    const actions = [{ label: t("파일 기록"), run: () => setHistoryOf(file) }];
+    const root = nestedRootOf(file, nested);
+    if (root) actions.unshift({ label: t('저장소로 열기'), run: () => openNested(root) });
+    return actions;
+  }
+
   function renderBranch(b: Branch, label: string) {
     const current = b.name === status?.branch_name;
     return (
@@ -627,7 +673,9 @@ export default function App() {
           ))}
         </div>
         <ToolMenu set={toolSet} disabled={!settings} onRun={(entry) => startTool(entry, selectionFor({}))} onManage={() => setManaging(true)} />
-        <button className="ghost" onClick={() => void openView()} disabled={!overview || busy}>View</button>
+        <button className={viewPill && viewPill.kind !== 'all' ? 'view-pill narrowed' : 'view-pill'} onClick={() => void openView()} disabled={!overview || busy} title={t('View 규칙 편집 (.lore/view)')}>
+          {!viewPill ? 'View' : viewPill.kind === 'all' ? t('View: 전체') : viewPill.kind === 'preset' ? t('View: {name}', { name: t(viewPill.name) }) : t('View: 규칙 {count}개', { count: viewPill.count })}
+        </button>
         <button className="ghost" onClick={() => setInstance(true)} disabled={!overview || busy || !!job} title={t('작업본 이동·삭제')}>{t('작업본')}</button>
         <button className="ghost icon" onClick={() => setSetup(true)} disabled={!settings || busy} aria-label={t("설정")} title={t("설정")}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -774,7 +822,7 @@ export default function App() {
               onFold={setFoldReq}
             />
           )}
-          {tab === 'branches' && status && !artist && <BranchExplorer path={path.trim()} offline={offline} status={status} stack={stackInfo} selected={selected} busy={busy} onSelect={setSelected} onData={setExplorer} onNewBranch={() => setNewBranch(true)} />}
+          {tab === 'branches' && status && !artist && <BranchExplorer path={path.trim()} offline={offline} status={status} stack={stackInfo} selected={selected} busy={busy} onSelect={setSelected} onData={setExplorer} onNewBranch={() => setNewBranch(true)} onSwitch={switchFromExplorer} />}
           {tab === 'assets' && status && (
             <Assets
               path={path.trim()}
@@ -801,6 +849,8 @@ export default function App() {
               mergeLabel={mergeLabel || `r${status.merging.slice(0, 8)}`}
               locked={new Set(locks.map((l) => l.path))}
               onHistory={setHistoryOf}
+              nested={nested}
+              onOpenNested={openNested}
               blocked={pendingRestack ? t("restack이 충돌에서 멈춰 있습니다. 위 패널에서 정하고 “계속”을 누르세요.") : ''}
               onResolve={resolve}
               onAbortMerge={abortMerge}
@@ -940,6 +990,7 @@ export default function App() {
           onApply={(lines) =>
             void run<ViewChange>('apply_view', { lines }, (result) => {
               setView({ lines, result });
+              setViewLines(lines);
               // Refresh quietly, so the status bar keeps the view commands.
               invoke<Done<Status>>('working_status', { path: path.trim(), offline: true }).then((d) => setStatus(d.value), () => {});
             })
@@ -982,7 +1033,7 @@ export default function App() {
           title={menu.title}
           entries={toolsFor(toolSet, menu.context)}
           onRun={(entry) => startTool(entry, menu.selection)}
-          actions={menu.context === 'file' && menu.selection.files.length === 1 ? [{ label: t("파일 기록"), run: () => setHistoryOf(menu.selection.files[0]) }] : []}
+          actions={menu.context === 'file' && menu.selection.files.length === 1 ? fileActions(menu.selection.files[0]) : []}
           onClose={() => setMenu(null)}
         />
       )}

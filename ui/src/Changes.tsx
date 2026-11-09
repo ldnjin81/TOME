@@ -1,6 +1,7 @@
 import { t } from './i18n';
 import { useEffect, useState } from 'react';
 import type { ChangedFile, Resolution, Status } from './types';
+import { nestedRootOf } from './nestedLogic';
 
 const ACTION_LABEL: Record<string, string> = { add: '추가', modify: '수정', delete: '삭제', move: '이동' };
 
@@ -23,6 +24,10 @@ interface Props {
   /** Paths locked on the server (lock board), marked on the files. */
   locked: Set<string>;
   onHistory: (path: string) => void;
+  /** 변경 목록의 경로가 놓인 중첩 저장소(다른 Lore 저장소)의 루트들. */
+  nested?: string[];
+  /** 중첩 저장소를 TOME에서 저장소로 연다. */
+  onOpenNested?: (root: string) => void;
   /** Why committing and pushing are off right now (a restack in progress); empty otherwise. */
   blocked?: string;
 }
@@ -88,13 +93,18 @@ function Conflicts({ files, label, busy, onResolve, onAbort, onDiff }: { files: 
   );
 }
 
-function FileRow({ file, onToggle, busy, onContext, onDiff, locked, onHistory }: { file: ChangedFile; onToggle: () => void; busy: boolean; onContext: (e: React.MouseEvent, files: string[]) => void; onDiff: (path: string) => void; locked: boolean; onHistory: (path: string) => void }) {
+function NestedBadge({ root }: { root: string }) {
+  return <span className="badge nested" title={t('다른 Lore 저장소({root}) 안의 경로입니다. 우클릭해 저장소로 열 수 있습니다', { root })}>{t('중첩 저장소')}</span>;
+}
+
+function FileRow({ file, onToggle, busy, onContext, onDiff, locked, onHistory, nestedRoot }: { file: ChangedFile; onToggle: () => void; busy: boolean; onContext: (e: React.MouseEvent, files: string[]) => void; onDiff: (path: string) => void; locked: boolean; onHistory: (path: string) => void; nestedRoot?: string }) {
   return (
     <li className="file-li">
       <button className="file-row" onClick={onToggle} onContextMenu={(e) => onContext(e, [file.path])} disabled={busy} title={file.staged ? t("스테이징 해제") : t("스테이징")}>
         <span className={`action ${file.action}`}>{t(ACTION_LABEL[file.action] ?? file.action)}</span>
         <span className="file-path mono">{file.path}</span>
         {file.conflict && <span className="badge conflict">{t("충돌")}</span>}
+        {nestedRoot && <NestedBadge root={nestedRoot} />}
         {locked && (
           <span className="badge lock" title={t("서버에 잠긴 파일입니다. 잠근 사람이 풀기 전에는 push할 때 거부될 수 있습니다")}>
             {t("잠김")}
@@ -117,7 +127,7 @@ function FileRow({ file, onToggle, busy, onContext, onDiff, locked, onHistory }:
 }
 
 /** The working copy's changes: stage, commit, push. */
-export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext, onDiff, mergeLabel, onResolve, onAbortMerge, locked, onHistory, blocked = '' }: Props) {
+export default function Changes({ status, busy, onRefresh, onStage, onCommit, onPush, onContext, onDiff, mergeLabel, onResolve, onAbortMerge, locked, onHistory, nested = [], onOpenNested, blocked = '' }: Props) {
   const [message, setMessage] = useState('');
   const merging = !!status.merging;
   const conflicts = status.files.filter((f) => !f.directory && f.conflict);
@@ -144,6 +154,23 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
         )}
       </div>
 
+      {nested.length > 0 && (
+        <section className="nested-repos">
+          <h3>{t('중첩 저장소')} <span className="muted">{nested.length}</span></h3>
+          <ul className="file-list">
+            {nested.map((root) => (
+              <li key={root} className="file-li">
+                <span className="file-row static" onContextMenu={(e) => onContext(e, [root])}>
+                  <span className="file-path mono" title={root}>{root}</span>
+                  <NestedBadge root={root} />
+                </span>
+                {onOpenNested && <button className="diff-btn" onClick={() => onOpenNested(root)}>{t('저장소로 열기')}</button>}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {merging && <Conflicts files={conflicts} label={mergeLabel} busy={busy} onResolve={onResolve} onAbort={onAbortMerge} onDiff={onDiff} />}
 
       <section>
@@ -154,7 +181,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
           )}
         </h3>
         <ul className="file-list">
-          {staged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onHistory={onHistory} onToggle={() => onStage([f.path], false)} />)}
+          {staged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onHistory={onHistory} nestedRoot={nestedRootOf(f.path, nested)} onToggle={() => onStage([f.path], false)} />)}
         </ul>
       </section>
 
@@ -169,7 +196,7 @@ export default function Changes({ status, busy, onRefresh, onStage, onCommit, on
           <p className="muted">{t("변경 없음")}</p>
         ) : (
           <ul className="file-list">
-            {unstaged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onHistory={onHistory} onToggle={() => onStage([f.path], true)} />)}
+            {unstaged.map((f) => <FileRow key={f.path} file={f} busy={busy} onContext={onContext} onDiff={onDiff} locked={locked.has(f.path)} onHistory={onHistory} nestedRoot={nestedRootOf(f.path, nested)} onToggle={() => onStage([f.path], true)} />)}
           </ul>
         )}
       </section>

@@ -91,7 +91,8 @@ export default function InstanceDialog({ path, changes, drafts, onMoved, onDelet
       </div>
       {preview && <p className="small" role="status">{t('이동할 수 있습니다: {target}', { target: preview.path })}</p>}
     </> : <>
-      <p className="small">{t('이 컴퓨터의 작업본 폴더와 등록 정보를 지웁니다. 서버의 저장소와 브랜치는 그대로 남습니다.')}</p>
+      <p className="delete-scope" role="note"><strong>{t('로컬 작업본만 지웁니다. 서버의 저장소와 브랜치는 그대로 남습니다.')}</strong></p>
+      <p className="small muted">{t('이 컴퓨터의 작업본 폴더와 Lore 등록 정보가 지워집니다.')}</p>
       {risky && <p className="warn-line" role="alert">{[
         changes > 0 ? t('커밋하지 않은 변경 {count}개가 사라집니다.', { count: changes }) : '',
         drafts ? t('서버에 올리지 않은 드래프트가 사라집니다.') : '',

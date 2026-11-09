@@ -617,10 +617,18 @@ async fn graph(path: String, offline: bool) -> Result<Done<tome_core::Graph>, St
     .await
 }
 
-/// 모든 브랜치의 트리와 가로 시간축을 계산한다.
+/// 모든 브랜치의 트리와 가로 시간축을 계산한다. `days`가 있으면 최근 그 일수의 기록만 읽는다.
 #[tauri::command]
-async fn branch_explorer(path: String, offline: bool, archived: bool, timezone_offset_minutes: i32) -> Result<tome_core::branch_explorer::Layout, String> {
-    blocking(move || repository(&path, offline).branch_explorer_in_timezone(archived, timezone_offset_minutes)).await
+async fn branch_explorer(path: String, offline: bool, archived: bool, timezone_offset_minutes: i32, days: Option<u32>) -> Result<tome_core::branch_explorer::Layout, String> {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis() as u64).unwrap_or(0);
+    let since = tome_core::branch_explorer::since_days(now, days);
+    blocking(move || repository(&path, offline).branch_explorer_since(archived, timezone_offset_minutes, since)).await
+}
+
+/// 작업본 안의 중첩 저장소 중 `paths`가 놓인 것의 루트(작업본 기준 상대 경로).
+#[tauri::command]
+async fn nested_repositories(path: String, paths: Vec<String>) -> Result<Vec<String>, String> {
+    blocking(move || Ok(tome_core::nested::nested_roots(std::path::Path::new(&path), &paths))).await
 }
 
 /// A revision's changed files (folders left out) with their diffs: against its first parent,
@@ -1018,6 +1026,7 @@ pub fn run() {
             list_repositories,
             graph,
             branch_explorer,
+            nested_repositories,
             start_job,
             cancel_job,
             watch_repository,

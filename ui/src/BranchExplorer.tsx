@@ -3,22 +3,29 @@ import { invoke } from '@tauri-apps/api/core';
 import { t, getLocale } from './i18n';
 import { branchColor, isDraft } from './Smartlog';
 import { Author } from './author';
-import { adjacentNode, clampZoom, recentPosition, visibleLanes, type ExplorerLayout, type ExplorerNode } from './branchExplorerLogic';
-import type { StackInfo, Status } from './types';
+import { adjacentNode, clampZoom, HISTORY_STEP_DAYS, moreHistory, prefersReducedMotion, recentPosition, scrollBehavior, visibleLanes, type ExplorerLayout, type ExplorerNode } from './branchExplorerLogic';
+import type { Branch, StackInfo, Status } from './types';
 
 const ROW = 58;
 const HEADER = 40;
 const date = (start: number, end: number) => new Intl.DateTimeFormat(getLocale(), { year: 'numeric', month: 'short', day: 'numeric' }).formatRange(new Date(start), new Date(end));
 
-export default function BranchExplorer({ path, offline, status, stack, selected, busy, onSelect, onData, onNewBranch }: {
+export default function BranchExplorer({ path, offline, status, stack, selected, busy, onSelect, onData, onNewBranch, onSwitch }: {
   path: string; offline: boolean; status: Status; stack: StackInfo | null; selected: string | null; busy: boolean;
   onSelect: (id: string) => void; onData: (layout: ExplorerLayout | null) => void; onNewBranch: () => void;
+  /** 트리 행·레인 이름을 더블클릭: 그 브랜치로 전환. */
+  onSwitch: (branch: Branch) => void;
 }) {
   const [data, setData] = useState<ExplorerLayout | null>(null);
   const [archived, setArchived] = useState(false);
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const [highlight, setHighlight] = useState('');
+  /** 레인 이름에 마우스를 올린 동안만 강조하는 브랜치(끝나면 선택한 강조로 돌아간다). */
+  const [hover, setHover] = useState('');
+  const lit = hover || highlight;
+  /** 최근 며칠의 기록만 읽는다. null이면 전체. */
+  const [days, setDays] = useState<number | null>(HISTORY_STEP_DAYS);
   const [zoom, setZoom] = useState(1);
   const [refresh, setRefresh] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -32,7 +39,7 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
     let cancelled = false;
     // 외부 요청의 대기 상태를 렌더 후 반영한다.
     queueMicrotask(() => { if (!cancelled) { setLoading(true); setError(''); } });
-    invoke<ExplorerLayout>('branch_explorer', { path, offline, archived, timezoneOffsetMinutes: -new Date().getTimezoneOffset() }).then((layout) => {
+    invoke<ExplorerLayout>('branch_explorer', { path, offline, archived, timezoneOffsetMinutes: -new Date().getTimezoneOffset(), days }).then((layout) => {
       if (cancelled) return;
       setData(layout); onData(layout);
       requestAnimationFrame(() => {
@@ -41,7 +48,7 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
       });
     }, (e) => { if (!cancelled) setError(String(e)); }).finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [path, offline, archived, refresh, onData, status.revision]);
+  }, [path, offline, archived, refresh, onData, status.revision, days]);
 
   useEffect(() => {
     const el = viewport.current;
@@ -91,10 +98,7 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
     onSelect(node.revision.id);
     setHighlight(data?.lanes[node.lane].branch.id ?? '');
     const el = viewport.current;
-    if (el) {
-      el.scrollLeft = node.x*zoom-el.clientWidth/2;
-      el.scrollTop = y(node)-el.clientHeight/2;
-    }
+    el?.scrollTo({ left: node.x*zoom-el.clientWidth/2, top: y(node)-el.clientHeight/2, behavior: scrollBehavior(prefersReducedMotion()) });
     if (focus) requestAnimationFrame(() => viewport.current?.querySelector<SVGGElement>(`[data-revision="${node.revision.id}"]`)?.focus());
   }
 
@@ -103,6 +107,11 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
       <strong>{t('브랜치 탐색기')}</strong>
       <button onClick={() => setRefresh((n) => n+1)} disabled={loading}>{t('새로고침')}</button>
       <button onClick={onNewBranch} disabled={busy}>{t('새 브랜치')}</button>
+      <span className="explorer-window" role="group" aria-label={t('기록 범위')}>
+        <span className="muted small">{days===null ? t('전체 기록') : t('최근 {days}일', { days })}</span>
+        <button onClick={() => setDays((d) => moreHistory(d))} disabled={loading || days===null}>{t('이전 기록 더 보기')}</button>
+        <button onClick={() => setDays(null)} disabled={loading || days===null}>{t('전체')}</button>
+      </span>
       <span className="explorer-spacer" />
       <button aria-label={t('축소')} onClick={() => changeZoom(zoom/1.25)}>−</button>
       <output>{Math.round(zoom*100)}%</output>
@@ -123,12 +132,13 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
         <div style={{ transform: `translateY(${-view.top}px)` }}>
           {visible.map((lane) => {
             const l = data!.lanes[lane]; const id = l.branch.id;
-            return <div className={`explorer-tree-row${highlight===id ? ' active' : ''}`} key={id} style={{ paddingLeft: 6+Math.min(l.depth, 6)*12 }}>
+            return <div className={`explorer-tree-row${lit===id ? ' active' : ''}`} key={id} style={{ paddingLeft: 6+Math.min(l.depth, 6)*12 }} onMouseEnter={() => setHover(id)} onMouseLeave={() => setHover('')}>
               {childIds.has(id) ? <button className="explorer-fold" aria-label={`${t('접기/펼치기')}: ${l.branch.name}`} aria-expanded={query.trim() ? true : !collapsed.has(id)} onClick={() => setCollapsed((old) => { const next=new Set(old); if (next.has(id)) next.delete(id); else next.add(id); return next; })}>{collapsed.has(id) && !query.trim() ? '▸' : '▾'}</button> : <span className="explorer-fold" />}
-              <button className="explorer-branch" title={l.branch.name} onClick={() => {
+              <button className="explorer-branch" title={`${l.branch.name} · ${t('더블클릭하면 이 브랜치로 전환')}`} onDoubleClick={() => onSwitch(l.branch)} onClick={() => {
                 setHighlight(id);
-                const el=viewport.current; if (el) el.scrollTop=(positions.get(lane) ?? 0)-el.clientHeight/2;
-                const last=data!.nodes.filter((n) => n.lane===lane).at(-1); if (el && last) el.scrollLeft=last.x*zoom-el.clientWidth/2;
+                const el=viewport.current; if (!el) return;
+                const last=data!.nodes.filter((n) => n.lane===lane).at(-1);
+                el.scrollTo({ top: (positions.get(lane) ?? 0)-el.clientHeight/2, left: last ? last.x*zoom-el.clientWidth/2 : el.scrollLeft, behavior: scrollBehavior(prefersReducedMotion()) });
               }}><span className="lane-dot" style={{ background: color(lane) }} /><span className="name">{l.branch.name}</span>{l.branch.current && <span aria-label={t('현재 브랜치')}>✓</span>}{id===data!.root && <span className="badge">{t('기본')}</span>}{l.branch.archived && <span className="muted">{t('보관')}</span>}</button>
             </div>;
           })}
@@ -141,19 +151,19 @@ export default function BranchExplorer({ path, offline, status, stack, selected,
           const target=data.nodes.find((n) => n.revision.id===selected && positions.has(n.lane)) ?? data.nodes.filter((n) => positions.has(n.lane)).at(-1);
           if (target) reveal(target,true);
         }}
-        onPointerDown={(e) => { if (e.button!==0 || (e.target as Element).closest('[data-revision]')) return; const el=e.currentTarget; drag.current={x:e.clientX,y:e.clientY,left:el.scrollLeft,top:el.scrollTop}; el.setPointerCapture(e.pointerId); }}
+        onPointerDown={(e) => { if (e.button!==0 || (e.target as Element).closest('[data-revision], .explorer-lane-name')) return; const el=e.currentTarget; drag.current={x:e.clientX,y:e.clientY,left:el.scrollLeft,top:el.scrollTop}; el.setPointerCapture(e.pointerId); }}
         onPointerMove={(e) => { const d=drag.current; if (!d) return; e.currentTarget.scrollLeft=d.left-e.clientX+d.x; e.currentTarget.scrollTop=d.top-e.clientY+d.y; }}
         onPointerUp={() => { drag.current=null; }} onPointerCancel={() => { drag.current=null; }}>
         <div className="explorer-canvas" style={{ width: (data?.width ?? 320)*zoom, height: Math.max(visible.length*ROW+HEADER, view.height) }}>
           <div className="explorer-lane-labels" aria-hidden="true">
-            {visible.map((lane) => <span key={lane} className="explorer-lane-name" style={{ top: positions.get(lane)!-27, color: color(lane), maxWidth: Math.max(0, view.width-24) }}>{data!.lanes[lane].branch.name}</span>)}
+            {visible.map((lane) => { const b=data!.lanes[lane].branch; return <span key={lane} className={`explorer-lane-name${lit===b.id ? ' lit' : ''}`} title={t('더블클릭하면 이 브랜치로 전환')} style={{ top: positions.get(lane)!-27, color: color(lane), maxWidth: Math.max(0, view.width-24) }} onMouseEnter={() => setHover(b.id)} onMouseLeave={() => setHover('')} onDoubleClick={() => onSwitch(b)}>{b.name}</span>; })}
           </div>
           <div className="explorer-date-head" aria-hidden="true" style={{ height: HEADER, width: (data?.width ?? 320)*zoom }}>
             {data?.columns.filter((c) => (c.x+c.width)*zoom>=view.left && c.x*zoom<=view.left+view.width).map((c) => <div key={c.start} className="explorer-date-cell" style={{ left: c.x*zoom, width: c.width*zoom }}><span>{date(c.start, c.end)}</span></div>)}
           </div>
         <svg width={(data?.width ?? 320)*zoom} height={Math.max(visible.length*ROW+HEADER, view.height)} role="group" aria-label={t('브랜치 타임라인')}>
           {data?.columns.map((c) => <g key={c.start} aria-hidden="true"><rect x={c.x*zoom} y={0} width={c.width*zoom} height="100%" className={c.gap ? 'explorer-gap' : 'explorer-column'} /><line x1={c.x*zoom} x2={c.x*zoom} y1={0} y2="100%" className="explorer-grid" /></g>)}
-          {visible.map((lane) => <g key={lane} aria-hidden="true"><rect x={0} y={positions.get(lane)!-ROW/2} width="100%" height={ROW} className={highlight===data!.lanes[lane].branch.id ? 'explorer-lane selected' : 'explorer-lane'} /><line x1={0} x2="100%" y1={positions.get(lane)} y2={positions.get(lane)} stroke={color(lane)} opacity={0.24} /></g>)}
+          {visible.map((lane) => <g key={lane} aria-hidden="true"><rect x={0} y={positions.get(lane)!-ROW/2} width="100%" height={ROW} className={lit===data!.lanes[lane].branch.id ? 'explorer-lane selected' : 'explorer-lane'} /><line x1={0} x2="100%" y1={positions.get(lane)} y2={positions.get(lane)} stroke={color(lane)} opacity={0.24} /></g>)}
           {data?.edges.map((edge, i) => {
             const a=data.nodes[edge.from], b=data.nodes[edge.to];
             if (!positions.has(a.lane) || !positions.has(b.lane)) return null;

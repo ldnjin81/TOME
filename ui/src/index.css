@@ -571,3 +571,15 @@ button.lrow[draggable="true"] { cursor: grab; }
   .author { color: hsl(var(--author-hue) 70% 74%); }
   .author::before { background: hsl(var(--author-hue) 65% 62%); }
 }
+
+/* Lore 0.13: View 알약, 탐색기 레인 강조·기록 범위, 중첩 저장소, 삭제 범위 안내 */
+.view-pill { padding: 3px 10px; border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--muted); font-size: 12px; white-space: nowrap; cursor: pointer; }
+.view-pill.narrowed { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.view-pill:hover:not(:disabled) { border-color: var(--accent); }
+.explorer-lane-name { pointer-events: auto; cursor: default; user-select: none; }
+.explorer-lane-name.lit { opacity: 1; font-weight: 700; }
+.explorer-window { display: inline-flex; align-items: center; gap: 6px; margin-left: 8px; }
+.badge.nested { color: var(--muted); background: transparent; border: 1px dashed var(--muted); }
+.file-row.static { display: flex; cursor: default; }
+.file-row.static:hover { background: none; }
+.delete-scope { margin: 0 0 6px; padding: 8px 10px; border-radius: 6px; background: var(--accent-soft); }

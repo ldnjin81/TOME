@@ -44,6 +44,29 @@ pub struct Layout {
     pub width: f64,
     pub root: String,
     pub incomplete: Vec<String>,
+    /// 이 시각(Unix ms) 이후의 기록만 읽었다. 0이면 전체.
+    pub since: u64,
+}
+
+/// 경계 밖 부모를 한 번에 너무 많이 읽지 않도록 하는 상한.
+const MAX_BOUNDARY_PARENTS: usize = 300;
+
+/// 읽은 리비전의 부모 중 아직 없는 것. 기준 날짜 경계에서 끊긴 첫 부모와, 다른(보관·기준 밖)
+/// 브랜치에서 온 병합 부모가 여기에 든다. 처음 나온 순서대로, 중복 없이.
+pub fn missing_parents(revisions: &[Revision]) -> Vec<String> {
+    let present: HashSet<&str> = revisions.iter().map(|r| r.id.as_str()).collect();
+    let mut seen = HashSet::new();
+    revisions
+        .iter()
+        .flat_map(|r| r.parents.iter())
+        .filter(|p| !p.is_empty() && !present.contains(p.as_str()) && seen.insert(p.as_str()))
+        .cloned()
+        .collect()
+}
+
+/// `days`일 전의 시각(Unix ms). `None`이면 0(전체).
+pub fn since_days(now: u64, days: Option<u32>) -> u64 {
+    days.map_or(0, |d| now.saturating_sub(u64::from(d) * DAY).max(1))
 }
 
 /// 이벤트의 생성 부모를 읽는다. Lore는 stack[0]에 직접 부모를 저장한다.
@@ -99,10 +122,20 @@ pub fn layout_with_timezone(
 ) -> Layout {
     let offset = i64::from(timezone_offset_minutes.clamp(-1440, 1440)) * 60_000;
     let midnight = |day: i64| (day * DAY as i64 - offset).max(0) as u64;
+    // 보관 브랜치를 숨겨도, 보이는 브랜치의 리비전이 부모로 삼는(병합·포크) 보관 브랜치는 레인으로
+    // 남겨 선이 끊기지 않게 한다.
+    let live: HashSet<&str> = branches.iter().filter(|b| !b.archived).map(|b| b.id.as_str()).collect();
+    let rev_branch: HashMap<&str, &str> = revisions.iter().map(|r| (r.id.as_str(), r.branch_id.as_str())).collect();
+    let parent_branches: HashSet<&str> = revisions
+        .iter()
+        .filter(|r| live.contains(r.branch_id.as_str()))
+        .flat_map(|r| r.parents.iter())
+        .filter_map(|p| rev_branch.get(p.as_str()).copied())
+        .collect();
     let mut seen = HashSet::new();
     let mut branches: Vec<_> = branches
         .iter()
-        .filter(|b| (archived || !b.archived) && seen.insert(&b.id))
+        .filter(|b| (archived || !b.archived || parent_branches.contains(b.id.as_str())) && seen.insert(&b.id))
         .cloned()
         .collect();
     branches.sort_by(|a, b| a.name.cmp(&b.name).then(a.id.cmp(&b.id)));
@@ -275,6 +308,7 @@ pub fn layout_with_timezone(
         width: x.max(320.),
         root,
         incomplete: Vec::new(),
+        since: 0,
     }
 }
 
@@ -289,9 +323,20 @@ impl Repository {
         archived: bool,
         timezone_offset_minutes: i32,
     ) -> Result<Layout, String> {
-        let args = lore::branch::LoreBranchListArgs {
-            archived: u8::from(archived),
-        };
+        self.branch_explorer_since(archived, timezone_offset_minutes, 0)
+    }
+
+    /// `since`(Unix ms, 0이면 전체) 이후의 리비전만 읽는다. Lore가 브랜치마다 그 날짜에서
+    /// 기록 읽기를 멈추므로 큰 저장소에서도 최근 기록만큼만 시간이 든다. 경계에서 끊긴 부모와
+    /// 보관·기준 밖 브랜치의 병합 부모는 그 리비전 하나씩만 더 읽어 선을 잇는다.
+    pub fn branch_explorer_since(
+        &self,
+        archived: bool,
+        timezone_offset_minutes: i32,
+        since: u64,
+    ) -> Result<Layout, String> {
+        // 보관 브랜치를 숨길 때도 병합 부모로 쓰인 보관 브랜치의 레인을 만들려면 그 정보가 필요하다.
+        let args = lore::branch::LoreBranchListArgs { archived: 1 };
         let result = crate::call(
             crate::interface::lore_branch_list_async,
             &self.globals(),
@@ -308,11 +353,22 @@ impl Repository {
             .iter()
             .filter(|b| (archived || !b.archived) && seen.insert(&b.id))
         {
-            let history = self.history(&b.name, u32::MAX);
+            let history = if since == 0 {
+                self.history(&b.name, u32::MAX)
+            } else {
+                self.history_since(&b.name, since)
+            };
             if !history.ok() {
                 incomplete.push(format!("{}: {}", b.name, history.error));
             }
             revisions.extend(crate::model::history(&history));
+        }
+        // 경계 밖 부모는 리비전 하나만 읽는다(그 부모의 부모까지 따라가지 않는다). 보관 브랜치까지
+        // 전체 기록을 읽었다면 남은 부모는 지워진 브랜치의 것이라 레인이 없으니 읽지 않는다.
+        let boundary = if since == 0 && archived { Vec::new() } else { missing_parents(&revisions) };
+        for parent in boundary.into_iter().take(MAX_BOUNDARY_PARENTS) {
+            let found = self.history_from(&parent, 1);
+            revisions.extend(crate::model::history(&found).into_iter().filter(|r| r.id == parent));
         }
         // local+offline을 모두 고정해 기본 브랜치 조회가 서버에 접속하지 않게 한다.
         let mut globals = self.globals();
@@ -339,6 +395,7 @@ impl Repository {
             timezone_offset_minutes,
         );
         out.incomplete = incomplete;
+        out.since = since;
         Ok(out)
     }
 }
@@ -526,6 +583,58 @@ mod tests {
             -480,
         );
         assert_eq!(west.columns[0].start, 9 * DAY + 8 * 3_600_000);
+    }
+    #[test]
+    fn archived_merge_parent_keeps_its_lane() {
+        // old(보관)의 리비전이 main에 병합됐다. 보관 브랜치를 숨겨도 병합 부모의 레인과 선은 남는다.
+        let bs = [
+            b("main", "merge", false),
+            b("old", "o", true),
+            b("gone", "g", true),
+        ];
+        let rs = [
+            r("m", "main", &[], 1),
+            r("o", "old", &["m"], 2),
+            r("g", "gone", &["m"], 2),
+            r("merge", "main", &["m", "o"], 3),
+        ];
+        let l = layout(&bs, &rs, &HashMap::new(), false);
+        assert!(l.lanes.iter().any(|l| l.branch.id == "old"));
+        // 아무도 부모로 삼지 않은 보관 브랜치는 계속 숨는다.
+        assert!(!l.lanes.iter().any(|l| l.branch.id == "gone"));
+        assert_eq!(l.edges.iter().filter(|e| e.kind == "merge").count(), 1);
+        assert_eq!(l.since, 0);
+    }
+    #[test]
+    fn boundary_parents_connect_lines() {
+        // 기준 날짜 안의 리비전만 읽었을 때: f1의 첫 부모(m0, 경계 밖)와 병합 부모(x, 다른 브랜치)가 빠져 있다.
+        let loaded = [
+            r("m1", "main", &["m0"], 100),
+            r("f1", "f", &["m0"], 101),
+            r("m2", "main", &["m1", "x"], 102),
+        ];
+        assert_eq!(missing_parents(&loaded), vec!["m0".to_string(), "x".to_string()]);
+        assert!(missing_parents(&[r("a", "main", &[], 1)]).is_empty());
+        // 보충한 경계 부모가 레이아웃에서 포크·직선으로 이어진다.
+        let mut all = loaded.to_vec();
+        all.push(r("m0", "main", &[], 10));
+        let l = layout(
+            &[b("main", "m2", false), b("f", "f1", false)],
+            &all,
+            &HashMap::new(),
+            false,
+        );
+        assert_eq!(l.edges.iter().filter(|e| e.kind == "fork").count(), 1);
+        assert_eq!(l.edges.iter().filter(|e| e.kind == "line").count(), 2);
+        // 경계 부모와 최근 기록 사이의 빈 날짜는 접힌다.
+        assert!(l.columns.iter().any(|c| c.gap));
+    }
+    #[test]
+    fn since_days_counts_back_from_now() {
+        assert_eq!(since_days(100 * DAY, None), 0);
+        assert_eq!(since_days(100 * DAY, Some(90)), 10 * DAY);
+        // 아주 이른 시각에도 0(전체)으로 바뀌지 않는다.
+        assert_eq!(since_days(DAY, Some(90)), 1);
     }
     #[test]
     fn reads_stack_event() {

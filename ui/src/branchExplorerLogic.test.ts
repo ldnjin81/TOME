@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adjacentNode, clampZoom, recentPosition, visibleLanes, type ExplorerLane, type ExplorerNode } from './branchExplorerLogic';
+import { adjacentNode, clampZoom, HISTORY_STEP_DAYS, moreHistory, recentPosition, scrollBehavior, switchAction, visibleLanes, type ExplorerLane, type ExplorerNode } from './branchExplorerLogic';
 const lanes = ['main','feature','child','other'].map((id,i) => ({ branch: { id, name: id }, parent: [null,'main','feature','main'][i], depth: [0,1,2,1][i], parent_source: 'stack' })) as ExplorerLane[];
 const nodes = [{ revision:{id:'a'},lane:0,x:10 },{revision:{id:'b'},lane:0,x:50},{revision:{id:'c'},lane:2,x:30},{revision:{id:'d'},lane:3,x:70}] as ExplorerNode[];
 describe('브랜치 탐색기', () => {
@@ -28,4 +28,24 @@ it('최신 리비전이 깊은 레인에 있어도 초기 화면 안에 둔다',
   expect(position.top).toBe(3009);
   expect(clampZoom(700/8570)).toBe(.25);
   expect(recentPosition([], 700, 500)).toEqual({left:0,top:0});
+});
+
+describe('브랜치 탐색기 0.13 동작', () => {
+  it('기록 범위를 90일씩 넓히고 전체는 그대로 둔다', () => {
+    expect(HISTORY_STEP_DAYS).toBe(90);
+    expect(moreHistory(90)).toBe(180);
+    expect(moreHistory(null)).toBeNull();
+  });
+  it('동작 줄이기면 즉시 스크롤한다', () => {
+    expect(scrollBehavior(true)).toBe('auto');
+    expect(scrollBehavior(false)).toBe('smooth');
+  });
+  it('더블클릭 전환: 현재·작업 중은 무시, 보관·병합 중은 막는다', () => {
+    const b = (name: string, archived = false) => ({ name, archived });
+    expect(switchAction(b('feature'), 'main', false, false)).toBe('switch');
+    expect(switchAction(b('main'), 'main', false, false)).toBe('none');
+    expect(switchAction(b('feature'), 'main', false, true)).toBe('none');
+    expect(switchAction(b('old', true), 'main', false, false)).toBe('archived');
+    expect(switchAction(b('feature'), 'main', true, false)).toBe('merging');
+  });
 });

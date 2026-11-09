@@ -13,6 +13,7 @@ pub mod auth;
 pub mod graph;
 pub mod branch_explorer;
 pub mod model;
+pub mod nested;
 pub mod notify;
 pub mod ops;
 pub mod tools;
@@ -691,6 +692,18 @@ impl Repository {
         let args = lore::revision::LoreRevisionHistoryArgs {
             branch: LoreString::from_bytes(branch.as_bytes()),
             length,
+            ..Default::default()
+        };
+        call(interface::lore_revision_history_async, &self.globals(), &args)
+    }
+
+    /// `branch`의 리비전 중 `since`(Unix ms) 이후에 만든 것만, 최신부터. Lore가 그 날짜보다 오래된
+    /// 리비전에 닿으면 거기서 멈추므로 오래된 기록은 읽지 않는다. 0이면 [`Repository::history`]와 같다.
+    pub fn history_since(&self, branch: &str, since: u64) -> CallResult {
+        let args = lore::revision::LoreRevisionHistoryArgs {
+            branch: LoreString::from_bytes(branch.as_bytes()),
+            date: since,
+            length: u32::MAX,
             ..Default::default()
         };
         call(interface::lore_revision_history_async, &self.globals(), &args)
